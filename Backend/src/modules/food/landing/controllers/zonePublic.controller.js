@@ -1,4 +1,5 @@
 import { FoodZone } from '../../admin/models/zone.model.js';
+import { mostSpecificFirst } from '../../../../core/zones/zonePriority.js';
 
 const toFinite = (v) => {
     const n = typeof v === 'number' ? v : parseFloat(String(v));
@@ -32,7 +33,7 @@ export const detectZonePublicController = async (req, res, next) => {
         }
 
         const zones = await FoodZone.find({ isActive: true }).lean();
-        for (const zone of zones) {
+        for (const zone of mostSpecificFirst(zones)) {
             const coords = Array.isArray(zone.coordinates) ? zone.coordinates : [];
             if (coords.length < 3) continue;
             if (isPointInPolygon(lat, lng, coords)) {

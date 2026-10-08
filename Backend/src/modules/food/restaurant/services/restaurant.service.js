@@ -6,6 +6,7 @@ import { FoodZone } from '../../admin/models/zone.model.js';
 import { FoodOffer } from '../../admin/models/offer.model.js';
 import { FoodItem } from '../../admin/models/food.model.js';
 import { attachOutletOpenState, describeOutletHours } from '../../shared/outletHours.js';
+import { mostSpecificFirst } from '../../../../core/zones/zonePriority.js';
 
 const normalizeName = (value) =>
     String(value || '')
@@ -615,7 +616,7 @@ const resolveZoneForOnboarding = async ({ zoneId, latitude, longitude }) => {
 
     if (latitude !== null && longitude !== null) {
         const activeZones = await FoodZone.find({ isActive: true }).select('_id coordinates').lean();
-        const matched = activeZones.find((zone) =>
+        const matched = mostSpecificFirst(activeZones).find((zone) =>
             isPointInZonePolygon(latitude, longitude, zone?.coordinates)
         );
         if (matched?._id) return new mongoose.Types.ObjectId(String(matched._id));
@@ -1283,7 +1284,7 @@ export const updateRestaurantProfile = async (restaurantId, body = {}) => {
             const activeZones = await FoodZone.find({ isActive: true })
                 .select('_id coordinates')
                 .lean();
-            const matchedZone = activeZones.find((zone) =>
+            const matchedZone = mostSpecificFirst(activeZones).find((zone) =>
                 isPointInZonePolygon(lat, lng, zone?.coordinates)
             );
             update.zoneId = matchedZone?._id

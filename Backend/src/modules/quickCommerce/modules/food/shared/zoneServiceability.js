@@ -1,6 +1,7 @@
 import { QCZone } from '../admin/models/zone.model.js';
 import { MedicalZone } from '../admin/models/medicalZone.model.js';
 import { getRedisClient } from '../../../config/redis.js';
+import { mostSpecificFirst } from '../../../../../core/zones/zonePriority.js';
 
 /**
  * Which zone a point falls in.
@@ -123,7 +124,8 @@ export const findZoneForPoint = async (lat, lng, vertical = ZONE_VERTICALS.QUICK
   if (latitude === null || longitude === null) return null;
 
   const zones = await getActiveZones(vertical);
-  for (const zone of zones) {
+  // Most specific first: a city zone beats the country-wide one (zonePriority.js).
+  for (const zone of mostSpecificFirst(zones)) {
     const coords = Array.isArray(zone.coordinates) ? zone.coordinates : [];
     if (coords.length < 3) continue;
     if (isPointInPolygon(latitude, longitude, coords)) return zone;

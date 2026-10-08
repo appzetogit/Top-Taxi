@@ -32,6 +32,7 @@ import { applyBogoToItems } from '../../shared/bogoOffer.service.js';
 import { getOrderQuantityCeiling } from '../../shared/orderQuantityCeiling.js';
 import { FoodAddon } from '../../restaurant/models/foodAddon.model.js';
 import { loadSellableAddons, normalizeRequestedAddonIds, resolveLineAddons } from '../../shared/orderAddons.js';
+import { mostSpecificFirst } from '../../../../core/zones/zonePriority.js';
 
 /**
  * Resolves order items against the restaurant's live menu and returns copies with
@@ -249,7 +250,7 @@ async function detectZoneIdFromAddress(addressLike) {
   if (!coords) return null;
   const [lng, lat] = coords;
   const zones = await FoodZone.find({ isActive: true }).select('_id coordinates').lean();
-  const matchedZone = (zones || []).find((zone) => isPointInPolygon(lat, lng, zone?.coordinates || []));
+  const matchedZone = mostSpecificFirst(zones || []).find((zone) => isPointInPolygon(lat, lng, zone?.coordinates || []));
   return matchedZone?._id ? String(matchedZone._id) : null;
 }
 

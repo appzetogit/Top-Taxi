@@ -1,4 +1,5 @@
 import { logger } from '../../utils/logger.js';
+import { TAXI_SPECIFIC_FIRST } from './zonePriority.js';
 
 /**
  * The taxi zone a ride belongs to: the active zone containing its pickup.
@@ -17,6 +18,7 @@ export async function taxiZoneIdAt(coordinates) {
             active: { $ne: false },
             geometry: { $geoIntersects: { $geometry: { type: 'Point', coordinates: [lng, lat] } } },
         })
+            .sort(TAXI_SPECIFIC_FIRST)
             .select('_id')
             .lean();
         return zone?._id ? String(zone._id) : null;

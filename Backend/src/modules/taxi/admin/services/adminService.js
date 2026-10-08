@@ -80,6 +80,7 @@ import {
   normalizeAdminPermissions,
   normalizeAdminType,
 } from './adminAccessService.js';
+import { TAXI_SPECIFIC_FIRST } from '../../../../core/zones/zonePriority.js';
 
 const PUBLIC_VEHICLE_CATALOG_CACHE_TTL_MS = 5 * 60 * 1000;
 // Keyed by module id (or "all"), because the catalogue now differs per
@@ -8101,6 +8102,7 @@ export const getDashboardData = async () => {
         },
       },
     })
+      .sort(TAXI_SPECIFIC_FIRST)
       .select('_id name popular_places')
       .lean();
 

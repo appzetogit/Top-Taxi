@@ -33,6 +33,7 @@ import {
     isRazorpayConfigured,
     verifyPaymentSignature,
 } from '../../orders/helpers/razorpay.helper.js';
+import { mostSpecificFirst } from '../../../../../../core/zones/zonePriority.js';
 
 const normalizeName = (value) =>
     String(value || '')
@@ -476,7 +477,7 @@ const findMatchedZoneForCoordinates = async (lat, lng) => {
     const activeZones = await FoodZone.find({ isActive: true })
         .select('_id coordinates name zoneName')
         .lean();
-    return activeZones.find((zone) => isPointInZonePolygon(lat, lng, zone?.coordinates)) || null;
+    return mostSpecificFirst(activeZones).find((zone) => isPointInZonePolygon(lat, lng, zone?.coordinates)) || null;
 };
 
 const hasPublishedRestaurantLocation = (restaurant = {}) => {

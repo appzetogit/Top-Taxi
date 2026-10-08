@@ -33,6 +33,7 @@ import { availablePlans, insuranceSnapshot, planApplies } from '../common/rideIn
 import { measureTrip, measureTripRoad } from '../common/tripMeasure.js';
 
 import { taxiReferralFor } from '../../../core/referral/referralSettings.service.js';
+import { TAXI_SPECIFIC_FIRST } from '../../../core/zones/zonePriority.js';
 const clearUserActiveRideIfPresent = async (user) => {
   if (!user?.currentRideId) {
     return;
@@ -970,6 +971,7 @@ const findSurgeZoneForPickup = async ({ pickupPoint, serviceLocationId = null, t
       },
     },
   })
+    .sort(TAXI_SPECIFIC_FIRST)
     .select('_id name ride_surge_enabled')
     .lean();
 };

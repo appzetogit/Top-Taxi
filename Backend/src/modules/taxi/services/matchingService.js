@@ -7,6 +7,7 @@ import { Driver } from '../driver/models/Driver.js';
 import { Zone } from '../driver/models/Zone.js';
 import { getDriverIdsBlockedByUpcomingScheduledRides } from './rideService.js';
 import { compareInBackground } from '../../../core/finance/eligibilityShadow.js';
+import { TAXI_SPECIFIC_FIRST } from '../../../core/zones/zonePriority.js';
 
 const EARTH_RADIUS_METERS = 6371000;
 
@@ -162,6 +163,7 @@ export const findZoneByPickup = async (pickupCoords) => {
   const coordinates = normalizePoint(pickupCoords, 'pickupCoords');
 
   // Zones are authoritative for dispatch, so every pickup must belong to one polygon.
+  // A city zone beats the country-wide one (core/zones/zonePriority.js).
   return Zone.findOne({
     geometry: {
       $geoIntersects: {
@@ -171,7 +173,7 @@ export const findZoneByPickup = async (pickupCoords) => {
         },
       },
     },
-  });
+  }).sort(TAXI_SPECIFIC_FIRST);
 };
 
 /**

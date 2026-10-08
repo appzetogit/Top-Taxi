@@ -1,4 +1,5 @@
 import { FoodZone } from '../admin/models/zone.model.js';
+import { mostSpecificFirst } from '../../../core/zones/zonePriority.js';
 
 /**
  * Which service zone a point falls in.
@@ -67,7 +68,8 @@ export const clearZoneCache = () => { zoneCaches.clear(); };
  */
 export const resolveZoneIdForPoint = (lat, lng, zones = []) => {
     if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))) return null;
-    for (const zone of zones) {
+    // Most specific first: a city zone beats the country-wide one (zonePriority.js).
+    for (const zone of mostSpecificFirst(zones)) {
         const coords = Array.isArray(zone.coordinates) ? zone.coordinates : [];
         if (coords.length < 3) continue;
         if (isPointInPolygon(Number(lat), Number(lng), coords)) return String(zone._id);

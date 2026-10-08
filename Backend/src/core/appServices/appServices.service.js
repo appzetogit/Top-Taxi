@@ -12,6 +12,7 @@ import {
     normalizeAppServicesState,
     resolveAppServices,
 } from './appServices.rules.js';
+import { mostSpecificFirst, TAXI_SPECIFIC_FIRST } from '../zones/zonePriority.js';
 
 const httpError = (status, message) => Object.assign(new Error(message), { statusCode: status });
 
@@ -71,7 +72,7 @@ const ZONE_SOURCES = {
             find: async (lat, lng) => Zone.findOne({
                 active: { $ne: false },
                 geometry: { $geoIntersects: { $geometry: { type: 'Point', coordinates: [lng, lat] } } },
-            }).select('name').lean(),
+            }).sort(TAXI_SPECIFIC_FIRST).select('name').lean(),
         };
     },
 };
@@ -129,7 +130,7 @@ async function zoneAt(service, lat, lng) {
         return hit ? { id: String(hit._id), name: zoneName(hit) } : null;
     }
     const zones = await source.list();
-    const hit = zones.find((z) => source.active(z) && source.contains(z, lat, lng));
+    const hit = mostSpecificFirst(zones).find((z) => source.active(z) && source.contains(z, lat, lng));
     return hit ? { id: String(hit._id), name: zoneName(hit) } : null;
 }
 
