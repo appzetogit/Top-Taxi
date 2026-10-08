@@ -4819,6 +4819,26 @@ export const createDriver = async (payload = {}, currentAdmin = null) => {
   const existing = await Driver.findOne({ phone }).lean();
   if (existing) throw new ApiError(409, 'Driver phone already exists');
 
+  /*
+   * What the driver will do: the same choice the partner app's sign-up asks
+   * (driverClasses.js). It decides the services they are offered, exactly as
+   * approving an app sign-up does. Optional for old callers, which get the
+   * taxi-only driver they always got.
+   */
+  const {
+    normalizeDriverClass, normalizeDriverIntents, oneTwoWheelerIntent, capabilitiesForIntents, classForIntents,
+  } = await import('../../shared/driverClasses.js');
+  const rawIntents = payload.serviceIntents ?? payload.service_intents;
+  const intentList = typeof rawIntents === 'string' ? rawIntents.split(',') : rawIntents;
+  const signupClass = normalizeDriverClass(payload.driverClass || payload.driver_class)
+    || classForIntents(Array.isArray(intentList) ? intentList : []) || null;
+  const signupIntents = signupClass
+    ? oneTwoWheelerIntent(normalizeDriverIntents(intentList, signupClass))
+    : [];
+  if ((payload.driverClass || payload.driver_class || intentList) && signupIntents.length === 0) {
+    throw new ApiError(400, 'Choose what this driver will do');
+  }
+
   const registerFor = normalizeDriverRegisterFor(
     payload.transport_type || payload.transportType || payload.register_for || payload.registerFor || 'taxi',
   );
@@ -4908,9 +4928,30 @@ export const createDriver = async (payload = {}, currentAdmin = null) => {
       role: 'driver',
       createdByAdmin: true,
     },
+    ...(signupIntents.length ? { driverClass: signupClass, serviceIntents: signupIntents } : {}),
   });
 
-  return serializeDriver(driver.toObject());
+  /*
+   * Ready for the partner app straight away: the login record it signs in
+   * with, and the services the choice grants (the same step as approving an
+   * app sign-up). Without it the driver was sent through onboarding again on
+   * first login.
+   */
+  if (signupIntents.length) {
+    try {
+      const { partnerForExistingDriver, applyPartnerCapabilities } = await import('../../../../core/identity/driverCapabilities.service.js');
+      const partner = await partnerForExistingDriver(phone);
+      if (partner) {
+        await applyPartnerCapabilities(partner, capabilitiesForIntents(signupIntents), { approved: approve });
+      }
+    } catch (err) {
+      // The driver exists; their first login builds the record (auth.service).
+      console.warn(`[createDriver] partner app setup failed for ${phone}: ${err.message}`);
+    }
+  }
+
+  const fresh = await Driver.findById(driver._id).lean();
+  return serializeDriver(fresh || driver.toObject());
 };
 
 export const updateDriver = async (id, payload, currentAdmin = null) => {

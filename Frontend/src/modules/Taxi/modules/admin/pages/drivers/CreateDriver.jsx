@@ -183,6 +183,34 @@ const CreateDriver = () => {
   const [uploadingDocKey, setUploadingDocKey] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  // What the driver will do: the same choice the partner app's sign-up asks.
+  // It sets the services they get, and makes the account ready for the app.
+  const [signupOptions, setSignupOptions] = useState([]);
+  const [signupClass, setSignupClass] = useState('');
+  const [signupIntents, setSignupIntents] = useState([]);
+
+  useEffect(() => {
+    adminService
+      .getDriverSignupOptions()
+      .then((res) => {
+        const classes = res?.data?.classes || res?.classes || [];
+        setSignupOptions(Array.isArray(classes) ? classes : []);
+      })
+      .catch(() => setSignupOptions([]));
+  }, []);
+
+  const chosenClass = signupOptions.find((c) => c.key === signupClass) || null;
+  const pickClass = (key) => {
+    setSignupClass(key);
+    setSignupIntents([]);
+  };
+  const toggleIntent = (key) => {
+    if (chosenClass?.singleChoice) {
+      setSignupIntents([key]);
+      return;
+    }
+    setSignupIntents((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+  };
 
   useEffect(() => {
     const fetchBootstrap = async () => {
@@ -514,6 +542,10 @@ const CreateDriver = () => {
       return 'Password and confirm password must match';
     }
 
+    if (signupOptions.length > 0 && signupIntents.length === 0) {
+      return 'Choose what this driver will do';
+    }
+
     if (!formData.service_location_id) {
       return 'Please select area';
     }
@@ -632,6 +664,7 @@ const CreateDriver = () => {
         vehicle_number: normalizeVehicleNumber(formData.vehicle_number),
         approve: true,
         status: 'approved',
+        ...(signupIntents.length ? { driverClass: signupClass, serviceIntents: signupIntents } : {}),
         documents: payloadDocuments,
         onboarding: {
           role: 'driver',
@@ -818,6 +851,51 @@ const CreateDriver = () => {
                 <h2 className="text-xl font-black tracking-tight text-slate-900">Vehicle Setup</h2>
               </div>
             </div>
+
+            {signupOptions.length > 0 && (
+              <div className="mb-6">
+                <label className="mb-2 block text-[11px] font-black uppercase tracking-widest text-slate-400">
+                  What will this driver do?
+                </label>
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+                  {signupOptions.map((cls) => (
+                    <button
+                      key={cls.key}
+                      type="button"
+                      onClick={() => pickClass(cls.key)}
+                      className={`rounded-2xl border px-4 py-3 text-left text-sm font-bold transition ${
+                        signupClass === cls.key
+                          ? 'border-slate-900 bg-slate-900 text-white'
+                          : 'border-slate-200 bg-white text-slate-800 hover:border-slate-400'
+                      }`}
+                    >
+                      {cls.label}
+                    </button>
+                  ))}
+                </div>
+                {chosenClass && (
+                  <div className="mt-3 space-y-2">
+                    <p className="text-xs text-slate-500">
+                      {chosenClass.singleChoice ? 'Choose one.' : 'Choose one or more.'}
+                    </p>
+                    {(chosenClass.intents || []).map((intent) => (
+                      <label key={intent.key} className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-800">
+                        <input
+                          type={chosenClass.singleChoice ? 'radio' : 'checkbox'}
+                          name="signup-intent"
+                          checked={signupIntents.includes(intent.key)}
+                          onChange={() => toggleIntent(intent.key)}
+                        />
+                        {intent.label}
+                      </label>
+                    ))}
+                  </div>
+                )}
+                <p className="mt-2 text-xs text-slate-500">
+                  The driver gets the same work as an app sign-up with this choice, and can log into the partner app straight away.
+                </p>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               {shouldShowField('locationId', true) ? (

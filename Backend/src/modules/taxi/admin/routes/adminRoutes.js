@@ -283,6 +283,15 @@ adminRouter.patch('/admin/drivers/delete-requests/:id/reject', authenticate(['ad
 adminRouter.patch('/admin/drivers/deleted/:id/restore', authenticate(['admin']), restoreDeletedDriver);
 adminRouter.delete('/admin/drivers/deleted/:id', authenticate(['admin']), permanentlyDeleteDeletedDriver);
 adminRouter.post('/admin/drivers', createDriver);
+// The partner app's sign-up choices, for the admin's Create Driver form (same list).
+adminRouter.get('/admin/drivers/signup-options', async (_req, res, next) => {
+  try {
+    const { listOnboardingOptions } = await import('../../../food/delivery/services/onboardingRequirements.service.js');
+    res.json({ success: true, data: listOnboardingOptions() });
+  } catch (err) {
+    next(err);
+  }
+});
 adminRouter.get('/admin/drivers/:id/profile', getDriverProfile);
 adminRouter.get('/admin/drivers/:id', getDriver);
 adminRouter.patch('/admin/drivers/:id', updateDriver);
