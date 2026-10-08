@@ -500,6 +500,14 @@ export const verifyDeliveryOtpAndLogin = async (phone, otp, fcmToken, platform) 
   }
 
   if (!deliveryPartner) {
+    // A driver created on the Taxi side (admin "Create driver", or an older
+    // signup) has no delivery-app record yet: make it from the driver rather
+    // than sending them through onboarding again.
+    const { partnerForExistingDriver } = await import("../identity/driverCapabilities.service.js");
+    deliveryPartner = await partnerForExistingDriver(normalized).catch(() => null);
+  }
+
+  if (!deliveryPartner) {
     return { needsRegistration: true, phone };
   }
 

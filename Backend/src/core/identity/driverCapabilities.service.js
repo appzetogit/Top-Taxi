@@ -122,6 +122,66 @@ export async function ensureDeliveryCapability(driver) {
  * nothing about the other. Same shape as ensureDeliveryCapability: create the
  * missing record, link both ways, grant the capability, never fail the caller.
  */
+/**
+ * The delivery-app login record for a driver who exists only on the taxi side.
+ *
+ * The partner app signs in through the FoodDeliveryPartner record, so a driver
+ * an admin created from the Taxi panel (or who signed up before the apps were
+ * joined) had no such record: login answered "needs registration" and the
+ * driver was sent through onboarding again. This creates the linked record from
+ * the driver -- name, phone, vehicle, what they signed up for, and the same
+ * approval -- and nothing else: unlike ensureDeliveryCapability it grants no
+ * delivery work, so a taxi-only driver stays taxi-only.
+ *
+ * Returns the partner document, or null when there is no live driver.
+ */
+export async function partnerForExistingDriver(phone10) {
+    const phone = normalizePhone(phone10);
+    if (!phone) return null;
+    const { Driver } = await import('../../modules/taxi/driver/models/Driver.js');
+    const { FoodDeliveryPartner } = await import('../../modules/food/delivery/models/deliveryPartner.model.js');
+    const driver = await Driver.findOne({ phone: { $regex: `${phone}$` }, deletedAt: null })
+        .sort({ approve: -1, createdAt: -1 });
+    if (!driver) return null;
+
+    const existing = await FoodDeliveryPartner.findOne({ phone: { $regex: `${phone}$` } });
+    if (existing) return existing;
+
+    const intents = Array.isArray(driver.serviceIntents) ? driver.serviceIntents.map(String) : [];
+    let partner;
+    try {
+        partner = await FoodDeliveryPartner.create({
+            name: driver.name || 'Driver',
+            phone,
+            countryCode: driver.countryCode || '+91',
+            email: driver.email || undefined,
+            city: driver.city || '',
+            vehicleType: driver.delivery?.vehicleType || driver.vehicleIconType || driver.vehicleType || '',
+            vehicleName: driver.delivery?.vehicleName || [driver.vehicleMake, driver.vehicleModel].filter(Boolean).join(' '),
+            // Unique and sparse: set only when there is one, and never one another partner holds.
+            ...(driver.vehicleNumber && !(await FoodDeliveryPartner.exists({ vehicleNumber: driver.vehicleNumber }))
+                ? { vehicleNumber: driver.vehicleNumber }
+                : {}),
+            profilePhoto: driver.profileImage || driver.profile_picture || '',
+            driverClass: ['two_wheeler', 'passenger_taxi', 'parcel_vehicle'].includes(driver.driverClass) ? driver.driverClass : '',
+            serviceIntents: intents,
+            // The same approval the taxi side has: a driver still under review
+            // stays under review here.
+            status: driver.approve === true ? 'approved' : 'pending',
+            ...(driver.approve === true ? { approvedAt: new Date() } : {}),
+            driverId: driver._id,
+        });
+    } catch (err) {
+        // A concurrent login created it first.
+        if (err?.code === 11000) return FoodDeliveryPartner.findOne({ phone: { $regex: `${phone}$` } });
+        throw err;
+    }
+    if (!driver.legacyDeliveryPartnerId) {
+        await Driver.updateOne({ _id: driver._id }, { $set: { legacyDeliveryPartnerId: partner._id } });
+    }
+    return partner;
+}
+
 export async function ensureQuickCommerceCapability(driver) {
     try {
         if (!driver?._id) return { granted: false, partnerId: null, reason: 'no driver' };
