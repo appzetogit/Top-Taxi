@@ -220,6 +220,16 @@ export const sendOtpSms = async ({ phone, otp, purpose = 'otp' }) => {
     };
   }
 
+  // WebTech when switched on (SMS_PROVIDER=webtech): core/otp/webtechSms.js.
+  const { webtechEnabled, sendOtpViaWebtech } = await import('../../../core/otp/webtechSms.js');
+  if (webtechEnabled()) {
+    const result = await sendOtpViaWebtech(phone, otp);
+    if (!result.sent) {
+      throw new ApiError(502, `SMS could not be sent for ${purpose}: ${result.error || 'provider error'}`);
+    }
+    return { mode: 'live', message: 'OTP sent successfully', providerResponse: result.response || '', jobId: null };
+  }
+
   const config = getSmsIndiaHubConfig();
   const brandName = await getConfiguredBrandName();
   const hasCredentials = Boolean(config.user && config.password);

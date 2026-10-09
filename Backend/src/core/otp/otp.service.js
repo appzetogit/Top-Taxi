@@ -6,6 +6,7 @@ import { config } from '../../config/env.js';
 import { logger } from '../../utils/logger.js';
 import { ValidationError } from '../auth/errors.js';
 import { consumeOtpQuota, otpRateLimitMessage, OTP_SERVICES } from './otpRateLimit.service.js';
+import { webtechEnabled, sendOtpViaWebtech } from './webtechSms.js';
 
 /**
  * OTP length. 4 today because every shipped app (customer, restaurant, rider)
@@ -275,7 +276,10 @@ export const createOrUpdateOtp = async (phone, scope = 'default', { service = OT
 
     // Only send SMS if not in default OTP mode
     if (!config.useDefaultOtp) {
-        const delivery = await sendSmsViaIndiaHub(normalizedPhone, otp);
+        // WebTech when switched on (SMS_PROVIDER=webtech), else SMS India Hub.
+        const delivery = webtechEnabled()
+            ? await sendOtpViaWebtech(normalizedPhone, otp)
+            : await sendSmsViaIndiaHub(normalizedPhone, otp);
         // In production an undelivered code is a failed request, not a silent one.
         // Elsewhere the code is logged above, so local sign-in still works.
         if (!delivery?.sent && config.nodeEnv === 'production') {
