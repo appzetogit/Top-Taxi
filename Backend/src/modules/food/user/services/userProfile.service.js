@@ -57,21 +57,15 @@ export const uploadCurrentUserProfileImage = async (userId, file) => {
 };
 
 /**
- * Delete a user and their associated wallet data permanently.
+ * The customer deletes their own account: a soft delete
+ * (core/users/softDeleteCustomer.js). It used to erase the account and its
+ * wallet outright, which left orders and payments pointing at nothing and lost
+ * the wallet history.
  */
-export const deleteCurrentUserAccount = async (userId) => {
-    // We import dynamically to avoid circular dependencies if any
-    const { FoodUserWallet } = await import('../models/userWallet.model.js');
-    
-    const user = await FoodUser.findById(userId);
-    if (!user) throw new AuthError('Profile not found');
-
-    // Remove Wallet
-    await FoodUserWallet.findOneAndDelete({ userId });
-
-    // Remove User
-    await FoodUser.findByIdAndDelete(userId);
-
-    return { success: true };
+export const deleteCurrentUserAccount = async (userId, { reason } = {}) => {
+    const { softDeleteCustomer } = await import('../../../../core/users/softDeleteCustomer.js');
+    const result = await softDeleteCustomer(userId, reason ? { reason } : {});
+    if (!result) throw new AuthError('Profile not found');
+    return { success: true, deletedAt: result.deletedAt };
 };
 

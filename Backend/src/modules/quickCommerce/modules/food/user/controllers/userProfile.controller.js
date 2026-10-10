@@ -41,7 +41,7 @@ export const uploadCurrentUserProfileImageController = async (req, res, next) =>
 export const deleteCurrentUserAccountController = async (req, res, next) => {
     try {
         const userId = req.user?.userId;
-        const result = await deleteCurrentUserAccount(userId);
+        const result = await deleteCurrentUserAccount(userId, { reason: req.body?.reason });
         return sendResponse(res, 200, 'Account deleted successfully', result);
     } catch (error) {
         next(error);
