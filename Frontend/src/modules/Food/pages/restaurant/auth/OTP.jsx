@@ -226,9 +226,10 @@ export default function RestaurantOTP() {
       const refreshToken = data?.refreshToken ?? null
       const restaurant = data?.user ?? data?.restaurant
 
-      // On the website the phone path is for registering only; a registered
-      // restaurant signs in with email + password (then OTP) instead.
-      if (accessToken && restaurant && authData.method !== "web" && !isSellerApp()) {
+      // On the website a restaurant with a portal password signs in with email +
+      // password (then OTP); the phone path stays open to restaurants an admin
+      // has not given a password yet, so nobody is locked out of the panel.
+      if (accessToken && restaurant && restaurant.portalPasswordSetAt && authData.method !== "web" && !isSellerApp()) {
         sessionStorage.removeItem("restaurantAuthData")
         setError(WEB_USE_PASSWORD_MESSAGE)
         setTimeout(() => navigate("/food/restaurant/login", { replace: true }), 2500)

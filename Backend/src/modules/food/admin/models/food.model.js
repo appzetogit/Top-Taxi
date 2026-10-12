@@ -86,7 +86,8 @@ const foodVariantSchema = new mongoose.Schema(
          * Each bound falls back independently, so a variant may set only a
          * maximum and keep the dish's minimum.
          */
-        minOrderQuantity: { type: Number, min: 1, default: null },
+        // 0 = no minimum for this size, as foodVariant.service.js accepts.
+        minOrderQuantity: { type: Number, min: 0, default: null },
         maxOrderQuantity: { type: Number, min: 0, default: null },
         petpoojaVariantId: { type: String, trim: true, default: '' }
     },
@@ -319,9 +320,13 @@ const foodSchema = new mongoose.Schema(
         preparationTime: { type: String, trim: true, default: '' },
         /**
          * Per-item order quantity limits, enforced server-side by
-         * shared/orderQuantityRules.js. `maxOrderQuantity: 0` means no item cap.
+         * shared/orderQuantityRules.js. `maxOrderQuantity: 0` means no item cap,
+         * and `minOrderQuantity: 0` means no minimum (ordering still needs at
+         * least 1: resolveOrderQuantityRules turns a stored 0 into an effective 1).
+         * The schema used to say min 1 while the form and the API both send and
+         * accept 0, so saving any dish with "no minimum" failed validation.
          */
-        minOrderQuantity: { type: Number, min: 1, default: 1 },
+        minOrderQuantity: { type: Number, min: 0, default: 1 },
         maxOrderQuantity: { type: Number, min: 0, default: 0 },
         /**
          * Per-unit packaging charge, used only when admin runs packaging in

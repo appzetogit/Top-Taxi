@@ -159,10 +159,11 @@ export default function PartnerLogin() {
         setError(data.message)
         return
       }
-      // Approved: signed in, straight into the dashboard -- in the app. On the
-      // website a registered store uses its email and password instead.
+      // Approved: signed in, straight into the dashboard. On the website a store
+      // with a portal password uses email + password instead; one without a
+      // password yet still gets in by phone, so nobody is locked out.
       if (data.state === "approved" && data.session?.accessToken) {
-        if (!inApp) {
+        if (!inApp && data.session.user?.portalPasswordSetAt) {
           goTo("email")
           setError(WEB_USE_PASSWORD_MESSAGE)
           return
@@ -241,7 +242,7 @@ export default function PartnerLogin() {
             ? "Sign in with your registered email and password. We'll send a code to your registered mobile."
             : inApp
               ? <>Sign in with your mobile number. If it is new, we&rsquo;ll take you through registration.</>
-              : "Register with your mobile number. We'll take you through the application."}
+              : "Sign in or register with your mobile number."}
         </p>
       </div>
 
@@ -285,13 +286,10 @@ export default function PartnerLogin() {
             <button type="submit" disabled={busy || !email.trim() || !password} className={primaryButton}>
               {busy && <Loader2 className="h-4 w-4 animate-spin" />} Continue
             </button>
-            <p className="text-center text-xs text-slate-500">
-              Don&rsquo;t have a password? Contact support to set one up.
-            </p>
             <p className="text-center text-sm text-slate-600">
-              New {PARTNER_TYPES[type].label.toLowerCase()}?{" "}
+              New, or no password yet?{" "}
               <button type="button" onClick={() => goTo("phone")} className="font-medium text-emerald-700">
-                Register with your mobile number
+                Continue with your mobile number
               </button>
             </p>
           </form>
@@ -328,7 +326,7 @@ export default function PartnerLogin() {
             </button>
             {!inApp && (
               <p className="text-center text-sm text-slate-600">
-                Already registered?{" "}
+                Have a password?{" "}
                 <button type="button" onClick={() => goTo("email")} className="font-medium text-emerald-700">
                   Sign in with email and password
                 </button>

@@ -55,6 +55,10 @@ export default function RestaurantLogin() {
   const [error, setError] = useState("")
   const [isSending, setIsSending] = useState(false)
   const [isWebPortal, setIsWebPortal] = useState(() => !isSellerApp())
+  // A restaurant without a portal password yet signs in on the web with its
+  // mobile number; once an admin sets one, OTP.jsx sends it back to the password.
+  const [usePhoneOnWeb, setUsePhoneOnWeb] = useState(false)
+  const showPasswordForm = isWebPortal && !usePhoneOnWeb
   const [webForm, setWebForm] = useState({ email: "", password: "" })
   const [showPassword, setShowPassword] = useState(false)
 
@@ -232,13 +236,13 @@ export default function RestaurantLogin() {
               Restaurant Portal
             </h2>
             <p className="text-sm font-medium text-gray-500">
-              {isWebPortal
+              {showPasswordForm
                 ? "Sign in with your registered email and password. We'll send an OTP to your registered mobile."
                 : "Signin with your registered mobile to manage your outlet."}
             </p>
           </div>
 
-          {isWebPortal ? (
+          {showPasswordForm ? (
           <form className="space-y-6" onSubmit={handleWebLogin} noValidate>
             <div className="space-y-2">
               <label htmlFor="restaurant-email" className="text-xs font-bold text-gray-700 uppercase tracking-wider ml-1">
@@ -310,7 +314,14 @@ export default function RestaurantLogin() {
             </Button>
 
             <p className="text-xs text-center text-gray-500 font-medium">
-              Don't have a password? Contact {brandName} support to set one up.
+              No password yet?{" "}
+              <button
+                type="button"
+                onClick={() => { setError(""); setUsePhoneOnWeb(true) }}
+                className="font-bold text-[#1A1A1A] dark:text-white hover:underline"
+              >
+                Sign in with your mobile number
+              </button>
             </p>
             <p className="text-xs text-center text-gray-500 font-medium">
               New restaurant?{" "}
@@ -370,6 +381,19 @@ export default function RestaurantLogin() {
                 "Continue Securely"
               )}
             </Button>
+
+            {isWebPortal && (
+              <p className="text-xs text-center text-gray-500 font-medium">
+                Have a password?{" "}
+                <button
+                  type="button"
+                  onClick={() => { setError(""); setUsePhoneOnWeb(false) }}
+                  className="font-bold text-[#1A1A1A] dark:text-white hover:underline"
+                >
+                  Sign in with email and password
+                </button>
+              </p>
+            )}
           </div>
           )}
 
