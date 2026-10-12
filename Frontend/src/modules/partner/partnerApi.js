@@ -21,6 +21,13 @@ export const partnerApi = {
     apiClient.post("/qc/partner/request-otp", { phone, type }, ctx()).then(unwrap),
   verifyOtp: (phone, otp, type) =>
     apiClient.post("/qc/partner/verify-otp", { phone, otp, type }, ctx()).then(unwrap),
+  /** Web dashboard sign-in: owner email + password; the OTP goes to the phone on file. */
+  webLoginRequestOtp: (email, password, type) =>
+    apiClient.post("/qc/partner/web-login/request-otp", { email, password, type }, ctx()).then(unwrap),
+  webLoginResendOtp: (ticket, email) =>
+    apiClient.post("/qc/partner/web-login/resend-otp", { ticket, email }, ctx()).then(unwrap),
+  webLoginVerifyOtp: (ticket, email, otp, type) =>
+    apiClient.post("/qc/partner/web-login/verify-otp", { ticket, email, otp, type }, ctx()).then(unwrap),
   getApplication: (token) => apiClient.get("/qc/partner/application", ctx(token)).then(unwrap),
   submitApplication: (token, body) =>
     apiClient.post("/qc/partner/application", body, ctx(token)).then(unwrap),

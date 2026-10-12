@@ -613,32 +613,13 @@ export async function updateRestaurantById(req, res, next) {
  */
 export async function setRestaurantPortalPassword(req, res, next) {
     try {
-        const { id } = req.params;
-        if (!id || !mongoose.Types.ObjectId.isValid(id)) {
-            return res.status(400).json({ success: false, message: 'Invalid restaurant id' });
-        }
-        const password = typeof req.body?.password === 'string' ? req.body.password : '';
-        if (password.length < 8 || password.length > 128) {
-            return res.status(400).json({ success: false, message: 'Password must be 8 to 128 characters' });
-        }
         const { FoodRestaurant } = await import('../../restaurant/models/restaurant.model.js');
-        const { hashRestaurantPortalPassword } = await import('../../../../core/auth/auth.service.js');
-        const restaurant = await FoodRestaurant.findById(id).select('ownerEmail ownerPhone primaryContactNumber');
-        if (!restaurant) {
+        const { setSellerPortalPassword } = await import('../../../../core/auth/sellerWebLogin.js');
+        const result = await setSellerPortalPassword(FoodRestaurant, req.params.id, req.body?.password);
+        if (!result) {
             return res.status(404).json({ success: false, message: 'Restaurant not found' });
         }
-        if (!String(restaurant.ownerEmail || '').trim()) {
-            return res.status(400).json({ success: false, message: 'Add an owner email to this restaurant first; it is the web login ID' });
-        }
-        if (String(restaurant.ownerPhone || restaurant.primaryContactNumber || '').replace(/\D/g, '').length < 10) {
-            return res.status(400).json({ success: false, message: 'Add an owner phone to this restaurant first; the login OTP is sent there' });
-        }
-        const portalPasswordSetAt = new Date();
-        await FoodRestaurant.updateOne(
-            { _id: id },
-            { $set: { portalPassword: await hashRestaurantPortalPassword(password), portalPasswordSetAt } },
-        );
-        res.status(200).json({ success: true, message: 'Web portal password saved', data: { portalPasswordSetAt } });
+        res.status(200).json({ success: true, message: 'Web portal password saved', data: result });
     } catch (error) {
         next(error);
     }

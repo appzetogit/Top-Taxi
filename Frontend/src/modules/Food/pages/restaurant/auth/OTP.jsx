@@ -14,6 +14,7 @@ import loginBg from "@food/assets/loginbanner.png"
 import { formatDisplayPhone } from "../../../../../utils/phone.util"
 import { getRestaurantLogo, loadBusinessSettings, getCachedSettings } from "@food/utils/businessSettings"
 import { useSettings } from "../../../../Taxi/shared/context/SettingsContext"
+import { isSellerApp, WEB_USE_PASSWORD_MESSAGE } from "@food/utils/sellerApp"
 
 export default function RestaurantOTP() {
   const companyName = useCompanyName()
@@ -224,6 +225,15 @@ export default function RestaurantOTP() {
       const accessToken = data?.accessToken
       const refreshToken = data?.refreshToken ?? null
       const restaurant = data?.user ?? data?.restaurant
+
+      // On the website the phone path is for registering only; a registered
+      // restaurant signs in with email + password (then OTP) instead.
+      if (accessToken && restaurant && authData.method !== "web" && !isSellerApp()) {
+        sessionStorage.removeItem("restaurantAuthData")
+        setError(WEB_USE_PASSWORD_MESSAGE)
+        setTimeout(() => navigate("/food/restaurant/login", { replace: true }), 2500)
+        return
+      }
 
       if (accessToken && restaurant) {
         setRestaurantAuthData("restaurant", accessToken, restaurant, refreshToken)

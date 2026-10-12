@@ -499,6 +499,24 @@ export async function updateRestaurantMenuById(req, res, next) {
     }
 }
 
+/**
+ * Set (or replace) the password a store or medical store uses on the web portal.
+ * Login there is owner email + this password, then an OTP to the owner phone.
+ */
+export async function setRestaurantPortalPassword(req, res, next) {
+    try {
+        const { FoodRestaurant } = await import('../../restaurant/models/restaurant.model.js');
+        const { setSellerPortalPassword } = await import('../../../../../../core/auth/sellerWebLogin.js');
+        const result = await setSellerPortalPassword(FoodRestaurant, req.params.id, req.body?.password);
+        if (!result) {
+            return res.status(404).json({ success: false, message: 'Store not found' });
+        }
+        res.status(200).json({ success: true, message: 'Web portal password saved', data: result });
+    } catch (error) {
+        next(error);
+    }
+}
+
 export async function updateRestaurantById(req, res, next) {
     try {
         const { id } = req.params;

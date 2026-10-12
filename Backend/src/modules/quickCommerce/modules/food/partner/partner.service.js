@@ -39,6 +39,8 @@ import {
     drugLicenceStatus,
 } from '../shared/partnerOnboarding.js';
 import { normalizeDrugLicenceInput } from '../shared/storeType.js';
+import { createSellerWebLogin } from '../../../../../core/auth/sellerWebLogin.js';
+import { OTP_SERVICES } from '../../../../../core/otp/otpRateLimit.service.js';
 
 const ONBOARDING_TTL = '6h';
 const onboardingSecret = () => `${config.jwtAccessSecret}:partner-onboarding`;
@@ -167,6 +169,72 @@ export async function verifyPartnerOtp({ phone, otp, type: rawType }) {
     }
     return { ...base, onboardingToken: signOnboardingToken({ phone, type }) };
 }
+
+// ------------------------------------------------------------- web login ---
+//
+// The web dashboard signs an existing store or medical store in with its owner
+// email and a password an admin set, then an OTP to the owner phone on file.
+// Sign-up stays on the phone check above: a new partner has no password yet.
+// The mechanics are shared with restaurants; see core/auth/sellerWebLogin.js.
+
+const sellerWebLogin = createSellerWebLogin({
+    Model: FoodRestaurant,
+    otpScope: 'qc:seller_web',
+    ticketPurpose: 'qc_seller_web_login',
+    otpOptions: { service: OTP_SERVICES.QUICK_COMMERCE },
+});
+
+const LOGIN_TYPE_LABEL = { store: 'store', medical: 'medical store' };
+
+/** Only a live seller of the type being signed into gets a code. */
+const assertCanSignIn = (seller, type) => {
+    const actual = partnerTypeOfSeller(seller);
+    if (actual !== type) {
+        throw new ValidationError(`This account is a ${LOGIN_TYPE_LABEL[actual]}. Sign in from the ${LOGIN_TYPE_LABEL[actual]} login.`);
+    }
+    const state = partnerStateOf(seller);
+    if (state === 'rejected') {
+        throw new ValidationError(seller.rejectionReason
+            ? `Your application was rejected: ${seller.rejectionReason}`
+            : 'Your application was rejected. Please contact support.');
+    }
+    if (state !== 'approved') {
+        throw new ValidationError('Your application is still under review. You can sign in once it is approved.');
+    }
+};
+
+export async function requestPartnerWebLoginOtp({ email, password, type: rawType }) {
+    const type = typeOrThrow(rawType);
+    const proved = await sellerWebLogin.requestOtp(normalizeEmail(email), requiredPassword(password));
+    assertCanSignIn(proved.seller, type);
+    return sellerWebLogin.issueTicket(proved);
+}
+
+export async function resendPartnerWebLoginOtp({ ticket, email }) {
+    return sellerWebLogin.resendOtp(ticket, normalizeEmail(email));
+}
+
+export async function verifyPartnerWebLoginOtp({ ticket, email, otp, type: rawType }) {
+    const type = typeOrThrow(rawType);
+    const code = String(otp || '').replace(/\D/g, '');
+    if (code.length < 4) throw new ValidationError('Enter the code we sent you.');
+    const { seller } = await sellerWebLogin.verify(ticket, normalizeEmail(email), code);
+    // Re-checked: the seller could have been suspended between the two steps.
+    assertCanSignIn(seller, type);
+    return { state: 'approved', type, session: await issueRestaurantSession(seller) };
+}
+
+const normalizeEmail = (email) => {
+    const value = String(email || '').trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) throw new ValidationError('Enter a valid email address');
+    return value;
+};
+
+const requiredPassword = (password) => {
+    const value = typeof password === 'string' ? password : '';
+    if (!value || value.length > 128) throw new ValidationError('Password is required');
+    return value;
+};
 
 // ------------------------------------------------------------ application ---
 

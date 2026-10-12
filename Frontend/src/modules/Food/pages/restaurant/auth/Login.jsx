@@ -10,17 +10,10 @@ import { motion, AnimatePresence } from "framer-motion"
 import loginBg from "@food/assets/loginbanner.png"
 import { getRestaurantLogo, loadBusinessSettings, getCachedSettings } from "@food/utils/businessSettings"
 import { useSettings } from "../../../../Taxi/shared/context/SettingsContext"
+import { isSellerApp, SELLER_APP_READY_EVENT } from "@food/utils/sellerApp"
 
 const DEFAULT_COUNTRY_CODE = "+91"
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
-// The restaurant app is this same site inside a Flutter WebView. It keeps the
-// phone-OTP login; a normal browser gets email + password, then an OTP to the
-// phone on file.
-const isRestaurantApp = () =>
-  typeof window !== "undefined" &&
-  Boolean(window.flutter_inappwebview) &&
-  typeof window.flutter_inappwebview.callHandler === "function"
 
 export default function RestaurantLogin() {
   const companyName = useCompanyName()
@@ -61,15 +54,14 @@ export default function RestaurantLogin() {
   })
   const [error, setError] = useState("")
   const [isSending, setIsSending] = useState(false)
-  const [isWebPortal, setIsWebPortal] = useState(() => !isRestaurantApp())
+  const [isWebPortal, setIsWebPortal] = useState(() => !isSellerApp())
   const [webForm, setWebForm] = useState({ email: "", password: "" })
   const [showPassword, setShowPassword] = useState(false)
 
   useEffect(() => {
-    // The WebView bridge can appear just after first paint.
     const onBridgeReady = () => setIsWebPortal(false)
-    window.addEventListener("flutterInAppWebViewPlatformReady", onBridgeReady)
-    return () => window.removeEventListener("flutterInAppWebViewPlatformReady", onBridgeReady)
+    window.addEventListener(SELLER_APP_READY_EVENT, onBridgeReady)
+    return () => window.removeEventListener(SELLER_APP_READY_EVENT, onBridgeReady)
   }, [])
 
   const handleWebLogin = async (e) => {
@@ -319,6 +311,12 @@ export default function RestaurantLogin() {
 
             <p className="text-xs text-center text-gray-500 font-medium">
               Don't have a password? Contact {brandName} support to set one up.
+            </p>
+            <p className="text-xs text-center text-gray-500 font-medium">
+              New restaurant?{" "}
+              <Link to="/food/restaurant/signup" className="font-bold text-[#1A1A1A] dark:text-white hover:underline">
+                Register with your mobile number
+              </Link>
             </p>
           </form>
           ) : (

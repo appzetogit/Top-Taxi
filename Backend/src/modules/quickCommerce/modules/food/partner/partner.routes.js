@@ -49,6 +49,22 @@ router.post('/verify-otp', authRateLimiter, handle(async (req) => ({
     data: await partner.verifyPartnerOtp(req.body || {}),
 })));
 
+// Web dashboard sign-in for an existing seller: owner email + password, then OTP.
+router.post('/web-login/request-otp', authRateLimiter, handle(async (req) => ({
+    message: 'OTP sent to your registered mobile number',
+    data: await partner.requestPartnerWebLoginOtp(req.body || {}),
+})));
+
+router.post('/web-login/resend-otp', authRateLimiter, handle(async (req) => ({
+    message: 'OTP sent to your registered mobile number',
+    data: await partner.resendPartnerWebLoginOtp(req.body || {}),
+})));
+
+router.post('/web-login/verify-otp', authRateLimiter, handle(async (req) => ({
+    message: 'Signed in',
+    data: await partner.verifyPartnerWebLoginOtp(req.body || {}),
+})));
+
 router.get('/application', handle(async (req) => ({
     message: 'Application',
     data: await partner.getMyApplication(bearer(req)),
