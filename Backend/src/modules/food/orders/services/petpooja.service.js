@@ -220,9 +220,9 @@ export async function pushOrderToPetpooja(orderMongoId) {
 }
 
 /**
- * Synchronizes order status transitions from K9 rides to Petpooja.
+ * Synchronizes order status transitions from Top Taxi to Petpooja.
  * @param {string} orderMongoId 
- * @param {string} status - New K9 status
+ * @param {string} status - New Top Taxi status
  */
 export async function updateOrderStatusInPetpooja(orderMongoId, status) {
     try {

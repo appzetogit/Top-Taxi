@@ -7,8 +7,8 @@ const DEFAULTS = {
   restaurant: {
     phone: "9009925021",
     countryCode: "+91",
-    restaurantName: "K9 Rides Demo Restaurant",
-    ownerName: "K9 Rides Restaurant Owner",
+    restaurantName: "Top Taxi Demo Restaurant",
+    ownerName: "Top Taxi Restaurant Owner",
     ownerEmail: "restaurant@K9 Rides.com",
     city: "Bhopal",
     state: "Madhya Pradesh",
@@ -17,7 +17,7 @@ const DEFAULTS = {
   delivery: {
     phone: "7610416911",
     countryCode: "+91",
-    name: "K9 Rides Delivery Partner",
+    name: "Top Taxi Delivery Partner",
     city: "Bhopal",
     state: "Madhya Pradesh",
     vehicleType: "bike",

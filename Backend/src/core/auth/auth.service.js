@@ -291,7 +291,7 @@ export const adminLogin = async (email, password) => {
     admin = await FoodAdmin.create({
       email: DEFAULT_CREDENTIALS.adminEmail,
       password: DEFAULT_CREDENTIALS.adminPassword,
-      name: "Quick Drop Admin",
+      name: "Top Taxi Admin",
       isActive: true,
       servicesAccess: ["food", "quickCommerce", "taxi", "serviceProvider"],
       adminLevel: "platform_superadmin",
@@ -374,8 +374,8 @@ export const verifyRestaurantOtpAndLogin = async (phone, otp, fcmToken, platform
   if (!restaurantDoc && isDefaultPhone(phone, DEFAULT_CREDENTIALS.restaurantPhone)) {
     // Auto-provision default restaurant account for configured default phone.
     restaurantDoc = await FoodRestaurant.create({
-      restaurantName: "Quick Drop Demo Restaurant",
-      ownerName: "Quick Drop Restaurant Owner",
+      restaurantName: "Top Taxi Demo Restaurant",
+      ownerName: "Top Taxi Restaurant Owner",
       ownerEmail: "restaurant@Quick Drop.com",
       ownerPhone: normalizePhone10(DEFAULT_CREDENTIALS.restaurantPhone),
       primaryContactNumber: normalizePhone10(DEFAULT_CREDENTIALS.restaurantPhone),
@@ -520,7 +520,7 @@ export const verifyDeliveryOtpAndLogin = async (phone, otp, fcmToken, platform) 
   if (!deliveryPartner && isDefaultPhone(phone, DEFAULT_CREDENTIALS.deliveryPhone)) {
     // Auto-provision default delivery account for configured default phone.
     deliveryPartner = await FoodDeliveryPartner.create({
-      name: "Quick Drop Delivery Partner",
+      name: "Top Taxi Delivery Partner",
       phone: normalizePhone10(DEFAULT_CREDENTIALS.deliveryPhone),
       city: "Bhopal",
       state: "Madhya Pradesh",

@@ -185,7 +185,7 @@ export const verticalAdminPath = (path) =>
   rebaseAdminPath(path, currentAdminBase(typeof window === "undefined" ? "" : window.location.pathname))
 
 export const getVerticalTitle = (base = "", customName = "") => {
-  const name = (customName || "Quick Drop").trim()
+  const name = (customName || "Top Taxi").trim()
   if (base === "/admin/quick-commerce") {
     return name.toLowerCase().endsWith("quick") ? name : `${name} Quick`
   }
@@ -201,9 +201,9 @@ export const getVerticalTitle = (base = "", customName = "") => {
  * exactly how quick-commerce banner uploads ended up in food.
  */
 const VERTICAL_BRANDING = {
-  "/admin/food": { title: "Quick Drop Food", labels: {} },
+  "/admin/food": { title: "Top Taxi Food", labels: {} },
   "/admin/quick-commerce": {
-    title: "Quick Drop Quick",
+    title: "Top Taxi Quick",
     labels: {
       "FOOD MANAGEMENT": "PRODUCT MANAGEMENT",
       "RESTAURANT MANAGEMENT": "SELLER MANAGEMENT",

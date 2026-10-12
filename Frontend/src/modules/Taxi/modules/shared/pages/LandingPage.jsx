@@ -62,7 +62,7 @@ function LandingPage() {
                {appLogo ? (
                  <img src={appLogo} alt={appName} className="h-[40px] w-auto object-contain" />
                ) : (
-                 <span style={{color: '#333'}}>Quick Drop</span>
+                 <span style={{color: '#333'}}>Top Taxi</span>
                )}
              </a>
           </div>
@@ -86,7 +86,7 @@ function LandingPage() {
                {appLogo ? (
                  <img src={appLogo} alt={appName} className="h-[32px] w-auto object-contain" />
                ) : (
-                 <span>Quick Drop</span>
+                 <span>Top Taxi</span>
                )}
             </a>
             <nav className={`new-nav-links ${isMobileMenuOpen ? 'mobile-open' : ''}`}>
@@ -113,7 +113,7 @@ function LandingPage() {
           <div className="new-hero-left">
             <span className="new-hero-subtitle">Travel securely with us!</span>
             <h1 className="new-hero-title">Book your taxi from<br/>anywhere today!</h1>
-            <p className="new-hero-desc">Everything your taxi business needs is already here!<br/>Quick Drop made for taxi service companies!</p>
+            <p className="new-hero-desc">Everything your taxi business needs is already here!<br/>Top Taxi made for taxi service companies!</p>
             <div className="new-hero-cta-row">
               <button className="new-hero-action-btn" onClick={() => window.open('https://play.google.com/store/apps/details?id=com.Quick Drop.user', '_blank')}>Book Your Ride</button>
               <button className="new-hero-login-btn" onClick={() => navigate('/taxi/user/login')}>
@@ -268,7 +268,7 @@ function LandingPage() {
                {appLogo ? (
                  <img src={appLogo} alt={appName} className="h-[48px] w-auto object-contain" />
                ) : (
-                 <span style={{color: '#FFB300', fontSize: '2.5rem', fontWeight: 800}}>Quick Drop</span>
+                 <span style={{color: '#FFB300', fontSize: '2.5rem', fontWeight: 800}}>Top Taxi</span>
                )}
             </a>
             <p>We provide the best taxi and ride services in the region. Reliable, fast, and secure rides at your fingertips.</p>
@@ -311,7 +311,7 @@ function LandingPage() {
             <Link to="/terms">Terms & Conditions</Link>
           </div>
           <div className="footer-copyright">
-            Copyright 2026 © All Right Reserved Design by Quick Drop
+            Copyright 2026 © All Right Reserved Design by Top Taxi
           </div>
         </div>
       </footer>
