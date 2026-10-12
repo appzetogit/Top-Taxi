@@ -35,7 +35,7 @@ const TZ = 'Asia/Kolkata';
 
 const SERVICES = {
   food: { label: 'Food', service: 'food', unit: 'orders' },
-  quick: { label: 'Quick & Medical', service: 'quickCommerce', unit: 'orders' },
+  quick: { label: 'Quick Commerce', service: 'quickCommerce', unit: 'orders' },
   taxi: { label: 'Taxi', service: 'taxi', unit: 'rides' },
   services: { label: 'Services', service: 'serviceProvider', unit: 'bookings' },
 };

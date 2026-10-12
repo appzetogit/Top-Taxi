@@ -2,7 +2,6 @@ import { FoodRestaurant } from '../../restaurant/models/restaurant.model.js';
 import { FoodItem } from '../../admin/models/food.model.js';
 import { FoodCategory } from '../../admin/models/category.model.js';
 import mongoose from 'mongoose';
-import { QUICK_SHOP_SELLER_FILTER } from '../../shared/storeType.js';
 import { serializeFoodVariants } from '../../admin/services/foodVariant.service.js';
 
 const RESTAURANT_SEARCH_SELECT = [
@@ -91,8 +90,7 @@ export const searchUnified = async (query = {}, options = {}) => {
     const fetchLimit = Math.min(limitNumber * 3, 120);
 
     // 1. Initial Filter (approved status and basic conditions)
-    // Quick Shop search: pharmacies are listed in the Medical tab only.
-    const restaurantFilter = { status: 'approved', ...QUICK_SHOP_SELLER_FILTER };
+    const restaurantFilter = { status: 'approved' };
 
     if (zoneId && mongoose.Types.ObjectId.isValid(zoneId)) {
         restaurantFilter.zoneId = new mongoose.Types.ObjectId(zoneId);
@@ -276,7 +274,7 @@ export const searchProducts = async (query = {}) => {
     // product query can never surface something nobody can actually deliver --
     // the old search filtered the two queries independently, so a dish could
     // come back from a seller the zone filter had already excluded.
-    const sellerFilter = { status: 'approved', ...QUICK_SHOP_SELLER_FILTER };
+    const sellerFilter = { status: 'approved' };
     if (zoneId && mongoose.Types.ObjectId.isValid(zoneId)) {
         sellerFilter.zoneId = new mongoose.Types.ObjectId(zoneId);
     }

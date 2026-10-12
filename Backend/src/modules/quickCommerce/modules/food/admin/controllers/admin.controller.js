@@ -500,7 +500,7 @@ export async function updateRestaurantMenuById(req, res, next) {
 }
 
 /**
- * Set (or replace) the password a store or medical store uses on the web portal.
+ * Set (or replace) the password a store uses on the web portal.
  * Login there is owner email + this password, then an OTP to the owner phone.
  */
 export async function setRestaurantPortalPassword(req, res, next) {
@@ -1507,10 +1507,9 @@ export async function rejectDeliveryPartner(req, res, next) {
 /**
  * Which vertical's zones a request is about.
  *
- * The panel sends it as a query parameter on reads and in the body on writes,
- * because /admin/medical and /admin/quick-commerce are the same screens hitting
- * the same routes and the server cannot tell them apart otherwise. Anything
- * unrecognised, or absent, means quick commerce -- see zonesOf in the service.
+ * The panel sends it as a query parameter on reads and in the body on writes.
+ * Quick commerce has one zone map, so every value resolves to it -- see zonesOf
+ * in the service.
  */
 const verticalOf = (req) => req.query?.vertical || req.body?.vertical || null;
 

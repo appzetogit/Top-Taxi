@@ -128,14 +128,14 @@ const restaurantSchema = new mongoose.Schema(
      * What kind of shop this is.
      *
      * Drives three things that a single "restaurant" type cannot express: which
-     * category tree the seller may list under, which licence is mandatory at
-     * onboarding (FSSAI for anything edible, a drug licence for pharmacy), and
-     * whether an order from this seller may be pooled with another on one trip —
-     * medicine and raw meat should not share a bag with vegetables.
+     * category tree the seller may list under, which licence is relevant at
+     * onboarding (FSSAI for anything edible), and whether an order from this
+     * seller may be pooled with another on one trip — raw meat should not share
+     * a bag with vegetables.
      */
     storeType: {
       type: String,
-      enum: ['grocery', 'kirana', 'supermarket', 'pharmacy', 'pet', 'electronics', 'stationery', 'general'],
+      enum: ['grocery', 'kirana', 'supermarket', 'pet', 'electronics', 'stationery', 'general'],
       default: 'grocery',
       index: true,
     },
@@ -155,43 +155,11 @@ const restaurantSchema = new mongoose.Schema(
       default: [],
     },
 
-    /**
-     * Drug licence, mandatory for storeType 'pharmacy' and meaningless otherwise.
-     *
-     * Kept alongside the FSSAI fields rather than replacing them: FSSAI is required
-     * for any business handling food, which includes a kirana store, so both licences
-     * genuinely coexist in this vertical.
-     */
-    drugLicenseNumber: {
-      type: String,
-      trim: true,
-      default: '',
-    },
-    drugLicenseExpiry: {
-      type: Date,
-      default: null,
-    },
-    drugLicenseImage: {
-      type: String,
-      trim: true,
-      default: '',
-    },
-
-    /*
-     * Pharmacy onboarding, beyond the licence. What the list of required
-     * documents in shared/partnerOnboarding.js asks for, and what the admin
-     * reviews before approving. Empty on every seller that registered before
-     * these existed, which the review page flags rather than suspending them.
-     */
-    pharmacist: {
-      name: { type: String, trim: true, default: '' },
-      registrationNumber: { type: String, trim: true, default: '' },
-      certificateImage: { type: String, trim: true, default: '' },
-    },
+    /* Store / business registration document, optional at onboarding. */
     businessRegistrationImage: { type: String, trim: true, default: '' },
     /*
-     * The front photo is how an admin checks the shop is real, so it is
-     * mandatory for a pharmacy; the other two help and are optional.
+     * The front photo is how an admin checks the shop is real; the other two
+     * help. All optional at onboarding.
      */
     storePhotos: {
       front: { type: String, trim: true, default: '' },

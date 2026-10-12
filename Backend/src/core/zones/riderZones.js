@@ -40,11 +40,7 @@ async function zoneDocs(vertical, ids) {
         return FoodZone.find({ _id: { $in: ids } }).select('coordinates').lean();
     }
     const { zoneModelFor } = await import('../../modules/quickCommerce/modules/food/shared/zoneServiceability.js');
-    const [quick, medical] = await Promise.all([
-        zoneModelFor('quick').find({ _id: { $in: ids } }).select('coordinates').lean(),
-        zoneModelFor('medical').find({ _id: { $in: ids } }).select('coordinates').lean(),
-    ]);
-    return [...quick, ...medical];
+    return zoneModelFor('quick').find({ _id: { $in: ids } }).select('coordinates').lean();
 }
 
 /**

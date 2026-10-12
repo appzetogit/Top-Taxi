@@ -1,13 +1,8 @@
 import { ValidationError } from '../../../../../core/auth/errors.js';
-import { STORE_TYPES, MEDICAL_STORE_TYPE } from './storeType.js';
+import { STORE_TYPES } from './storeType.js';
 
 /**
  * Narrowing an admin list to one kind of shop.
- *
- * The Medical panel is the shared quick-commerce admin pointed at pharmacies:
- * same screens, same API, one filter. That filter has to be honest in both
- * directions -- a grocery seller must never appear under Medical, and a
- * pharmacy must never be hidden from the unscoped quick-commerce lists.
  *
  * An unrecognised value is REFUSED rather than ignored. Ignoring it would
  * answer "every seller you have" to a request that asked for one type, which
@@ -16,8 +11,8 @@ import { STORE_TYPES, MEDICAL_STORE_TYPE } from './storeType.js';
  */
 
 /**
- * "quick": every store type except pharmacy. The Quick Commerce panel sends
- * it, so medical stores (which have their own panel) are not listed there.
+ * "quick": every store type. The Quick Commerce panel sends it; it narrows
+ * nothing.
  */
 export const QUICK_SCOPE = 'quick';
 
@@ -33,25 +28,23 @@ export const normalizeStoreTypeFilter = (value) => {
     return raw;
 };
 
-export const isMedicalScope = (value) => normalizeStoreTypeFilter(value) === MEDICAL_STORE_TYPE;
-
 /** The Mongo condition on a seller's storeType for a scope, or null for none. */
 export const storeTypeCondition = (value) => {
     const type = normalizeStoreTypeFilter(value);
-    if (!type) return null;
-    return type === QUICK_SCOPE ? { $ne: MEDICAL_STORE_TYPE } : type;
+    if (!type || type === QUICK_SCOPE) return null;
+    return type;
 };
 
 /**
  * The sellers of one type, for scoping lists that hang off a seller (products,
  * orders) rather than carrying the type themselves.
  *
- * Returns ids, not a sub-query: there are tens of pharmacies, not thousands,
- * and an `$in` of ids keeps the caller's own filter readable and indexable.
+ * Returns ids, not a sub-query: an `$in` of ids keeps the caller's own filter
+ * readable and indexable.
  *
  * An empty result means "this platform has no shops of that type", which must
  * narrow the list to nothing. Callers that treat an empty array as "no filter"
- * would show every product on the platform under Medical.
+ * would show every product on the platform under the wrong type.
  */
 export async function sellerIdsOfStoreType(FoodRestaurant, storeType) {
     const condition = storeTypeCondition(storeType);
@@ -90,9 +83,10 @@ export function applySellerScope(filter, sellerIds, field = 'restaurantId') {
 
     /*
      * Another filter already restricted the sellers -- the zone filter does
-     * this. Intersect rather than replace: a zone view under Medical must show
-     * the pharmacies in that zone, not every shop in the zone (replacing) and
-     * not every pharmacy on the platform (being replaced).
+     * this. Intersect rather than replace: a zone view scoped to one type must
+     * show that type's shops in that zone, not every shop in the zone
+     * (replacing) and not every shop of that type on the platform (being
+     * replaced).
      */
     if (Array.isArray(existing.$in)) {
         filter[field] = { $in: existing.$in.filter((id) => inScope.has(String(id))) };

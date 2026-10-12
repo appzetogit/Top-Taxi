@@ -6,7 +6,7 @@
  * What this guards:
  *   - each seller's rate is the one its next order would be charged, through
  *     the services' own rate functions: a dated schedule shows over the
- *     standing rate, a pharmacy with no rate shows the Medical default;
+ *     standing rate;
  *   - a seller with no rate at all is counted, since it pays nothing;
  *   - last-30-day commission and the effective rate come from delivered
  *     orders only;
@@ -70,20 +70,16 @@ await ledger('food_orders', 'food_transactions', joy, 'delivered', daysAgo(10), 
 await ledger('food_orders', 'food_transactions', joy, 'delivered', daysAgo(45), 999, 99);
 await ledger('food_orders', 'food_transactions', joy, 'cancelled_by_user', daysAgo(3), 999, 99);
 
-// --- Quick & Medical: store with a rate, pharmacy on the default, pharmacy with its own.
+// --- Quick Commerce: store with a rate, store with no rate.
 const grocer = oid();
-const pharmaDefault = oid();
-const pharmaOwn = oid();
+const plainStore = oid();
 await db.collection('qc_restaurants').insertMany([
   { _id: grocer, restaurantName: 'Daily Needs', status: 'approved', storeType: 'grocery' },
-  { _id: pharmaDefault, restaurantName: 'Sharma Medical', status: 'approved', storeType: 'pharmacy' },
-  { _id: pharmaOwn, restaurantName: 'City Chemist', status: 'approved', storeType: 'pharmacy' },
+  { _id: plainStore, restaurantName: 'Plain Mart', status: 'approved', storeType: 'grocery' },
 ]);
 await db.collection('qc_restaurant_commissions').insertMany([
   { restaurantId: grocer, defaultCommission: { type: 'percentage', value: 10 }, status: true },
-  { restaurantId: pharmaOwn, defaultCommission: { type: 'amount', value: 20 }, status: true },
 ]);
-await db.collection('qc_medical_commission_default').insertOne({ _id: 'medical', type: 'percentage', value: 8 });
 
 // --- Taxi fare rows.
 const bike = oid();
@@ -125,19 +121,14 @@ await check('last 30 days: delivered orders only, with the effective rate', asyn
   assert.equal(svc.food.mode, 'commission');
 });
 
-console.log('\nQuick & Medical');
+console.log('\nQuick Commerce');
 await check('a store\'s own rate', async () => {
   assert.deepEqual(row('quick', 'Daily Needs').rate, { type: 'percentage', value: 10 });
   assert.equal(row('quick', 'Daily Needs').kind, 'store');
 });
-await check('a pharmacy with no rate pays the Medical default', async () => {
-  assert.deepEqual(row('quick', 'Sharma Medical').rate, { type: 'percentage', value: 8 });
-  assert.equal(row('quick', 'Sharma Medical').source, 'medical_default');
-  assert.deepEqual(svc.quick.medicalDefault, { type: 'percentage', value: 8 });
-});
-await check('a pharmacy with its own flat rate keeps it', async () => {
-  assert.deepEqual(row('quick', 'City Chemist').rate, { type: 'amount', value: 20 });
-  assert.equal(row('quick', 'City Chemist').source, 'restaurant_default');
+await check('a store with no rate pays nothing, and is counted', async () => {
+  assert.equal(row('quick', 'Plain Mart').rate.value, 0);
+  assert.equal(row('quick', 'Plain Mart').source, 'none');
 });
 
 console.log('\nTaxi and Services');

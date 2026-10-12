@@ -33,7 +33,7 @@ const check = async (label, fn) => {
 
 const owner = (await FoodAdmin.create({
   name: 'Owner', email: 'owner@t.test', password: 'owner-pass', role: 'ADMIN', admin_type: 'superadmin',
-  adminLevel: 'platform_superadmin', servicesAccess: ['food', 'quickCommerce', 'medical', 'taxi'], permissions: ['*'],
+  adminLevel: 'platform_superadmin', servicesAccess: ['food', 'quickCommerce', 'taxi'], permissions: ['*'],
 })).toObject();
 const [north, south] = await FoodZone.collection.insertMany([{ name: 'North', isActive: true }, { name: 'South', isActive: true }])
   .then((r) => [r.insertedIds[0], r.insertedIds[1]]);

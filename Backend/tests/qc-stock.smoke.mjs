@@ -149,17 +149,16 @@ await check('the list shows one row per variant, with status and totals', async 
   assert.equal(attention.rows.length, 1);
 });
 
-await check('the Quick Commerce panel lists every store but pharmacies, Medical only pharmacies', async () => {
+await check('the Quick Commerce panel lists every store, unfiltered', async () => {
   await mongoose.connection.collection('qc_restaurants').insertMany([
     { _id: storeA, restaurantName: 'Kirana', storeType: 'kirana' },
-    { _id: storeB, restaurantName: 'Chemist', storeType: 'pharmacy' },
+    { _id: storeB, restaurantName: 'Supermarket', storeType: 'supermarket' },
   ]);
   const quick = await stock.listStock({ storeType: 'quick' });
-  assert.deepEqual([...new Set(quick.rows.map((r) => r.restaurantId))], [String(storeA)]);
-  const medical = await stock.listStock({ storeType: 'pharmacy' });
-  assert.deepEqual(medical.rows.map((r) => r.itemName), ['Milk']);
-  // A pharmacy picked under Quick Commerce is out of scope: nothing, not everything.
-  assert.equal((await stock.listStock({ storeType: 'quick', restaurantId: String(storeB) })).rows.length, 0);
+  assert.deepEqual(
+    new Set(quick.rows.map((r) => r.restaurantId)),
+    new Set([String(storeA), String(storeB)]),
+  );
   await mongoose.connection.collection('qc_restaurants').deleteMany({});
 });
 

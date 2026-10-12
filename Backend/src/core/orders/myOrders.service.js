@@ -20,7 +20,6 @@ import mongoose from 'mongoose';
 const SERVICE_LABEL = {
   food: 'Food',
   quick: 'Quick',
-  medical: 'Medical',
   taxi: 'Rides',
   parcel: 'Parcel',
   rental: 'Rental',
@@ -103,7 +102,7 @@ async function storeOrders({ collection, sellers, userIds, before, limit, key, r
   const names = await sellerNames(sellers, docs.map((d) => d.restaurantId));
   return docs.map((d) => {
     const seller = names.get(String(d.restaurantId));
-    const service = key === 'quick' && String(seller?.storeType || '').toLowerCase() === 'pharmacy' ? 'medical' : key;
+    const service = key;
     return {
       key: `${key}:${d._id}`,
       id: String(d._id),
@@ -183,7 +182,7 @@ async function bookings({ userIds, before, limit }) {
 
 /* ------------------------------------------------------------------ list */
 
-const SERVICE_FILTERS = ['food', 'quick', 'medical', 'taxi', 'parcel', 'rental', 'services'];
+const SERVICE_FILTERS = ['food', 'quick', 'taxi', 'parcel', 'rental', 'services'];
 
 /**
  * @param {string} userId  the signed-in customer's platform id
@@ -207,7 +206,7 @@ export async function listMyOrders(userId, query = {}) {
   const want = (keys) => !service || keys.includes(service);
   const lists = await Promise.all([
     want(['food']) ? storeOrders({ collection: 'food_orders', sellers: 'food_restaurants', userIds: [oid(userId)], before, limit, key: 'food', route: (id) => `/food/orders/${id}` }) : [],
-    want(['quick', 'medical']) ? storeOrders({ collection: 'qc_orders', sellers: 'qc_restaurants', userIds: qcIds, before, limit, key: 'quick', route: (id) => `/qc/order/${id}` }) : [],
+    want(['quick']) ? storeOrders({ collection: 'qc_orders', sellers: 'qc_restaurants', userIds: qcIds, before, limit, key: 'quick', route: (id) => `/qc/order/${id}` }) : [],
     want(['taxi', 'parcel', 'rental']) ? rides({ userId, before, limit }) : [],
     want(['services']) ? bookings({ userIds: spIds, before, limit }) : [],
   ]);

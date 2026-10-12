@@ -60,9 +60,6 @@ const ZONE_SOURCES = {
     async quick() {
         return qcZones('quick');
     },
-    async medical() {
-        return qcZones('medical');
-    },
     async taxi() {
         const { Zone } = await import('../../modules/taxi/driver/models/Zone.js');
         return {
@@ -79,10 +76,10 @@ const ZONE_SOURCES = {
 
 /**
  * A module's zones for an admin picker: id, name, whether active.
- * `module` is the settings name ('food' | 'quickCommerce' | 'medical' | 'taxi').
+ * `module` is the settings name ('food' | 'quickCommerce' | 'taxi').
  */
 export async function listZonesFor(module) {
-    const key = { food: 'food', quickCommerce: 'quick', medical: 'medical', taxi: 'taxi' }[module];
+    const key = { food: 'food', quickCommerce: 'quick', taxi: 'taxi' }[module];
     if (!key) return null;
     const source = await ZONE_SOURCES[key]();
     const docs = await source.list();
@@ -191,7 +188,7 @@ export async function resolveAppServicesAt({ lat, lng } = {}) {
 
 // ------------------------------------------------- riders in a zone ----
 
-const DELIVERY_SERVICES = new Set(['food', 'quick', 'medical']);
+const DELIVERY_SERVICES = new Set(['food', 'quick']);
 // Same window dispatch uses (DISPATCH_STALE_GPS_MS): older positions do not count.
 const RIDER_FRESH_MS = Number(process.env.DISPATCH_STALE_GPS_MS) || 45 * 60 * 1000;
 const RIDER_COUNT_TTL_MS = 30 * 1000;

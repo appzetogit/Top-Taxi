@@ -1,5 +1,4 @@
 import mongoose from 'mongoose';
-import { QUICK_SHOP_SELLER_FILTER } from '../../shared/storeType.js';
 import { FoodItem } from '../../admin/models/food.model.js';
 import { FoodRestaurant } from '../models/restaurant.model.js';
 import { getFoodDisplayOtherPrice, getFoodDisplayPrice, serializeFoodVariants } from '../../admin/services/foodVariant.service.js';
@@ -25,8 +24,7 @@ export async function listPublicFoods(query = {}) {
     const promo = String(query.promo || query.promoSlug || '').trim().toLowerCase();
     const isSwitch99Promo = promo === 'switch99' || promo === 'under-250' || promo === 'under250';
 
-    // Quick Shop products only; medicines are sold through the Medical tab.
-    const restaurantFilter = { status: 'approved', ...QUICK_SHOP_SELLER_FILTER };
+    const restaurantFilter = { status: 'approved' };
     if (zoneIdRaw && mongoose.Types.ObjectId.isValid(zoneIdRaw)) {
         restaurantFilter.zoneId = new mongoose.Types.ObjectId(zoneIdRaw);
     }

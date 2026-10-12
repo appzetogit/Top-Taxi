@@ -212,7 +212,7 @@ export const SETTINGS = Object.freeze({
         max: 1000,
         scopes: NOT_PER_PARTNER,
         label: 'Platform fee per order',
-        help: 'A flat amount added to every Food and Quick & Medical order. 0 charges none. Unset keeps each service’s own fee.',
+        help: 'A flat amount added to every Food and Quick Commerce order. 0 charges none. Unset keeps each service’s own fee.',
     },
     'fees.platformFeeGstRate': {
         type: 'number',
@@ -221,7 +221,7 @@ export const SETTINGS = Object.freeze({
         max: 100,
         scopes: NOT_PER_PARTNER,
         label: 'GST on the platform fee (%)',
-        help: 'Added on top of the platform fee. Food only: Quick & Medical does not add GST to its platform fee. Unset keeps Food’s own rate (18% if it has none).',
+        help: 'Added on top of the platform fee. Food only: Quick Commerce does not add GST to its platform fee. Unset keeps Food’s own rate (18% if it has none).',
     },
 
     // --- order cancellation --------------------------------------------------

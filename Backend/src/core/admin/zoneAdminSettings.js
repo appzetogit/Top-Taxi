@@ -38,7 +38,6 @@ export const LADDER_RESOURCE = 'zone_incentives';
 const MODULE_ZONE_FIELD = Object.freeze({
     food: 'food_zone_ids',
     quickCommerce: 'qc_zone_ids',
-    medical: 'qc_zone_ids',
     taxi: 'taxi_zone_ids',
 });
 
@@ -71,9 +70,7 @@ export async function zoneAdminContext(req) {
     const zoneIdsFor = async (module) => {
         const field = MODULE_ZONE_FIELD[module];
         if (!field) return [];
-        const panelOpen = module === 'medical'
-            ? services.includes('medical') || services.includes('quickCommerce')
-            : services.includes(module);
+        const panelOpen = services.includes(module);
         if (!panelOpen) return [];
         const own = ids(admin[field]);
         return own.length ? own : null;

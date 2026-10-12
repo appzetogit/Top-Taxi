@@ -36,7 +36,7 @@ const SOURCES = {
     sellers: 'food_restaurants',
   },
   quick: {
-    label: 'Quick & Medical',
+    label: 'Quick Commerce',
     service: 'quickCommerce',
     vertical: 'quickCommerce',
     load: async () => (await import('../../modules/quickCommerce/modules/food/admin/models/offer.model.js')).FoodOffer,

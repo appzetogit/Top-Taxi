@@ -1,10 +1,10 @@
 /**
- * Partner sign-up for stores and medical stores: one phone check that says
+ * Partner sign-up for stores: one phone check that says
  * where the partner stands, then the application.
  *
  * Seller login refuses a pending or rejected seller outright, after the OTP has
  * already been used up, so nothing could tell a partner WHY they were refused
- * or let a rejected pharmacy fix its application. This path verifies the OTP
+ * or let a rejected store fix its application. This path verifies the OTP
  * once and returns the state instead:
  *
  *   new       no seller on this number        -> fill in the application
@@ -36,9 +36,7 @@ import {
     partnerStateOf,
     evaluateApplication,
     assertApplicationComplete,
-    drugLicenceStatus,
 } from '../shared/partnerOnboarding.js';
-import { normalizeDrugLicenceInput } from '../shared/storeType.js';
 import { createSellerWebLogin } from '../../../../../core/auth/sellerWebLogin.js';
 import { OTP_SERVICES } from '../../../../../core/otp/otpRateLimit.service.js';
 
@@ -65,7 +63,7 @@ export function readOnboardingToken(token) {
 
 const typeOrThrow = (raw) => {
     const type = normalizePartnerType(raw);
-    if (!type) throw new ValidationError('Choose Restaurant, Store or Medical store.');
+    if (!type) throw new ValidationError('Choose Restaurant or Store.');
     if (type === 'restaurant') {
         throw new ValidationError('Restaurants sign up through the restaurant partner login.');
     }
@@ -117,13 +115,6 @@ export function describeApplication(seller, type) {
             gstImage: s.gstImage || '',
             fssaiNumber: s.fssaiNumber || '',
             fssaiImage: s.fssaiImage || '',
-            drugLicenseNumber: s.drugLicenseNumber || '',
-            drugLicenseExpiry: s.drugLicenseExpiry || null,
-            drugLicenseImage: s.drugLicenseImage || '',
-            drugLicence: drugLicenceStatus(s),
-            pharmacistName: s.pharmacist?.name || '',
-            pharmacistRegistrationNumber: s.pharmacist?.registrationNumber || '',
-            pharmacistCertificateImage: s.pharmacist?.certificateImage || '',
             businessRegistrationImage: s.businessRegistrationImage || '',
             storeFrontImage: s.storePhotos?.front || '',
             storeInsideImage: s.storePhotos?.inside || '',
@@ -145,15 +136,14 @@ export async function verifyPartnerOtp({ phone, otp, type: rawType }) {
     const seller = await findRestaurantByPhone(phone);
     const state = partnerStateOf(seller);
 
-    // One seller per number (registerRestaurant enforces it), so a grocery store
-    // cannot also sign up as a pharmacy on the same phone.
+    // One seller per number (registerRestaurant enforces it).
     if (seller && partnerTypeOfSeller(seller) !== type) {
         return {
             state: 'other_type',
             type,
             existingType: partnerTypeOfSeller(seller),
             restaurantName: seller.restaurantName || '',
-            message: `This number is already registered as a ${partnerTypeOfSeller(seller) === 'medical' ? 'medical store' : 'store'} ("${seller.restaurantName}"). Choose that option, or use a different number.`,
+            message: `This number is already registered as a store ("${seller.restaurantName}"). Choose that option, or use a different number.`,
         };
     }
 
@@ -172,7 +162,7 @@ export async function verifyPartnerOtp({ phone, otp, type: rawType }) {
 
 // ------------------------------------------------------------- web login ---
 //
-// The web dashboard signs an existing store or medical store in with its owner
+// The web dashboard signs an existing store in with its owner
 // email and a password an admin set, then an OTP to the owner phone on file.
 // Sign-up stays on the phone check above: a new partner has no password yet.
 // The mechanics are shared with restaurants; see core/auth/sellerWebLogin.js.
@@ -184,7 +174,7 @@ const sellerWebLogin = createSellerWebLogin({
     otpOptions: { service: OTP_SERVICES.QUICK_COMMERCE },
 });
 
-const LOGIN_TYPE_LABEL = { store: 'store', medical: 'medical store' };
+const LOGIN_TYPE_LABEL = { store: 'store' };
 
 /** Only a live seller of the type being signed into gets a code. */
 const assertCanSignIn = (seller, type) => {
@@ -274,9 +264,6 @@ function applicationUpdate(body = {}) {
         fssaiNumber: 'fssaiNumber',
         fssaiImage: 'fssaiImage',
         businessRegistrationImage: 'businessRegistrationImage',
-        pharmacistName: 'pharmacist.name',
-        pharmacistRegistrationNumber: 'pharmacist.registrationNumber',
-        pharmacistCertificateImage: 'pharmacist.certificateImage',
         storeFrontImage: 'storePhotos.front',
         storeInsideImage: 'storePhotos.inside',
         storeSignboardImage: 'storePhotos.signboard',
@@ -311,8 +298,6 @@ function applicationUpdate(body = {}) {
         set['location.latitude'] = lat;
         set['location.longitude'] = lng;
     }
-    const licence = normalizeDrugLicenceInput(body);
-    if (licence) Object.assign(set, licence);
     return set;
 }
 
@@ -350,7 +335,7 @@ export async function submitApplication(token, body = {}) {
             ...flat,
             ownerPhone: phone,
             primaryContactNumber: phone,
-            storeType: type === 'medical' ? 'pharmacy' : (flat.storeType === 'pharmacy' ? 'grocery' : (flat.storeType || 'grocery')),
+            storeType: flat.storeType || 'grocery',
         });
         await registerRestaurant(validated, {});
         return getMyApplication(token);
@@ -379,10 +364,10 @@ export async function submitApplication(token, body = {}) {
 
 // ------------------------------------------------------------------ admin ---
 
-/** Applications to review, and live pharmacies whose licence needs attention. */
-export async function listApplicationsForAdmin({ status = 'pending', type = 'medical' } = {}) {
-    const wantedType = normalizePartnerType(type) || 'medical';
-    const storeFilter = wantedType === 'medical' ? { storeType: 'pharmacy' } : { storeType: { $ne: 'pharmacy' } };
+/** Applications to review. */
+export async function listApplicationsForAdmin({ status = 'pending', type = 'store' } = {}) {
+    const wantedType = normalizePartnerType(type) || 'store';
+    const storeFilter = {};
     const statusFilter = ['pending', 'rejected', 'approved'].includes(status) ? { status } : {};
 
     const rows = await FoodRestaurant.find({ ...storeFilter, ...statusFilter })
@@ -390,12 +375,10 @@ export async function listApplicationsForAdmin({ status = 'pending', type = 'med
         .limit(200)
         .lean();
 
-    const now = new Date();
     return rows.map((row) => {
         const { application, checklist } = describeApplication(row, wantedType);
         return {
             ...application,
-            drugLicence: drugLicenceStatus(row, now),
             checklist,
             createdAt: row.createdAt,
             approvedAt: row.approvedAt || null,

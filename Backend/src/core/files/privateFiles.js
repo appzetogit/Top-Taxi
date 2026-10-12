@@ -4,8 +4,8 @@ import path from 'path';
 import { config } from '../../config/env.js';
 
 /**
- * Identity documents (PAN, GST, FSSAI, Aadhaar, licences, drug licences,
- * pharmacist and registration papers, prescriptions, driver selfies) were
+ * Identity documents (PAN, GST, FSSAI, Aadhaar, licences, registration
+ * papers, driver selfies) were
  * served at permanent public URLs under /uploads with a one-year cache: anyone
  * who ever saw a link -- a log, a forwarded screenshot -- kept the document.
  *
@@ -22,9 +22,9 @@ import { config } from '../../config/env.js';
  */
 
 const PRIVATE_SEGMENTS = [
-  'pan', 'gst', 'fssai', 'aadhar', 'aadhaar', 'license', 'licence', 'drug-licence', 'drug-license',
+  'pan', 'gst', 'fssai', 'aadhar', 'aadhaar', 'license', 'licence',
   'documents', 'driver-documents', 'panImage', 'fssaiImage', 'gstImage', 'aadharPhoto', 'panPhoto',
-  'drivingLicensePhoto', 'pharmacist', 'registration', 'upi', 'prescriptions', 'driver-selfies',
+  'drivingLicensePhoto', 'registration', 'upi', 'driver-selfies',
 ];
 const SEGMENT_RE = new RegExp(`(^|/)(${PRIVATE_SEGMENTS.map((s) => s.replace(/[-]/g, '\\-')).join('|')})(/|$)`);
 

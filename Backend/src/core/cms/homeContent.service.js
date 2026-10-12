@@ -32,7 +32,6 @@ const SECTIONS = [
   ['food', 'Food'],
   ['taxi', 'Rides'],
   ['quick_commerce', 'Quick'],
-  ['medical', 'Medical'],
   ['porter', 'Parcel'],
   ['rental', 'Rental'],
   ['services', 'Services'],

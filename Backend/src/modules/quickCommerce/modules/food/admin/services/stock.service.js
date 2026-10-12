@@ -8,7 +8,7 @@ import { ApiError } from '../../../../../../utils/ApiError.js';
 import { sellerIdsOfStoreType, applySellerScope } from '../../shared/storeScope.js';
 
 /**
- * Stock management for quick-commerce and medical stores: one row per product
+ * Stock management for quick-commerce stores: one row per product
  * variant (or per product when it has none), per store.
  *
  * `restaurantId` scopes every call: a store passes its own id and can touch
@@ -64,7 +64,7 @@ function rowsOf(doc, storeNames) {
 
 /*
  * The panel's storeType goes through the shared scope: Quick Commerce sends
- * "quick" (every type but pharmacy), which no store literally has, so matching
+ * "quick" (every store type), which no store literally has, so matching
  * it as a type listed nothing. A picked store is kept only if it is in scope.
  */
 async function storeFilter({ restaurantId, storeType }) {

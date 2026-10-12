@@ -23,11 +23,11 @@ const db = mongoose.connection.db;
 
 const oid = () => new mongoose.Types.ObjectId();
 const t = (min) => new Date(Date.now() - min * 60000);
-const foodUser = oid(); const qcUser = oid(); const rider = oid(); const store = oid(); const pharmacy = oid();
+const foodUser = oid(); const qcUser = oid(); const rider = oid(); const store = oid(); const qcStore2 = oid();
 await db.collection('users').insertOne({ _id: foodUser, name: 'Asha', phone: '9000000001' });
 await db.collection('qc_users').insertOne({ _id: qcUser, name: 'Ravi', phone: '9000000002' });
 await db.collection('food_restaurants').insertOne({ _id: store, restaurantName: 'Rainbow Restaurant' });
-await db.collection('qc_restaurants').insertOne({ _id: pharmacy, restaurantName: 'Quick Medical' });
+await db.collection('qc_restaurants').insertOne({ _id: qcStore2, restaurantName: 'Daily Needs' });
 await db.collection('food_delivery_partners').insertOne({ _id: rider, name: 'Rishi', phone: '9000000003' });
 
 await FoodOrder.collection.insertMany([
@@ -36,7 +36,7 @@ await FoodOrder.collection.insertMany([
 ]);
 await QcOrder.collection.insertMany([
   { order_id: 'QC-1', orderStatus: 'confirmed', userId: qcUser, pricing: { total: 80 }, createdAt: t(3) },
-  { order_id: 'MED-1', orderStatus: 'preparing', userId: qcUser, restaurantId: pharmacy, prescriptionOnly: true, pricing: { total: 325 }, createdAt: t(2) },
+  { order_id: 'QC-2', orderStatus: 'preparing', userId: qcUser, restaurantId: qcStore2, pricing: { total: 325 }, createdAt: t(2) },
 ]);
 await Ride.collection.insertMany([
   { userId: foodUser, serviceType: 'ride', liveStatus: 'completed', status: 'completed', fare: 90, pickupAddress: 'A', dropAddress: 'B', createdAt: t(4) },
@@ -45,14 +45,13 @@ await Ride.collection.insertMany([
 
 await check('All: every order, newest first, with counts per service', async () => {
   const r = await listMasterOrders({ tab: 'all' });
-  assert.deepEqual(r.orders.map((o) => o.orderId).slice(0, 4), ['FOD-1', 'MED-1', 'QC-1', r.orders[3].orderId]);
+  assert.deepEqual(r.orders.map((o) => o.orderId).slice(0, 4), ['FOD-1', 'QC-2', 'QC-1', r.orders[3].orderId]);
   assert.equal(r.total, 6);
-  assert.deepEqual(r.counts, { food: 2, quick: 1, medical: 1, taxi: 1, parcel: 1 });
+  assert.deepEqual(r.counts, { food: 2, quick: 2, taxi: 1, parcel: 1 });
 });
 
 await check('each tab shows only its service', async () => {
-  assert.deepEqual((await listMasterOrders({ tab: 'medical' })).orders.map((o) => o.orderId), ['MED-1']);
-  assert.deepEqual((await listMasterOrders({ tab: 'quick' })).orders.map((o) => o.orderId), ['QC-1']);
+  assert.deepEqual((await listMasterOrders({ tab: 'quick' })).orders.map((o) => o.orderId), ['QC-2', 'QC-1']);
   assert.equal((await listMasterOrders({ tab: 'parcel' })).orders[0].source, 'parcel');
   assert.equal((await listMasterOrders({ tab: 'taxi' })).orders[0].source, 'taxi');
 });
@@ -64,10 +63,10 @@ await check('rows carry names, store, rider, and the API vertical for assigning'
   assert.equal(fod2.storeName, 'Rainbow Restaurant');
   assert.equal(fod2.riderName, 'Rishi');
   assert.equal(fod2.vertical, 'food');
-  const med = orders.find((o) => o.orderId === 'MED-1');
-  assert.equal(med.storeName, 'Quick Medical');
-  assert.equal(med.customerName, 'Ravi');
-  assert.equal(med.vertical, 'quickCommerce');
+  const qc2 = orders.find((o) => o.orderId === 'QC-2');
+  assert.equal(qc2.storeName, 'Daily Needs');
+  assert.equal(qc2.customerName, 'Ravi');
+  assert.equal(qc2.vertical, 'quickCommerce');
 });
 
 await check('status filter and order-number search', async () => {
@@ -75,7 +74,7 @@ await check('status filter and order-number search', async () => {
   const active = await listMasterOrders({ tab: 'all', status: 'active' });
   assert.ok(!active.orders.some((o) => ['FOD-2'].includes(o.orderId)));
   assert.ok(active.orders.some((o) => o.source === 'parcel'));
-  assert.deepEqual((await listMasterOrders({ tab: 'all', search: 'med-1' })).orders.map((o) => o.orderId), ['MED-1']);
+  assert.deepEqual((await listMasterOrders({ tab: 'all', search: 'qc-2' })).orders.map((o) => o.orderId), ['QC-2']);
 });
 
 await check('paging across services', async () => {

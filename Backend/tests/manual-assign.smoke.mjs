@@ -160,14 +160,6 @@ await check('an order a rider already accepted is refused', async () => {
   const id = await foodOrder({ dispatch: { status: 'accepted', deliveryPartnerId: F._id, acceptedAt: new Date(), offeredTo: [] } });
   await assert.rejects(() => manual.assignRider({ vertical: 'food', orderId: id, foodRiderId: String(A._id), admin, force: true }), /already accepted/);
 });
-await check('a Medical order whose bill the customer has not accepted is refused', async () => {
-  const id = await qcOrder({
-    order_id: 'MED-7700001', prescriptionOnly: true, payment: { method: 'cash', status: 'cod_pending' },
-    prescription: { required: true, status: 'approved', bill: { status: 'submitted', amount: 60 } },
-  });
-  await assert.rejects(() => manual.assignRider({ vertical: 'quickCommerce', orderId: id, foodRiderId: String(A._id), admin, force: true }), /not approved the bill/);
-  assert.equal((await qcRow(id)).dispatch.status, 'unassigned');
-});
 await check('an unapproved rider is refused', async () => {
   const id = await foodOrder();
   await assert.rejects(() => manual.assignRider({ vertical: 'food', orderId: id, foodRiderId: String(D._id), admin, force: true }), /not approved/);
@@ -325,8 +317,8 @@ await check('an expiry that lost the race to an accept leaves the accept alone',
   assert.equal((await foodRow(id)).dispatch.status, 'accepted');
 });
 
-// ---- Quick & Medical -------------------------------------------------------
-console.log('\nQuick & Medical');
+// ---- Quick Commerce --------------------------------------------------------
+console.log('\nQuick Commerce');
 const q1 = await qcOrder();
 await check('assign stores the linked Quick rider id', async () => {
   const qcIdB = await link.qcRiderIdForFoodRider(String(B._id));
@@ -360,15 +352,6 @@ await check('the rider sees it and accepts through the FOOD endpoint; lock claim
   assert.ok(!row.dispatch.manualDeadlineAt);
   const d = await Driver.findById(dB._id).lean();
   assert.ok((d.activeAssignments || []).some((a) => String(a.jobId) === q1), JSON.stringify(d.activeAssignments));
-});
-await check('a Medical order with its bill approved can be assigned', async () => {
-  const id = await qcOrder({
-    order_id: 'MED-7700002', prescriptionOnly: true, payment: { method: 'cash', status: 'cod_pending' },
-    prescription: { required: true, status: 'approved', bill: { status: 'approved', amount: 60 } },
-  });
-  const out = await manual.assignRider({ vertical: 'quickCommerce', orderId: id, foodRiderId: String(E._id), admin, force: true });
-  assert.equal(out.needsConfirmation, false);
-  assert.equal((await qcRow(id)).dispatch.status, 'assigned');
 });
 await check('Quick decline through the Food reject endpoint: unassigned and noted', async () => {
   const id = await qcOrder();

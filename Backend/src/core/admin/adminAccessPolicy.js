@@ -1,5 +1,5 @@
 /**
- * One permission model for every admin panel: Food, Quick Commerce, Medical, Taxi.
+ * One permission model for every admin panel: Food, Quick Commerce, Taxi.
  *
  * Why this exists: each vertical grew its own permission list, and none of them
  * was enforced on the API. Food checked a permission on 9 of ~300 routes, quick
@@ -8,10 +8,10 @@
  * the sidebar was the only thing that looked restricted, and it did not filter.
  *
  * The model:
- *   - servicesAccess  which panels the admin may open (food, quickCommerce, medical, taxi)
+ *   - servicesAccess  which panels the admin may open (food, quickCommerce, taxi)
  *   - permissions     'resource.read' / 'resource.write' strings, the same resource
  *                     names in every panel ("Orders" means food orders, grocery
- *                     orders, medicine orders and taxi rides alike)
+ *                     orders and taxi rides alike)
  *
  * Superadmins are unaffected: the platform superadmin passes everything, a module
  * superadmin passes everything inside its own module. Only admins that resolve to
@@ -24,13 +24,12 @@ import { resolveAdminLevel, resolveAdminModule } from './adminHierarchy.service.
 export const ADMIN_SERVICES = [
   { key: 'food', label: 'Food' },
   { key: 'quickCommerce', label: 'Quick Commerce' },
-  { key: 'medical', label: 'Medical' },
   { key: 'taxi', label: 'Taxi' },
 ];
 export const ADMIN_SERVICE_KEYS = ADMIN_SERVICES.map((s) => s.key);
 
-const ALL = ['food', 'quickCommerce', 'medical', 'taxi'];
-const STORES = ['food', 'quickCommerce', 'medical'];
+const ALL = ['food', 'quickCommerce', 'taxi'];
+const STORES = ['food', 'quickCommerce'];
 
 /**
  * What a sub-admin can be given. `services` decides which panels a resource is
@@ -47,9 +46,9 @@ export const ADMIN_PERMISSION_CATALOG = [
   {
     group: 'Operations',
     resources: [
-      { key: 'orders', label: 'Orders & rides', hint: 'Orders, prescriptions, trips, bookings', services: ALL },
+      { key: 'orders', label: 'Orders & rides', hint: 'Orders, trips, bookings', services: ALL },
       { key: 'customers', label: 'Customers', hint: 'Customer accounts and carts', services: ALL },
-      { key: 'restaurants', label: 'Restaurants & stores', hint: 'Sellers, pharmacies, joining requests, commission', services: STORES },
+      { key: 'restaurants', label: 'Restaurants & stores', hint: 'Sellers, joining requests, commission', services: STORES },
       { key: 'foods', label: 'Menu & products', hint: 'Items, add-ons, approvals, price adjustment', services: STORES },
       { key: 'categories', label: 'Categories', hint: 'Item categories', services: STORES },
       { key: 'delivery', label: 'Riders & drivers', hint: 'Join requests, documents, bonus, earnings', services: ALL },
@@ -197,9 +196,9 @@ export function effectiveServices(admin) {
   return module && ADMIN_SERVICE_KEYS.includes(module) ? [module] : ['food'];
 }
 
-/** The quick-commerce API serves both the Quick Commerce and the Medical panel. */
+/** The panels an admin API serves: each API serves its own panel. */
 export function servicesForApi(api) {
-  return api === 'quickCommerce' ? ['quickCommerce', 'medical'] : [api];
+  return [api];
 }
 
 /**
@@ -291,7 +290,7 @@ const STORE_ADMIN_RULES = [
   // Lookups nearly every screen makes to fill a filter or a header. Reading them
   // grants nothing a sub-admin's own sections do not already show.
   rule(/^\/(sidebar-badges|global-search|notifications\/fssai-expired)(\/|$)/, OPEN, ['GET']),
-  rule(/^\/(zones|categories|business-settings|map-settings|feature-settings|power-scanning|service-radius\/settings|restaurant-subscription-settings|fee-settings|medical\/settings)(\/|$)/, OPEN, ['GET']),
+  rule(/^\/(zones|categories|business-settings|map-settings|feature-settings|power-scanning|service-radius\/settings|restaurant-subscription-settings|fee-settings)(\/|$)/, OPEN, ['GET']),
   rule(/^\/restaurants\/?$/, OPEN, ['GET']),
 
   rule(/^\/(admin-management|sub-admins)(\/|$)/, 'subadmins'),
@@ -304,8 +303,7 @@ const STORE_ADMIN_RULES = [
 
   rule(/^\/(withdrawals|delivery\/withdrawals|delivery\/wallets|restaurant-withdrawal-setting)(\/|$)/, 'wallet'),
 
-  rule(/^\/(restaurants|service-radius|restaurant-commissions|commission-schedules|monetization-mode|restaurant-settings|restaurant-subscription-settings|restaurant-subscriptions|drug-licences|medical)(\/|$)/, 'restaurants'),
-  rule(/^\/prescriptions(\/|$)/, 'orders'),
+  rule(/^\/(restaurants|service-radius|restaurant-commissions|commission-schedules|monetization-mode|restaurant-settings|restaurant-subscription-settings|restaurant-subscriptions)(\/|$)/, 'restaurants'),
 
   rule(/^\/categories(\/|$)/, 'categories'),
   rule(/^\/(foods|addons|item-extras|price-adjustments|stock)(\/|$)/, 'foods'),

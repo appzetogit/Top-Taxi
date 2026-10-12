@@ -18,7 +18,7 @@ const CLASS_LABELS = {
 }
 
 const INTENT_LABELS = {
-  food_daily_medical_parcel: 'Food + Daily needs + Medical + Bike parcel',
+  food_daily_medical_parcel: 'Food + Daily needs + Bike parcel',
   bike_taxi_parcel: 'Bike Taxi',
   three_wheeler: '3 wheeler',
   four_wheeler: '4 wheeler',
@@ -30,7 +30,7 @@ const INTENT_LABELS = {
  * Which capabilities each answer asks for. Fallback only: the server sends
  * `requestedCapabilities` worked out by the rule dispatch uses
  * (driverClasses.js). Kept in step with it: bike parcel goes with the
- * Food + Daily needs + Medical rider, Bike Taxi is passengers only.
+ * Food + Daily needs rider, Bike Taxi is passengers only.
  */
 const INTENT_CAPABILITIES = {
   food_daily_medical_parcel: ['delivery', 'quickCommerce', 'parcel'],

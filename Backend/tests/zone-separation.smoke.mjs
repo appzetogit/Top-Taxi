@@ -3,16 +3,16 @@
  *
  * Run: node tests/zone-separation.smoke.mjs
  *
- * Food, quick commerce (which is what /admin/medical edits) and taxi each draw
- * their own delivery zones, in their own panels, against their own maps. They
- * are three separate things that happen to share a shape, and the platform
- * keeps them apart in three ways -- a distinct mongoose model name, a distinct
- * collection, and a panel whose API calls are rewritten to its own vertical.
+ * Food, quick commerce and taxi each draw their own delivery zones, in their
+ * own panels, against their own maps. They are three separate things that
+ * happen to share a shape, and the platform keeps them apart in three ways --
+ * a distinct mongoose model name, a distinct collection, and a panel whose API
+ * calls are rewritten to its own vertical.
  *
  * If any of those slipped, the failure would be quiet and expensive: a zone
- * drawn in Medical would appear in Food, a seller's zoneId would resolve
- * against the wrong map, and an order would be refused as "we don't deliver
- * there" for an address the vertical plainly covers. Nothing would throw.
+ * drawn in one vertical would appear in another, a seller's zoneId would
+ * resolve against the wrong map, and an order would be refused as "we don't
+ * deliver there" for an address the vertical plainly covers. Nothing would throw.
  *
  * Two of the three are checked here. The third -- the panel rewrite -- lives in
  * the browser (Frontend/src/services/api/axios.js) and is checked by reading
@@ -42,7 +42,7 @@ const taxi = await import('../src/modules/taxi/driver/models/Zone.js');
 
 const zones = [
     { vertical: 'food', model: food.FoodZone },
-    { vertical: 'quick commerce / medical', model: qc.QCZone },
+    { vertical: 'quick commerce', model: qc.QCZone },
     { vertical: 'taxi', model: taxi.Zone },
 ];
 
@@ -62,9 +62,7 @@ check('no two verticals share a collection', () => {
     assert.equal(new Set(collections).size, collections.length, collections.join(', '));
 });
 
-check('quick commerce and medical read qc_zones, not food_zones', () => {
-    // Medical is not a fourth vertical: a pharmacy is a quick-commerce seller,
-    // so /admin/medical edits exactly this collection.
+check('quick commerce reads qc_zones, not food_zones', () => {
     assert.equal(qc.QCZone.collection.name, 'qc_zones');
     assert.notEqual(qc.QCZone.collection.name, food.FoodZone.collection.name);
 });
@@ -83,17 +81,13 @@ const axiosSource = readFileSync(
     'utf8',
 );
 
-check('/admin/medical is routed to the quick-commerce API', () => {
-    assert.match(axiosSource, /\{\s*base:\s*"\/admin\/medical",\s*scope:\s*"pharmacy"\s*\}/);
-});
-
 check('zones are NOT exempt from that rewrite', () => {
     /*
      * The rewrite turns /food/<x> into /qc/<x> for every path except a short
-     * exemption list. If "zones" were ever added to it, the Medical panel would
-     * read and WRITE food_zones while believing it was editing its own -- the
-     * exact collision these models exist to prevent, arriving through the
-     * browser rather than through mongoose.
+     * exemption list. If "zones" were ever added to it, the quick-commerce
+     * panel would read and WRITE food_zones while believing it was editing
+     * its own -- the exact collision these models exist to prevent, arriving
+     * through the browser rather than through mongoose.
      */
     const m = /const SHARED_FOOD_PREFIXES = \[([^\]]*)\]/.exec(axiosSource);
     assert.ok(m, 'the exemption list is gone; the rewrite rule has changed');

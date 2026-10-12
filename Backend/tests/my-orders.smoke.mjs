@@ -4,7 +4,7 @@
  * Run: node tests/my-orders.smoke.mjs
  *
  * What this guards:
- *   - Food, Quick, Medical, rides, parcel and Services bookings appear in one
+ *   - Food, Quick, rides, parcel and Services bookings appear in one
  *     newest-first list, each with the route of its own detail screen;
  *   - Quick and Services orders are found through the customer's own rows in
  *     those services (platformUserId, else the same phone);
@@ -51,11 +51,11 @@ await db.collection('sp_users').insertOne({ _id: ashaSp, platformUserId: asha })
 
 const joy = oid();
 const grocer = oid();
-const chemist = oid();
+const grocer2 = oid();
 await db.collection('food_restaurants').insertOne({ _id: joy, restaurantName: 'Joy' });
 await db.collection('qc_restaurants').insertMany([
   { _id: grocer, restaurantName: 'Daily Needs', storeType: 'grocery' },
-  { _id: chemist, restaurantName: 'Sharma Medical', storeType: 'pharmacy' },
+  { _id: grocer2, restaurantName: 'City Mart', storeType: 'grocery' },
 ]);
 
 const food1 = oid();
@@ -65,10 +65,10 @@ await db.collection('food_orders').insertMany([
   { _id: oid(), userId: asha, restaurantId: joy, order_id: 'FOD-3', orderStatus: 'cancelled_by_restaurant', items: [{ name: 'Dal', quantity: 1 }], pricing: { total: 180 }, createdAt: minsAgo(50) },
   { _id: oid(), userId: other, restaurantId: joy, order_id: 'FOD-X', orderStatus: 'delivered', items: [], pricing: { total: 999 }, createdAt: minsAgo(5) },
 ]);
-const med = oid();
+const qc2 = oid();
 await db.collection('qc_orders').insertMany([
   { _id: oid(), userId: ashaQuick, restaurantId: grocer, order_id: 'QC-1', orderStatus: 'picked_up', items: [{ name: 'Milk', quantity: 1 }], pricing: { total: 60 }, createdAt: minsAgo(30) },
-  { _id: med, userId: ashaQuickByPhone, restaurantId: chemist, order_id: 'MED-1', orderStatus: 'confirmed', items: [{ name: 'Paracetamol', quantity: 1 }], pricing: { total: 45 }, createdAt: minsAgo(20) },
+  { _id: qc2, userId: ashaQuickByPhone, restaurantId: grocer2, order_id: 'QC-2', orderStatus: 'confirmed', items: [{ name: 'Bread', quantity: 1 }], pricing: { total: 45 }, createdAt: minsAgo(20) },
 ]);
 const ride = oid();
 await db.collection('taxirides').insertMany([
@@ -85,8 +85,8 @@ const all = await listMyOrders(String(asha), {});
 
 console.log('\nOne list');
 await check('every service, newest first, nobody else\'s, no unpaid checkout', async () => {
-  assert.deepEqual(all.items.map((i) => i.number), ['BK-7', all.items[1].number, 'MED-1', 'QC-1', all.items[4].number, 'FOD-3', 'FOD-1']);
-  assert.deepEqual(all.items.map((i) => i.service), ['services', 'parcel', 'medical', 'quick', 'taxi', 'food', 'food']);
+  assert.deepEqual(all.items.map((i) => i.number), ['BK-7', all.items[1].number, 'QC-2', 'QC-1', all.items[4].number, 'FOD-3', 'FOD-1']);
+  assert.deepEqual(all.items.map((i) => i.service), ['services', 'parcel', 'quick', 'quick', 'taxi', 'food', 'food']);
   assert.ok(!all.items.some((i) => i.number === 'FOD-2' || i.number === 'FOD-X'));
 });
 await check('each row names what it was and opens its own detail screen', async () => {
@@ -94,8 +94,9 @@ await check('each row names what it was and opens its own detail screen', async 
   assert.equal(by.food.title, 'Joy');
   assert.equal(all.items.find((i) => i.number === 'FOD-1').subtitle, '2 × Paneer Tikka, +1 more');
   assert.equal(all.items.find((i) => i.number === 'FOD-1').route, `/food/orders/${food1}`);
-  assert.equal(by.medical.title, 'Sharma Medical');
-  assert.equal(by.medical.route, `/qc/order/${med}`);
+  const qc2Item = all.items.find((i) => i.number === 'QC-2');
+  assert.equal(qc2Item.title, 'City Mart');
+  assert.equal(qc2Item.route, `/qc/order/${qc2}`);
   assert.equal(by.taxi.title, 'Ride to Tea Garden');
   assert.equal(by.taxi.subtitle, 'Bus Stand → Tea Garden');
   assert.equal(by.taxi.route, `/taxi/rides/${ride}`);
@@ -109,19 +110,19 @@ await check('states and labels', async () => {
   assert.deepEqual(s['FOD-1'], ['completed', 'Delivered']);
   assert.deepEqual(s['FOD-3'], ['cancelled', 'Cancelled']);
   assert.deepEqual(s['QC-1'], ['ongoing', 'On the way']);
-  assert.deepEqual(s['MED-1'], ['ongoing', 'Accepted']);
+  assert.deepEqual(s['QC-2'], ['ongoing', 'Accepted']);
   assert.equal(all.ongoingCount, 4);
 });
 
 console.log('\nFilters and paging');
 await check('ongoing only, and past only', async () => {
   const on = await listMyOrders(String(asha), { state: 'ongoing' });
-  assert.deepEqual(on.items.map((i) => i.number).sort(), ['BK-7', 'MED-1', 'QC-1', on.items.find((i) => i.service === 'parcel').number].sort());
+  assert.deepEqual(on.items.map((i) => i.number).sort(), ['BK-7', 'QC-1', 'QC-2', on.items.find((i) => i.service === 'parcel').number].sort());
   const past = await listMyOrders(String(asha), { state: 'past' });
   assert.deepEqual(past.items.map((i) => i.state).sort(), ['cancelled', 'completed', 'completed']);
 });
 await check('one service at a time', async () => {
-  assert.deepEqual((await listMyOrders(String(asha), { service: 'medical' })).items.map((i) => i.number), ['MED-1']);
+  assert.deepEqual((await listMyOrders(String(asha), { service: 'quick' })).items.map((i) => i.number), ['QC-2', 'QC-1']);
   assert.deepEqual((await listMyOrders(String(asha), { service: 'food' })).items.map((i) => i.number), ['FOD-3', 'FOD-1']);
 });
 await check('paging with nextBefore walks the whole list once', async () => {

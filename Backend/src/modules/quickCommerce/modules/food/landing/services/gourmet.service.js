@@ -1,7 +1,6 @@
 import { FoodGourmetRestaurant } from '../models/gourmetRestaurant.model.js';
 import { FoodRestaurant } from '../../restaurant/models/restaurant.model.js';
 import mongoose from 'mongoose';
-import { QUICK_SHOP_SELLER_FILTER } from '../../shared/storeType.js';
 
 export const getPublicGourmetRestaurants = async (zoneId) => {
     const docs = await FoodGourmetRestaurant.find({ isActive: true })
@@ -10,8 +9,7 @@ export const getPublicGourmetRestaurants = async (zoneId) => {
 
     const restaurantIds = docs.map((d) => d.restaurantId);
     
-    // Pharmacies are listed on the Medical tab, not among Quick Shop's picks.
-    const query = { _id: { $in: restaurantIds }, status: 'approved', ...QUICK_SHOP_SELLER_FILTER };
+    const query = { _id: { $in: restaurantIds }, status: 'approved' };
     if (zoneId && mongoose.Types.ObjectId.isValid(zoneId)) {
         query.zoneId = new mongoose.Types.ObjectId(zoneId);
     }

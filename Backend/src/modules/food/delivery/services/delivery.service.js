@@ -929,21 +929,20 @@ const linkedQcTrips = async (partnerId, range = null) => {
         await import('../../../quickCommerce/modules/food/restaurant/models/restaurant.model.js');
         const match = { 'dispatch.deliveryPartnerId': new mongoose.Types.ObjectId(qcId), orderStatus: 'delivered' };
         if (range) match['deliveryState.deliveredAt'] = { $gte: range.start, $lte: range.end };
-        // The store's name, so history and earnings say which pharmacy/shop
+        // The store's name, so history and earnings say which shop
         // (toTripDto reads restaurantId.restaurantName).
         const orders = await QcOrder.find(match)
-            .populate({ path: 'restaurantId', select: 'restaurantName storeType' })
+            .populate({ path: 'restaurantId', select: 'restaurantName' })
             .sort({ 'deliveryState.deliveredAt': -1 })
             .limit(1000)
             .lean();
         return orders.map((o) => {
             const trip = toTripDto(o);
-            const medical = String(o.order_id || '').startsWith('MED-') || o.restaurantId?.storeType === 'pharmacy';
-            // The History screen tags a card by `category` (Medical / Quick
-            // Commerce); without it these showed as Food.
-            const tagged = { ...trip, category: medical ? 'medical' : 'quick_commerce' };
+            // The History screen tags a card by `category` (Quick Commerce);
+            // without it these showed as Food.
+            const tagged = { ...trip, category: 'quick_commerce' };
             if (!trip.restaurantName) {
-                const label = medical ? 'Medical order' : 'Quick order';
+                const label = 'Quick order';
                 return { ...tagged, restaurantName: label, restaurant: label };
             }
             return tagged;

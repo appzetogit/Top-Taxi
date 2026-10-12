@@ -339,11 +339,8 @@ async function deliveryZoneIdAt(coordinates) {
         const food = resolveZoneIdForPoint(lat, lng, await loadActiveZones());
         if (food) return food;
         const { findZoneForPoint } = await import('../../../modules/quickCommerce/modules/food/shared/zoneServiceability.js');
-        for (const vertical of ['quick', 'medical']) {
-            // eslint-disable-next-line no-await-in-loop
-            const zone = await findZoneForPoint(lat, lng, vertical);
-            if (zone?._id) return String(zone._id);
-        }
+        const zone = await findZoneForPoint(lat, lng, 'quick');
+        if (zone?._id) return String(zone._id);
     } catch (err) {
         logger.warn(`incentive: delivery zone lookup failed: ${err.message}`);
     }
@@ -358,7 +355,6 @@ async function deliveryZoneShapes(ids = []) {
     const lists = await Promise.all([
         FoodZone.find({ _id: { $in: ids } }).select('coordinates').lean().catch(() => []),
         zoneModelFor('quick').find({ _id: { $in: ids } }).select('coordinates').lean().catch(() => []),
-        zoneModelFor('medical').find({ _id: { $in: ids } }).select('coordinates').lean().catch(() => []),
     ]);
     return lists.flat()
         .map((z) => (Array.isArray(z.coordinates) ? z.coordinates : []))

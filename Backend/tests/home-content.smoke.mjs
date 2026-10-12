@@ -44,8 +44,7 @@ await db.collection('food_zones').insertOne({ _id: palampur, name: 'Palampur foo
 const foodHeader = oid();
 await db.collection('food_hero_banners').insertMany([
   { _id: foodHeader, imageUrl: 'https://x/food.gif', title: 'Food header', isActive: true, sortOrder: 0 },
-  { _id: oid(), imageUrl: 'https://x/taxi.jpg', module: 'taxi', isActive: true, sortOrder: 0 },
-  { _id: oid(), imageUrl: 'https://x/med.mp4', resourceType: 'video', module: 'medical', isActive: false, sortOrder: 1 },
+  { _id: oid(), imageUrl: 'https://x/taxi.mp4', resourceType: 'video', module: 'taxi', isActive: true, sortOrder: 0 },
 ]);
 const promoLive = oid();
 await db.collection('food_home_promotion_banners').insertMany([
@@ -73,7 +72,7 @@ await check('the five sets the app shows, from their own collections', async () 
 await check('header artwork is split by section; empty sections still listed', async () => {
   const { sections } = (await groupsOf()).header;
   const by = Object.fromEntries(sections.map((s) => [s.id, s.items.length]));
-  assert.deepEqual(by, { food: 1, taxi: 1, quick_commerce: 0, medical: 1, porter: 0, rental: 0, services: 0 });
+  assert.deepEqual(by, { food: 1, taxi: 1, quick_commerce: 0, porter: 0, rental: 0, services: 0 });
   assert.equal(sections.find((s) => s.id === 'taxi').label, 'Rides');
 });
 await check('an old banner with no section is Food\'s, as the app treats it', async () => {
@@ -81,14 +80,12 @@ await check('an old banner with no section is Food\'s, as the app treats it', as
   assert.equal(food.items[0].id, String(foodHeader));
 });
 await check('videos are marked as videos', async () => {
-  const med = (await groupsOf()).header.sections.find((s) => s.id === 'medical');
-  assert.equal(med.items[0].isVideo, true);
+  const taxi = (await groupsOf()).header.sections.find((s) => s.id === 'taxi');
+  assert.equal(taxi.items[0].isVideo, true);
 });
 await check('states: live, scheduled, ended, paused', async () => {
   const promo = Object.fromEntries((await groupsOf()).foodPromo.items.map((i) => [i.title, i.state]));
   assert.deepEqual(promo, { Diwali: 'live', 'Next week': 'scheduled', 'Last month': 'ended' });
-  const med = (await groupsOf()).header.sections.find((s) => s.id === 'medical').items[0];
-  assert.equal(med.state, 'paused');
 });
 await check('zones are named, and live counts are right', async () => {
   const g = await groupsOf();
