@@ -30,6 +30,17 @@ export const categoryAllowsFoodType = (scope, foodType) => {
     return normalizedScope === normalizedFoodType;
 };
 
+/**
+ * Pure-veg sellers may use Veg and Both (mixed) categories; only Non-Veg
+ * categories are closed to them. A mixed category holds veg items in a veg
+ * seller and either kind elsewhere, so what keeps non-veg items out of a
+ * pure-veg seller is the item's own type (pureVegAllowsFoodType).
+ * The filter matches legacy rows with no scope too, which read as Both.
+ */
+export const PURE_VEG_CATEGORY_FILTER = { foodTypeScope: { $ne: 'Non-Veg' } };
+export const categoryAllowedForPureVeg = (scope) => normalizeCategoryFoodTypeScope(scope, 'Both') !== 'Non-Veg';
+export const pureVegAllowsFoodType = (foodType) => normalizeFoodTypeForCategory(foodType) === 'Veg';
+
 export const isGlobalCategory = (category = {}) => {
     const restaurantId = category?.restaurantId;
     return !restaurantId;

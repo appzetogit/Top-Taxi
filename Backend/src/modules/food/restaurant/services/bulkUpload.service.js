@@ -356,6 +356,13 @@ export async function processBulkMenuUpload(restaurantId, fileBuffer) {
 
             rowCount++;
 
+            // A pure-veg restaurant's menu holds veg dishes only, whatever the
+            // category (mixed categories are open to it; see categoryWorkflow.js).
+            if (restaurant.pureVegRestaurant === true && String(data.foodType || '').trim() !== 'Veg') {
+                parsingErrors.push({ row: rowNumber, error: 'Pure veg restaurants can only add veg food' });
+                return;
+            }
+
             // Parse Variants (Columns 9 to 14)
             for (let j = 0; j < 3; j++) {
                 const vName = getTextValue(row.getCell(9 + j * 2));

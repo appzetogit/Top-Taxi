@@ -7,6 +7,8 @@ import {
     backfillLegacyCategoryWorkflow,
     GLOBAL_CATEGORY_FILTER,
     normalizeCategoryFoodTypeScope,
+    PURE_VEG_CATEGORY_FILTER,
+    categoryAllowedForPureVeg,
     serializeCategoryForResponse,
     toObjectId
 } from '../../shared/categoryWorkflow.js';
@@ -104,7 +106,7 @@ export async function listRestaurantCategories(restaurantId, query = {}) {
     applyZoneVisibilityFilter(filter.$and, zoneIdRaw);
 
     if (compact && context.pureVegRestaurant) {
-        filter.$and.push({ foodTypeScope: 'Veg' });
+        filter.$and.push(PURE_VEG_CATEGORY_FILTER);
     }
 
     const queryBuilder = FoodCategory.find(filter)
@@ -231,8 +233,8 @@ export async function createRestaurantCategory(restaurantId, body = {}) {
     if (!foodTypeScope) {
         throw new ValidationError('Invalid category diet type');
     }
-    if (context.pureVegRestaurant && foodTypeScope !== 'Veg') {
-        throw new ValidationError('Pure veg restaurants can only create veg categories');
+    if (context.pureVegRestaurant && !categoryAllowedForPureVeg(foodTypeScope)) {
+        throw new ValidationError('Pure veg restaurants can create veg or mixed categories only');
     }
 
     const doc = new FoodCategory({

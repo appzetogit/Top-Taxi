@@ -73,6 +73,8 @@ import {
     backfillLegacyCategoryWorkflow,
     categoryAllowsFoodType,
     normalizeCategoryFoodTypeScope,
+    categoryAllowedForPureVeg,
+    pureVegAllowsFoodType,
     serializeCategoryForResponse
 } from '../../shared/categoryWorkflow.js';
 import {
@@ -3927,8 +3929,11 @@ const resolveAdminFoodCategory = async ({ categoryId, categoryName, foodType, pu
     }
 
     if (categoryDoc?.foodTypeScope) {
-        if (pureVegRestaurant && String(categoryDoc.foodTypeScope || '') !== 'Veg') {
-            throw new ValidationError('Pure veg restaurants can only use veg categories');
+        if (pureVegRestaurant && !categoryAllowedForPureVeg(categoryDoc.foodTypeScope)) {
+            throw new ValidationError('Pure veg restaurants can only use veg or mixed categories');
+        }
+        if (pureVegRestaurant && !pureVegAllowsFoodType(foodType)) {
+            throw new ValidationError('Pure veg restaurants can only add veg food');
         }
         if (!categoryAllowsFoodType(categoryDoc.foodTypeScope, foodType)) {
             throw new ValidationError(`This ${categoryDoc.foodTypeScope} category cannot accept ${foodType} food`);
