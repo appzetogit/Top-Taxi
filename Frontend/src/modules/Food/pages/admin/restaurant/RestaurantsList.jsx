@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from "react"
 import { verticalAdminPath } from "../../../components/admin/AdminSidebar"
 import { useNavigate, useSearchParams } from "react-router-dom"
-import { Search, Download, ChevronDown, Eye, Settings, ArrowUpDown, Loader2, X, MapPin, Phone, Mail, Clock, Star, Building2, User, FileText, CreditCard, Calendar, Image as ImageIcon, ExternalLink, ShieldX, AlertTriangle, Trash2, Plus } from "lucide-react"
+import { Search, Download, ChevronDown, Eye, Settings, ArrowUpDown, Loader2, X, MapPin, Phone, Mail, Clock, Star, Building2, User, FileText, CreditCard, Calendar, Image as ImageIcon, ExternalLink, ShieldX, AlertTriangle, Trash2, Plus, KeyRound } from "lucide-react"
 import { toast } from "sonner"
 import { adminAPI, restaurantAPI, uploadAPI } from "@food/api"
 import { clearModuleAuth } from "@food/utils/auth"
@@ -1639,6 +1639,13 @@ export default function RestaurantsList() {
                               title="View Details"
                             >
                               <Eye className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => navigate(verticalAdminPath(`/admin/food/restaurants/edit/${restaurant._id || restaurant.id}`))}
+                              className="p-1.5 rounded text-amber-600 hover:bg-amber-50 transition-colors"
+                              title="Edit restaurant & web login password"
+                            >
+                              <KeyRound className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => handleBanRestaurant(restaurant)}
