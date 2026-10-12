@@ -1,5 +1,7 @@
 import crypto from "crypto";
 import ms from "ms";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 import { FoodUser } from "../users/user.model.js";
 import { FoodAdmin } from "../admin/admin.model.js";
 import { AdminResetOtp } from "../admin/adminResetOtp.model.js";
@@ -393,6 +395,15 @@ export const verifyRestaurantOtpAndLogin = async (phone, otp, fcmToken, platform
     };
   }
 
+  return completeRestaurantLogin(restaurantDoc, phone, fcmToken, platform);
+};
+
+/**
+ * Everything after the restaurant has proved who it is: FCM token, the approval
+ * gate and the token pair. Shared by the phone-OTP login (app) and the
+ * email + password + OTP login (web portal) so the two cannot drift apart.
+ */
+const completeRestaurantLogin = async (restaurantDoc, phone, fcmToken, platform) => {
   // Update FCM token if provided
   if (fcmToken) {
     let isModified = false;
@@ -450,6 +461,133 @@ export const verifyRestaurantOtpAndLogin = async (phone, otp, fcmToken, platform
     user: restaurantDoc,
     needsRegistration: false,
   };
+};
+
+// ── Restaurant web-portal login: email + password, then an OTP to the phone on file ──
+//
+// The app keeps the phone-OTP login above. On the web the restaurant proves the
+// password first; only then is an OTP sent, to the ownerPhone already on the
+// restaurant (never a number supplied in the request), so a leaked password alone
+// does not get anyone in.
+//
+// Step 1 hands back a short-lived signed ticket naming the restaurant. Step 2 needs
+// that ticket, so the OTP is checked against exactly the restaurant whose password
+// was proved, even when several restaurants share an owner email.
+
+const RESTAURANT_WEB_OTP_SCOPE = "restaurant_web";
+const RESTAURANT_WEB_TICKET_PURPOSE = "restaurant_web_login";
+const RESTAURANT_WEB_TICKET_TTL = "10m";
+// Signed with a key derived from the access secret, so a ticket can never be
+// presented as an access token or vice versa.
+const restaurantWebTicketSecret = () => `${config.jwtAccessSecret}:${RESTAURANT_WEB_TICKET_PURPOSE}`;
+// Compared against when no restaurant matches, so a wrong email costs the same
+// time as a wrong password and response timing does not reveal which emails exist.
+let dummyPasswordHash = null;
+const getDummyPasswordHash = () => {
+  dummyPasswordHash ||= bcrypt.hash(crypto.randomBytes(16).toString("hex"), config.bcryptSaltRounds);
+  return dummyPasswordHash;
+};
+const INVALID_WEB_CREDENTIALS = "Invalid email or password";
+
+const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const maskPhone = (phone) => {
+  const last10 = normalizePhone10(phone);
+  return last10 ? `******${last10.slice(-4)}` : "";
+};
+
+export const hashRestaurantPortalPassword = async (password) => {
+  const salt = await bcrypt.genSalt(config.bcryptSaltRounds);
+  return bcrypt.hash(String(password), salt);
+};
+
+export const requestRestaurantWebLoginOtp = async (email, password) => {
+  const candidates = await FoodRestaurant.find({
+    ownerEmail: { $regex: new RegExp(`^${escapeRegex(email)}$`, "i") },
+  })
+    .select("+portalPassword ownerPhone primaryContactNumber status")
+    .lean();
+
+  let matched = null;
+  for (const candidate of candidates) {
+    if (!candidate.portalPassword) continue;
+    // eslint-disable-next-line no-await-in-loop
+    if (await bcrypt.compare(String(password), candidate.portalPassword)) {
+      matched = candidate;
+      break;
+    }
+  }
+  if (!matched) {
+    if (!candidates.some((c) => c.portalPassword)) {
+      await bcrypt.compare(String(password), await getDummyPasswordHash());
+    }
+    throw new AuthError(INVALID_WEB_CREDENTIALS);
+  }
+
+  const phone = normalizePhone10(matched.ownerPhone || matched.primaryContactNumber);
+  if (!phone || phone.length !== 10) {
+    throw new ValidationError(
+      "No mobile number is registered for this restaurant. Please contact support.",
+    );
+  }
+
+  const otp = await createOrUpdateOtp(phone, RESTAURANT_WEB_OTP_SCOPE);
+  const ticket = jwt.sign(
+    { rid: String(matched._id), purpose: RESTAURANT_WEB_TICKET_PURPOSE },
+    restaurantWebTicketSecret(),
+    { expiresIn: RESTAURANT_WEB_TICKET_TTL },
+  );
+
+  return {
+    ticket,
+    maskedPhone: maskPhone(phone),
+    ...(config.nodeEnv !== "production" ? { otp } : {}),
+  };
+};
+
+const WEB_SESSION_EXPIRED = "Your login session expired. Please sign in again.";
+
+/** The restaurant a step-1 ticket was issued for, or an AuthError. */
+const restaurantFromWebTicket = async (ticket, email) => {
+  let claims;
+  try {
+    claims = jwt.verify(String(ticket || ""), restaurantWebTicketSecret());
+  } catch {
+    throw new AuthError(WEB_SESSION_EXPIRED);
+  }
+  if (claims?.purpose !== RESTAURANT_WEB_TICKET_PURPOSE || !mongoose.Types.ObjectId.isValid(claims.rid)) {
+    throw new AuthError(WEB_SESSION_EXPIRED);
+  }
+  const restaurantDoc = await FoodRestaurant.findById(claims.rid);
+  if (
+    !restaurantDoc ||
+    String(restaurantDoc.ownerEmail || "").trim().toLowerCase() !== email
+  ) {
+    throw new AuthError(WEB_SESSION_EXPIRED);
+  }
+  return restaurantDoc;
+};
+
+/** Resend needs only the ticket: the password was already proved in step 1. */
+export const resendRestaurantWebLoginOtp = async (ticket, email) => {
+  const restaurantDoc = await restaurantFromWebTicket(ticket, email);
+  const phone = normalizePhone10(restaurantDoc.ownerPhone || restaurantDoc.primaryContactNumber);
+  const otp = await createOrUpdateOtp(phone, RESTAURANT_WEB_OTP_SCOPE);
+  return {
+    maskedPhone: maskPhone(phone),
+    ...(config.nodeEnv !== "production" ? { otp } : {}),
+  };
+};
+
+export const verifyRestaurantWebLoginOtp = async (ticket, email, otp, fcmToken) => {
+  const restaurantDoc = await restaurantFromWebTicket(ticket, email);
+  const phone = normalizePhone10(restaurantDoc.ownerPhone || restaurantDoc.primaryContactNumber);
+  const result = await verifyOtp(phone, otp, RESTAURANT_WEB_OTP_SCOPE);
+  if (!result.valid) {
+    throw new AuthError(result.reason || "OTP verification failed");
+  }
+
+  return completeRestaurantLogin(restaurantDoc, phone, fcmToken, "web");
 };
 
 export const requestDeliveryOtp = async (phone) => {

@@ -62,7 +62,10 @@ export default function RestaurantOTP() {
     if (stored) {
       const data = JSON.parse(stored)
       setAuthData(data)
-      if (data.method === "email" && data.email) {
+      if (data.method === "web") {
+        // The OTP went to the phone on file, not to anything typed here.
+        setContactInfo(data.maskedPhone ? `your registered mobile ${data.maskedPhone}` : "your registered mobile")
+      } else if (data.method === "email" && data.email) {
         setContactInfo(data.email)
       } else if (data.phone) {
         const phoneMatch = data.phone?.match(/(\+\d+)\s*(.+)/)
@@ -185,7 +188,9 @@ export default function RestaurantOTP() {
       const email = authData.method === "email" ? authData.email : null
       const purpose = authData.isSignUp ? "register" : "login"
 
-      const response = await restaurantAPI.verifyOTP(phone, code, purpose, null, email)
+      const response = authData.method === "web"
+        ? await restaurantAPI.webLoginVerifyOtp(authData.ticket, authData.email, code)
+        : await restaurantAPI.verifyOTP(phone, code, purpose, null, email)
       const data = response?.data?.data || response?.data
       const needsRegistration = data?.needsRegistration === true
       const normalizedPhone = data?.phone || phone
@@ -271,9 +276,15 @@ export default function RestaurantOTP() {
       const purpose = authData.isSignUp ? "register" : "login"
       const phone = authData.method === "phone" ? authData.phone : null
       const email = authData.method === "email" ? authData.email : null
-      await restaurantAPI.sendOTP(phone, purpose, email)
+      if (authData.method === "web") {
+        await restaurantAPI.webLoginResendOtp(authData.ticket, authData.email)
+      } else {
+        await restaurantAPI.sendOTP(phone, purpose, email)
+      }
       setResendTimer(60)
-    } catch (err) { setError("Failed to resend OTP.") }
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to resend OTP.")
+    }
     setIsLoading(false)
     // A resend issues a new code, so the one-submission-per-code guard has to
     // reopen -- otherwise the first attempt latches it and the fresh code can
@@ -547,7 +558,7 @@ export default function RestaurantOTP() {
                           } catch (e) {
                             console.error("Error setting onboarding local storage:", e)
                           }
-                          navigate("/food/restaurant/onboarding", { replace: true, state: { phone: contactInfo || authData?.phone || authData?.email || "", isRejected: true, rejectionReason } })
+                          navigate("/food/restaurant/onboarding", { replace: true, state: { phone: (authData?.method === "web" ? "" : contactInfo) || authData?.phone || authData?.email || "", isRejected: true, rejectionReason } })
                         }}
                         className="w-full h-14 rounded-xl font-bold bg-red-600 hover:bg-red-700 text-white shadow-lg"
                       >

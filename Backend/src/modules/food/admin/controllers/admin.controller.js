@@ -607,6 +607,43 @@ export async function updateRestaurantById(req, res, next) {
     }
 }
 
+/**
+ * Set (or replace) the password the restaurant uses on the web portal. Login there
+ * is owner email + this password, then an OTP to the owner phone on file.
+ */
+export async function setRestaurantPortalPassword(req, res, next) {
+    try {
+        const { id } = req.params;
+        if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ success: false, message: 'Invalid restaurant id' });
+        }
+        const password = typeof req.body?.password === 'string' ? req.body.password : '';
+        if (password.length < 8 || password.length > 128) {
+            return res.status(400).json({ success: false, message: 'Password must be 8 to 128 characters' });
+        }
+        const { FoodRestaurant } = await import('../../restaurant/models/restaurant.model.js');
+        const { hashRestaurantPortalPassword } = await import('../../../../core/auth/auth.service.js');
+        const restaurant = await FoodRestaurant.findById(id).select('ownerEmail ownerPhone primaryContactNumber');
+        if (!restaurant) {
+            return res.status(404).json({ success: false, message: 'Restaurant not found' });
+        }
+        if (!String(restaurant.ownerEmail || '').trim()) {
+            return res.status(400).json({ success: false, message: 'Add an owner email to this restaurant first; it is the web login ID' });
+        }
+        if (String(restaurant.ownerPhone || restaurant.primaryContactNumber || '').replace(/\D/g, '').length < 10) {
+            return res.status(400).json({ success: false, message: 'Add an owner phone to this restaurant first; the login OTP is sent there' });
+        }
+        const portalPasswordSetAt = new Date();
+        await FoodRestaurant.updateOne(
+            { _id: id },
+            { $set: { portalPassword: await hashRestaurantPortalPassword(password), portalPasswordSetAt } },
+        );
+        res.status(200).json({ success: true, message: 'Web portal password saved', data: { portalPasswordSetAt } });
+    } catch (error) {
+        next(error);
+    }
+}
+
 export async function updateRestaurantStatus(req, res, next) {
     try {
         const { id } = req.params;

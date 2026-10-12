@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { useNavigate, Link } from "react-router-dom"
 import { toast } from "react-hot-toast"
 import { extractRawPhone } from "../../../../../utils/phone.util"
-import { Loader2, AlertCircle } from "lucide-react"
+import { Loader2, AlertCircle, Eye, EyeOff } from "lucide-react"
 import { Button } from "@food/components/ui/button"
 import { restaurantAPI } from "@food/api"
 import { useCompanyName } from "@food/hooks/useCompanyName"
@@ -12,6 +12,15 @@ import { getRestaurantLogo, loadBusinessSettings, getCachedSettings } from "@foo
 import { useSettings } from "../../../../Taxi/shared/context/SettingsContext"
 
 const DEFAULT_COUNTRY_CODE = "+91"
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+// The restaurant app is this same site inside a Flutter WebView. It keeps the
+// phone-OTP login; a normal browser gets email + password, then an OTP to the
+// phone on file.
+const isRestaurantApp = () =>
+  typeof window !== "undefined" &&
+  Boolean(window.flutter_inappwebview) &&
+  typeof window.flutter_inappwebview.callHandler === "function"
 
 export default function RestaurantLogin() {
   const companyName = useCompanyName()
@@ -52,6 +61,51 @@ export default function RestaurantLogin() {
   })
   const [error, setError] = useState("")
   const [isSending, setIsSending] = useState(false)
+  const [isWebPortal, setIsWebPortal] = useState(() => !isRestaurantApp())
+  const [webForm, setWebForm] = useState({ email: "", password: "" })
+  const [showPassword, setShowPassword] = useState(false)
+
+  useEffect(() => {
+    // The WebView bridge can appear just after first paint.
+    const onBridgeReady = () => setIsWebPortal(false)
+    window.addEventListener("flutterInAppWebViewPlatformReady", onBridgeReady)
+    return () => window.removeEventListener("flutterInAppWebViewPlatformReady", onBridgeReady)
+  }, [])
+
+  const handleWebLogin = async (e) => {
+    e?.preventDefault?.()
+    const email = webForm.email.trim().toLowerCase()
+    if (!EMAIL_REGEX.test(email)) {
+      setError("Enter a valid email address")
+      return
+    }
+    if (!webForm.password) {
+      setError("Password is required")
+      return
+    }
+    try {
+      setIsSending(true)
+      setError("")
+      const response = await restaurantAPI.webLoginRequestOtp(email, webForm.password)
+      const data = response?.data?.data || response?.data || {}
+      if (!data.ticket) throw new Error("Could not start login. Please try again.")
+      sessionStorage.setItem("restaurantAuthData", JSON.stringify({
+        method: "web",
+        email,
+        ticket: data.ticket,
+        maskedPhone: data.maskedPhone || "",
+        isSignUp: false,
+        module: "restaurant",
+      }))
+      setWebForm((prev) => ({ ...prev, password: "" }))
+      toast.success("OTP sent to your registered mobile number")
+      navigate("/food/restaurant/otp")
+    } catch (apiErr) {
+      setError(apiErr?.response?.data?.message || apiErr?.response?.data?.error || apiErr?.message || "Login failed")
+    } finally {
+      setIsSending(false)
+    }
+  }
   const [keyboardInset, setKeyboardInset] = useState(0)
 
   useEffect(() => {
@@ -186,10 +240,88 @@ export default function RestaurantLogin() {
               Restaurant Portal
             </h2>
             <p className="text-sm font-medium text-gray-500">
-              Signin with your registered mobile to manage your outlet.
+              {isWebPortal
+                ? "Sign in with your registered email and password. We'll send an OTP to your registered mobile."
+                : "Signin with your registered mobile to manage your outlet."}
             </p>
           </div>
 
+          {isWebPortal ? (
+          <form className="space-y-6" onSubmit={handleWebLogin} noValidate>
+            <div className="space-y-2">
+              <label htmlFor="restaurant-email" className="text-xs font-bold text-gray-700 uppercase tracking-wider ml-1">
+                Email ID
+              </label>
+              <input
+                id="restaurant-email"
+                type="email"
+                autoComplete="username"
+                placeholder="you@gmail.com"
+                value={webForm.email}
+                onChange={(e) => { setWebForm((prev) => ({ ...prev, email: e.target.value })); if (error) setError("") }}
+                className="w-full h-14 bg-[#F8F9FA] dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl outline-none focus:border-[#F38F24] focus:ring-1 focus:ring-[#F38F24] placeholder:text-gray-400 text-base font-semibold px-4 text-[#1A1A1A] dark:text-white transition-all"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="restaurant-password" className="text-xs font-bold text-gray-700 uppercase tracking-wider ml-1">
+                Password
+              </label>
+              <div className="flex items-center bg-[#F8F9FA] dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl focus-within:border-[#F38F24] focus-within:ring-1 focus-within:ring-[#F38F24] transition-all overflow-hidden">
+                <input
+                  id="restaurant-password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  placeholder="Enter your password"
+                  value={webForm.password}
+                  onChange={(e) => { setWebForm((prev) => ({ ...prev, password: e.target.value })); if (error) setError("") }}
+                  className="flex-1 min-w-0 h-14 bg-transparent border-0 outline-none ring-0 placeholder:text-gray-400 text-base font-semibold px-4 text-[#1A1A1A] dark:text-white"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  className="px-4 h-14 text-gray-500 hover:text-gray-700"
+                >
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
+              </div>
+            </div>
+
+            <AnimatePresence>
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 10 }}
+                  className="flex items-center gap-1.5 text-xs font-bold text-[#0D2A6B] pl-2"
+                >
+                  <AlertCircle className="h-4 w-4" />
+                  <span>{error}</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <Button
+              type="submit"
+              disabled={isSending || !webForm.email.trim() || !webForm.password}
+              className="w-full h-14 rounded-xl font-bold text-base transition-all bg-[#1A1A1A] hover:bg-black text-white hover:shadow-lg disabled:opacity-50 disabled:bg-gray-200 disabled:text-gray-400"
+            >
+              {isSending ? (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Verifying...</span>
+                </div>
+              ) : (
+                "Continue Securely"
+              )}
+            </Button>
+
+            <p className="text-xs text-center text-gray-500 font-medium">
+              Don't have a password? Contact {brandName} support to set one up.
+            </p>
+          </form>
+          ) : (
           <div className="space-y-8">
             <div className="space-y-4">
               <label className="text-xs font-bold text-gray-700 uppercase tracking-wider ml-1">
@@ -241,6 +373,7 @@ export default function RestaurantLogin() {
               )}
             </Button>
           </div>
+          )}
 
           <footer className="mt-auto pt-10 text-center">
             <p className="text-xs text-gray-400 font-medium leading-relaxed">

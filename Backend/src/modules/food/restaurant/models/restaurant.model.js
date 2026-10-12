@@ -60,6 +60,15 @@ const restaurantSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    // bcrypt hash for the web-portal login (email + password, then an OTP to
+    // ownerPhone). Set only by an admin through
+    // PUT /food/admin/restaurants/:id/portal-password; never selected by default
+    // so it cannot leak through the many places that return the whole document.
+    portalPassword: {
+      type: String,
+      select: false,
+    },
+    portalPasswordSetAt: { type: Date, default: null },
     // Normalized fields for fast lookup + uniqueness guarantees.
     // These are derived from restaurantName/ownerPhone at write time.
     restaurantNameNormalized: {

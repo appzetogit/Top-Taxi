@@ -5,6 +5,9 @@ import {
   refreshAccessToken,
   requestRestaurantOtp,
   verifyRestaurantOtpAndLogin,
+  requestRestaurantWebLoginOtp,
+  resendRestaurantWebLoginOtp,
+  verifyRestaurantWebLoginOtp,
   requestDeliveryOtp,
   verifyDeliveryOtpAndLogin,
   logout,
@@ -19,6 +22,11 @@ import { validateUserOtpVerifyDto } from "../../dtos/auth/userOtpVerify.dto.js";
 import { validateAdminLoginDto } from "../../dtos/auth/adminLogin.dto.js";
 import { validateRestaurantOtpRequestDto } from "../../dtos/auth/restaurantOtpRequest.dto.js";
 import { validateRestaurantOtpVerifyDto } from "../../dtos/auth/restaurantOtpVerify.dto.js";
+import {
+  validateRestaurantWebLoginRequestDto,
+  validateRestaurantWebLoginResendDto,
+  validateRestaurantWebLoginVerifyDto,
+} from "../../dtos/auth/restaurantWebLogin.dto.js";
 import { validateDeliveryOtpRequestDto } from "../../dtos/auth/deliveryOtpRequest.dto.js";
 import { validateDeliveryOtpVerifyDto } from "../../dtos/auth/deliveryOtpVerify.dto.js";
 import { validateLogoutDto } from "../../dtos/auth/logout.dto.js";
@@ -106,6 +114,36 @@ export const verifyRestaurantOtpController = async (req, res, next) => {
   try {
     const { phone, otp, fcmToken, platform } = validateRestaurantOtpVerifyDto(req.body);
     const result = await verifyRestaurantOtpAndLogin(phone, otp, fcmToken, platform);
+    return sendResponse(res, 200, "Login successful", result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const requestRestaurantWebLoginOtpController = async (req, res, next) => {
+  try {
+    const { email, password } = validateRestaurantWebLoginRequestDto(req.body);
+    const result = await requestRestaurantWebLoginOtp(email, password);
+    return sendResponse(res, 200, "OTP sent to your registered mobile number", result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const resendRestaurantWebLoginOtpController = async (req, res, next) => {
+  try {
+    const { ticket, email } = validateRestaurantWebLoginResendDto(req.body);
+    const result = await resendRestaurantWebLoginOtp(ticket, email);
+    return sendResponse(res, 200, "OTP sent to your registered mobile number", result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const verifyRestaurantWebLoginOtpController = async (req, res, next) => {
+  try {
+    const { ticket, email, otp, fcmToken } = validateRestaurantWebLoginVerifyDto(req.body);
+    const result = await verifyRestaurantWebLoginOtp(ticket, email, otp, fcmToken);
     return sendResponse(res, 200, "Login successful", result);
   } catch (error) {
     next(error);

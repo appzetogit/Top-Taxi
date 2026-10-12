@@ -141,6 +141,8 @@ export default function EditRestaurant() {
   const [detailsForm, setDetailsForm] = useState(() => normalizeDetailsFormFromRestaurant(null))
   const [locationForm, setLocationForm] = useState(() => normalizeLocationFormFromRestaurant(null))
   const [locationError, setLocationError] = useState("")
+  const [portalPassword, setPortalPassword] = useState("")
+  const [savingPortalPassword, setSavingPortalPassword] = useState(false)
 
   const locationSearchInputRef = useRef(null)
   const placesAutocompleteRef = useRef(null)
@@ -333,6 +335,26 @@ export default function EditRestaurant() {
       alert(e?.response?.data?.message || "Failed to update restaurant details")
     } finally {
       setSavingDetails(false)
+    }
+  }
+
+  const handleSavePortalPassword = async () => {
+    if (!restaurantId) return
+    if (portalPassword.length < 8) {
+      alert("Password must be at least 8 characters")
+      return
+    }
+    try {
+      setSavingPortalPassword(true)
+      const res = await adminAPI.setRestaurantPortalPassword(restaurantId, portalPassword)
+      const portalPasswordSetAt = res?.data?.data?.portalPasswordSetAt || new Date().toISOString()
+      setRestaurant((prev) => ({ ...(prev || {}), portalPasswordSetAt }))
+      setPortalPassword("")
+      alert("Web portal password saved")
+    } catch (e) {
+      alert(e?.response?.data?.message || "Failed to save web portal password")
+    } finally {
+      setSavingPortalPassword(false)
     }
   }
 
@@ -538,6 +560,38 @@ export default function EditRestaurant() {
                   <Label>Offer</Label>
                   <Input value={detailsForm.offer} onChange={(e) => setDetailsForm((p) => ({ ...p, offer: e.target.value }))} />
                 </div>
+              </div>
+            </section>
+
+            <section className="bg-white rounded-xl border border-slate-200 p-6">
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-900">Web Portal Login</h2>
+                  <p className="text-xs text-slate-500 mt-1">
+                    On the website the restaurant signs in with the Owner Email ({restaurant?.ownerEmail || "not set"}) and this
+                    password, then enters an OTP sent to the Owner Phone. The mobile app keeps the phone OTP login.
+                  </p>
+                  <p className="text-xs mt-1 font-medium text-slate-700">
+                    {restaurant?.portalPasswordSetAt
+                      ? `Password set on ${new Date(restaurant.portalPasswordSetAt).toLocaleString()}`
+                      : "No password set yet"}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
+                <div className="flex-1">
+                  <Label>{restaurant?.portalPasswordSetAt ? "New password" : "Password"}</Label>
+                  <Input
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder="At least 8 characters"
+                    value={portalPassword}
+                    onChange={(e) => setPortalPassword(e.target.value)}
+                  />
+                </div>
+                <Button onClick={handleSavePortalPassword} disabled={savingPortalPassword || portalPassword.length < 8}>
+                  {savingPortalPassword ? <Loader2 className="w-4 h-4 animate-spin" /> : restaurant?.portalPasswordSetAt ? "Change Password" : "Set Password"}
+                </Button>
               </div>
             </section>
 

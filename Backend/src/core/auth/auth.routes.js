@@ -6,6 +6,9 @@ import {
     refreshTokenController,
     requestRestaurantOtpController,
     verifyRestaurantOtpController,
+    requestRestaurantWebLoginOtpController,
+    resendRestaurantWebLoginOtpController,
+    verifyRestaurantWebLoginOtpController,
     requestDeliveryOtpController,
     verifyDeliveryOtpController,
     logoutController,
@@ -37,6 +40,11 @@ router.post('/user/verify-otp', authRateLimiter, verifyUserOtpController);
 // Restaurant OTP login
 router.post('/restaurant/request-otp', authRateLimiter, requestRestaurantOtpController);
 router.post('/restaurant/verify-otp', authRateLimiter, verifyRestaurantOtpController);
+
+// Restaurant web-portal login: email + password, then OTP to the phone on file
+router.post('/restaurant/web-login/request-otp', authRateLimiter, requestRestaurantWebLoginOtpController);
+router.post('/restaurant/web-login/resend-otp', authRateLimiter, resendRestaurantWebLoginOtpController);
+router.post('/restaurant/web-login/verify-otp', authRateLimiter, verifyRestaurantWebLoginOtpController);
 
 // Delivery partner OTP login
 router.post('/delivery/request-otp', authRateLimiter, requestDeliveryOtpController);

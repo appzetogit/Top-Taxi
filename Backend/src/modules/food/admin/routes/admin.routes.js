@@ -95,6 +95,7 @@ router.put('/restaurants/:id/combos/:comboId', adminController.updateRestaurantC
 router.delete('/restaurants/:id/combos/:comboId', adminController.deleteRestaurantCombo);
 router.post('/restaurants', adminController.createRestaurant);
 router.patch('/restaurants/:id', adminController.updateRestaurantById);
+router.put('/restaurants/:id/portal-password', adminController.setRestaurantPortalPassword);
 router.patch('/restaurants/:id/status', adminController.updateRestaurantStatus);
 router.patch('/restaurants/:id/location', adminController.updateRestaurantLocation);
 router.patch('/restaurants/:id/menu', adminController.updateRestaurantMenuById);

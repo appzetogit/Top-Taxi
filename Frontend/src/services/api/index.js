@@ -711,6 +711,13 @@ export const adminAPI = {
     apiClient.patch(`/food/admin/restaurants/${String(id)}`, body ?? {}, {
       contextModule: "admin",
     }),
+  /** Set the restaurant's web-portal password (admin). */
+  setRestaurantPortalPassword: (id, password) =>
+    apiClient.put(
+      `/food/admin/restaurants/${String(id)}/portal-password`,
+      { password },
+      { contextModule: "admin" },
+    ),
   /** Update restaurant status (admin). Body: { status: boolean } */
   updateRestaurantStatus: (id, status) =>
     apiClient.patch(
@@ -1407,6 +1414,26 @@ export const restaurantAPI = {
       return Promise.reject(new Error("Phone and OTP are required"));
     return authService.verifyRestaurantOtp(phone, otp, fcmToken, platform);
   },
+  /** Web portal step 1: email + password; on success an OTP goes to the phone on file. */
+  webLoginRequestOtp: (email, password) =>
+    apiClient.post("/food/auth/restaurant/web-login/request-otp", {
+      email: String(email || "").trim(),
+      password,
+    }),
+  /** Web portal: resend the OTP using the ticket from step 1 (no password needed again). */
+  webLoginResendOtp: (ticket, email) =>
+    apiClient.post("/food/auth/restaurant/web-login/resend-otp", {
+      ticket,
+      email: String(email || "").trim(),
+    }),
+  /** Web portal step 2: the ticket from step 1 plus the OTP. */
+  webLoginVerifyOtp: (ticket, email, otp, fcmToken = null) =>
+    apiClient.post("/food/auth/restaurant/web-login/verify-otp", {
+      ticket,
+      email: String(email || "").trim(),
+      otp: String(otp || "").replace(/\D/g, ""),
+      ...(fcmToken ? { fcmToken } : {}),
+    }),
   getMe: () => authService.getMe("restaurant"),
   /** Restaurant dashboard: fetch current restaurant profile (deduped + short-cached). */
   getCurrentRestaurant: () => getRestaurantCurrentOnce(),
