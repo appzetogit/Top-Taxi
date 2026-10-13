@@ -4,8 +4,8 @@
  *
  * Run: node tests/auth-open-access.smoke.mjs
  *
- * Found by sweeping food, quick-commerce and taxi for the class of bug the
- * service-provider cash routes had:
+ * Found by sweeping food, quick-commerce and taxi for one class of bug --
+ * signed in (or not signed in at all) treated as allowed:
  *
  *  - Taxi `authenticateOrResolveUser`, on 52 customer routes: with no token, the
  *    caller became any user id it sent -- or, sending none, the OLDEST user. In
@@ -175,17 +175,13 @@ const main = async () => {
         server.close();
     }
 
-    // --- anonymous writes to admin content and uploads --------------------------
+    // --- anonymous writes to admin content ----------------------------------------
     console.log('\nanonymous writes');
     {
         const { adminRouter: taxiAdminRouter } = await import('../src/modules/taxi/admin/routes/adminRoutes.js');
-        const { createRequire } = await import('node:module');
-        const req2 = createRequire(import.meta.url);
-        const spUploadRoutes = req2('../src/modules/serviceProvider/routes/admin-routes/upload.routes.js');
         const app = express();
         app.use(express.json());
         app.use('/taxi', taxiAdminRouter);
-        app.use('/sp', spUploadRoutes);
         app.use((err, _req, res, _next) => res.status(err.statusCode || err.status || 500).json({ message: err.message }));
         const { server, base } = await listen(app);
         const status = (method, url) => fetch(base + url, { method, headers: { 'content-type': 'application/json' }, body: method === 'GET' ? undefined : '{}' }).then((r) => r.status);
@@ -196,10 +192,6 @@ const main = async () => {
         });
         await check('taxi on-boarding screens stay readable before sign-in', async () => {
             assert.notEqual(await status('GET', '/taxi/on-boarding'), 401);
-        });
-        await check('SP upload signature and direct upload need a signed-in account', async () => {
-            assert.equal(await status('GET', '/sp/upload/sign-signature?folder=x'), 401);
-            assert.equal(await status('POST', '/sp/upload'), 401);
         });
         server.close();
     }

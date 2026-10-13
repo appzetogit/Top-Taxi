@@ -32,7 +32,6 @@ import {
   Wallet,
   Award,
   Truck,
-  Wrench,
   Package,
   CreditCard,
   Settings,
@@ -66,7 +65,6 @@ import { getCachedSettings, loadBusinessSettings } from "@food/utils/businessSet
 import quickSpicyLogo from "@food/assets/k9-logo.jpg"
 import { useSettings } from "../../../Taxi/shared/context/SettingsContext"
 import { useAdminAccess, filterMenuForAccess, hasPanel, isRestricted } from "@food/utils/adminAccess"
-import { SERVICE_PROVIDER_ENABLED } from "@/config/features"
 /**
  * Which service tabs this admin may see.
  *
@@ -77,7 +75,7 @@ import { SERVICE_PROVIDER_ENABLED } from "@/config/features"
  */
 const useServiceAccess = () =>
   useMemo(() => {
-    const showAll = { food: true, taxi: true, serviceProvider: true, quickCommerce: true }
+    const showAll = { food: true, taxi: true, quickCommerce: true }
     try {
       const raw = localStorage.getItem("admin_user") || sessionStorage.getItem("admin_user")
       if (!raw) return showAll
@@ -88,7 +86,6 @@ const useServiceAccess = () =>
       return {
         food: access.includes("food"),
         taxi: access.includes("taxi"),
-        serviceProvider: access.includes("serviceProvider"),
         quickCommerce: access.includes("quickCommerce"),
       }
     } catch {
@@ -338,15 +335,9 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
     ? {
         food: hasPanel(access, "food"),
         taxi: hasPanel(access, "taxi"),
-        serviceProvider: SERVICE_PROVIDER_ENABLED && hasPanel(access, "serviceProvider"),
         quickCommerce: hasPanel(access, "quickCommerce"),
       }
-    : {
-        ...storedAccess,
-        // Off on a site that has not switched the module on, whatever the
-        // stored session says -- the tab would lead to a route that is absent.
-        serviceProvider: SERVICE_PROVIDER_ENABLED && storedAccess.serviceProvider !== false,
-      }
+    : storedAccess
   const [searchQuery, setSearchQuery] = useState("")
   const [badges, setBadges] = useState({})
 
@@ -1125,28 +1116,6 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
                   )}
                 />
                 Taxi
-              </button>
-              )}
-              {/* SERVICE PROVIDER TAB -- per site (config/features.js). The flag
-                  also gates the /admin/sp route, so the two stay together. */}
-              {serviceAccess.serviceProvider && (
-              <button
-                type="button"
-                onClick={() => navigate("/admin/sp/dashboard")}
-                className={cn(
-                  "flex-1 min-w-0 flex flex-col items-center justify-center gap-1 px-1 py-2 text-[11px] leading-none font-bold rounded-lg transition-all duration-300",
-                  location.pathname.startsWith("/admin/sp")
-                    ? "bg-[var(--sb-active-bg)] text-[var(--sb-active-ink)] shadow-[0_2px_8px_rgba(26,26,26,0.18)]"
-                    : "text-[var(--sb-ink-faint)] hover:text-[var(--sb-ink-soft)] hover:bg-[var(--sb-hover)]"
-                )}
-              >
-                <Wrench
-                  className={cn(
-                    "w-3.5 h-3.5",
-                    location.pathname.startsWith("/admin/sp") ? "text-[var(--sb-active-ink)]" : "text-[var(--sb-ink-faint)]"
-                  )}
-                />
-                Services
               </button>
               )}
               {serviceAccess.quickCommerce && (

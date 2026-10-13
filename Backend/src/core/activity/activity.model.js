@@ -18,12 +18,11 @@ import mongoose from 'mongoose';
  *   - "what have they spent with us across the platform"
  */
 
-export const ACTIVITY_VERTICALS = Object.freeze(['food', 'quickCommerce', 'taxi', 'serviceProvider']);
+export const ACTIVITY_VERTICALS = Object.freeze(['food', 'quickCommerce', 'taxi']);
 
 /**
- * Normalised lifecycle, shared by all four. The verticals disagree on almost
- * everything else -- food says `delivered`, taxi `completed`, service-provider
- * `work_done` -- so the feed needs one vocabulary or the client ends up reimplementing
+ * Normalised lifecycle, shared by every vertical. The verticals disagree on almost
+ * everything else -- food says `delivered`, taxi `completed` -- so the feed needs one vocabulary or the client ends up reimplementing
  * this mapping per vertical.
  */
 export const ACTIVITY_STATUS = Object.freeze({

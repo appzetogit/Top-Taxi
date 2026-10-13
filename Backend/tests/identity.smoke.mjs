@@ -5,7 +5,6 @@
 import assert from 'node:assert/strict';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
-import { createRequire } from 'node:module';
 
 let failures = 0;
 const check = (name, fn) => {
@@ -22,8 +21,6 @@ await mongoose.connect(process.env.MONGO_URI);
 
 const { FoodUser } = await import('../src/core/users/user.model.js');
 const { FoodUser: QCUser } = await import('../src/modules/quickCommerce/core/users/user.model.js');
-const require = createRequire(import.meta.url);
-const SPUser = require('../src/modules/serviceProvider/models/User.js');
 const { ensurePlatformUser, linkSatellite } = await import('../src/core/identity/identityLink.service.js');
 const { resolveCustomerIdentities } = await import('../src/core/activity/identityResolver.js');
 
@@ -49,16 +46,16 @@ console.log('\n[1] ensurePlatformUser');
 
 console.log('\n[2] linkSatellite stamps the satellite');
 {
-    const sp = await SPUser.create({ name: 'SP Cust', phone: '9876500002' });
-    const pid = await linkSatellite(SPUser, sp._id, { phone: '9876500002', name: 'SP Cust' });
+    const sat = await QCUser.create({ name: 'QC Cust', phone: '9876500002' });
+    const pid = await linkSatellite(QCUser, sat._id, { phone: '9876500002', name: 'QC Cust' });
     check('returns the platform id', () => assert.ok(pid));
 
-    const reread = await SPUser.findById(sp._id).lean();
-    check('sp_user carries platformUserId', () => assert.equal(String(reread.platformUserId), String(pid)));
+    const reread = await QCUser.findById(sat._id).lean();
+    check('qc_user carries platformUserId', () => assert.equal(String(reread.platformUserId), String(pid)));
 
     // A failing link must never throw at a registration site.
     let threw = null;
-    try { await linkSatellite(SPUser, sp._id, { phone: 'garbage' }); } catch (e) { threw = e; }
+    try { await linkSatellite(QCUser, sat._id, { phone: 'garbage' }); } catch (e) { threw = e; }
     check('bad phone -> null, never a throw', () => assert.equal(threw, null));
 }
 
@@ -77,16 +74,16 @@ console.log('\n[3] the resolver prefers links and survives missing phones');
     // need one.
     const phoneless = await FoodUser.create({ phone: '0000000004', name: 'NoPhone' });
     await FoodUser.updateOne({ _id: phoneless._id }, { $set: { phone: '' } });
-    await SPUser.create({ name: 'Sat', phone: '9876500005', platformUserId: phoneless._id });
+    await QCUser.create({ name: 'Sat', phone: '9876500005', platformUserId: phoneless._id });
 
     const r2 = await resolveCustomerIdentities(phoneless._id);
-    check('resolution works with no phone on the master user', () => assert.ok(r2.resolved.includes('serviceProvider')));
+    check('resolution works with no phone on the master user', () => assert.ok(r2.resolved.includes('quickCommerce')));
 
     // Unlinked legacy satellite still resolves through the phone fallback.
     const legacyMaster = await FoodUser.create({ phone: '9876500006', name: 'Legacy' });
-    await SPUser.create({ name: 'LegacySat', phone: '+919876500006' });
+    await QCUser.create({ name: 'LegacySat', phone: '+919876500006' });
     const r3 = await resolveCustomerIdentities(legacyMaster._id);
-    check('unlinked satellite still resolves via phone fallback', () => assert.ok(r3.resolved.includes('serviceProvider')));
+    check('unlinked satellite still resolves via phone fallback', () => assert.ok(r3.resolved.includes('quickCommerce')));
 
     // Somebody ELSE's satellite must never resolve to this customer.
     const other = await FoodUser.create({ phone: '9876500007', name: 'Other' });
@@ -97,7 +94,7 @@ console.log('\n[3] the resolver prefers links and survives missing phones');
 console.log('\n[4] the backfill script');
 {
     // Unlinked satellites: one matching an existing platform user, one brand new.
-    await SPUser.create({ name: 'BF1', phone: '9876500008' });
+    await QCUser.create({ name: 'BF1', phone: '9876500008' });
     await FoodUser.create({ phone: '9876500008', name: 'BF1 master' });
     await QCUser.create({ phone: '9876500009', name: 'BF2 only-qc' });
 
@@ -106,15 +103,15 @@ console.log('\n[4] the backfill script');
 
     const dry = execFileSync('node', ['scripts/link-user-identities.js'], { env, encoding: 'utf8' });
     check('dry run reports the pending links', () => assert.match(dry, /DRY-RUN\s+linked=\d/));
-    const stillUnlinked = await SPUser.countDocuments({ phone: '9876500008', platformUserId: null });
+    const stillUnlinked = await QCUser.countDocuments({ phone: '9876500008', platformUserId: null });
     check('dry run writes nothing', () => assert.equal(stillUnlinked, 1));
 
     const commit = execFileSync('node', ['scripts/link-user-identities.js', '--commit'], { env, encoding: 'utf8' });
     check('commit runs', () => assert.match(commit, /DONE/));
 
-    const sp = await SPUser.findOne({ phone: '9876500008' }).lean();
+    const bf1 = await QCUser.findOne({ phone: '9876500008' }).lean();
     const master = await FoodUser.findOne({ phone: '9876500008' }).lean();
-    check('satellite linked to the EXISTING platform user', () => assert.equal(String(sp.platformUserId), String(master._id)));
+    check('satellite linked to the EXISTING platform user', () => assert.equal(String(bf1.platformUserId), String(master._id)));
 
     const qc = await QCUser.findOne({ phone: '9876500009' }).lean();
     check('satellite-only customer got a platform identity created', () => assert.ok(qc.platformUserId));

@@ -4,10 +4,10 @@
  * Run: node tests/my-orders.smoke.mjs
  *
  * What this guards:
- *   - Food, Quick, rides, parcel and Services bookings appear in one
+ *   - Food, Quick, rides and parcel orders appear in one
  *     newest-first list, each with the route of its own detail screen;
- *   - Quick and Services orders are found through the customer's own rows in
- *     those services (platformUserId, else the same phone);
+ *   - Quick orders are found through the customer's own rows in
+ *     that service (platformUserId, else the same phone);
  *   - nobody else's orders appear; abandoned unpaid checkouts do not appear;
  *   - ongoing / past and per-service filters, and paging with nextBefore.
  */
@@ -42,12 +42,10 @@ const other = oid();
 await db.collection('users').insertMany([{ _id: asha, phone: '9876543210' }, { _id: other, phone: '9000000000' }]);
 const ashaQuick = oid();
 const ashaQuickByPhone = oid();
-const ashaSp = oid();
 await db.collection('qc_users').insertMany([
   { _id: ashaQuick, platformUserId: asha, phone: '9876543210' },
   { _id: ashaQuickByPhone, phone: '+91 9876543210' },
 ]);
-await db.collection('sp_users').insertOne({ _id: ashaSp, platformUserId: asha });
 
 const joy = oid();
 const grocer = oid();
@@ -76,17 +74,13 @@ await db.collection('taxirides').insertMany([
   { _id: oid(), userId: asha, serviceType: 'parcel', status: 'accepted', pickupAddress: 'Home', dropAddress: 'Office, Dharamshala', fare: 80, createdAt: minsAgo(10) },
   { _id: oid(), userId: other, serviceType: 'ride', status: 'completed', fare: 999, createdAt: minsAgo(2) },
 ]);
-await db.collection('sp_bookings').insertOne({
-  _id: oid(), userId: ashaSp, bookingNumber: 'BK-7', serviceName: 'AC repair', status: 'confirmed', userPayableAmount: 499,
-  scheduledDate: new Date(), timeSlot: { start: '10:00' }, createdAt: minsAgo(1),
-});
 
 const all = await listMyOrders(String(asha), {});
 
 console.log('\nOne list');
 await check('every service, newest first, nobody else\'s, no unpaid checkout', async () => {
-  assert.deepEqual(all.items.map((i) => i.number), ['BK-7', all.items[1].number, 'QC-2', 'QC-1', all.items[4].number, 'FOD-3', 'FOD-1']);
-  assert.deepEqual(all.items.map((i) => i.service), ['services', 'parcel', 'quick', 'quick', 'taxi', 'food', 'food']);
+  assert.deepEqual(all.items.map((i) => i.number), [all.items[0].number, 'QC-2', 'QC-1', all.items[3].number, 'FOD-3', 'FOD-1']);
+  assert.deepEqual(all.items.map((i) => i.service), ['parcel', 'quick', 'quick', 'taxi', 'food', 'food']);
   assert.ok(!all.items.some((i) => i.number === 'FOD-2' || i.number === 'FOD-X'));
 });
 await check('each row names what it was and opens its own detail screen', async () => {
@@ -101,9 +95,6 @@ await check('each row names what it was and opens its own detail screen', async 
   assert.equal(by.taxi.subtitle, 'Bus Stand → Tea Garden');
   assert.equal(by.taxi.route, `/taxi/rides/${ride}`);
   assert.equal(by.parcel.title, 'Parcel to Office');
-  assert.equal(by.services.title, 'AC repair');
-  assert.match(by.services.subtitle, /^For .*, 10:00$/);
-  assert.equal(by.services.amount, 499);
 });
 await check('states and labels', async () => {
   const s = Object.fromEntries(all.items.map((i) => [i.number, [i.state, i.statusLabel]]));
@@ -111,13 +102,13 @@ await check('states and labels', async () => {
   assert.deepEqual(s['FOD-3'], ['cancelled', 'Cancelled']);
   assert.deepEqual(s['QC-1'], ['ongoing', 'On the way']);
   assert.deepEqual(s['QC-2'], ['ongoing', 'Accepted']);
-  assert.equal(all.ongoingCount, 4);
+  assert.equal(all.ongoingCount, 3);
 });
 
 console.log('\nFilters and paging');
 await check('ongoing only, and past only', async () => {
   const on = await listMyOrders(String(asha), { state: 'ongoing' });
-  assert.deepEqual(on.items.map((i) => i.number).sort(), ['BK-7', 'QC-1', 'QC-2', on.items.find((i) => i.service === 'parcel').number].sort());
+  assert.deepEqual(on.items.map((i) => i.number).sort(), ['QC-1', 'QC-2', on.items.find((i) => i.service === 'parcel').number].sort());
   const past = await listMyOrders(String(asha), { state: 'past' });
   assert.deepEqual(past.items.map((i) => i.state).sort(), ['cancelled', 'completed', 'completed']);
 });

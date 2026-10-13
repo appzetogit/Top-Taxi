@@ -35,7 +35,6 @@ let server = null;
 let expireOffersInterval = null;
 let manualAssignExpiryInterval = null;
 let fssaiExpiryInterval = null;
-let spScheduler = null;
 let ledgerNightlyInterval = null;
 
 const gracefulShutdown = async (signal) => {
@@ -52,7 +51,6 @@ const gracefulShutdown = async (signal) => {
             if (expireOffersInterval) clearInterval(expireOffersInterval);
             if (manualAssignExpiryInterval) clearInterval(manualAssignExpiryInterval);
             if (fssaiExpiryInterval) clearInterval(fssaiExpiryInterval);
-            if (spScheduler) spScheduler.stop();
             if (ledgerNightlyInterval) clearInterval(ledgerNightlyInterval);
             logger.info('Graceful shutdown complete');
             process.exit(0);
@@ -113,15 +111,7 @@ const startServer = async () => {
         const { configureTaxiSocketServer } = await import('./src/modules/taxi/socket/index.js');
         configureTaxiSocketServer(getIO());
 
-        // 3c. Service-Provider socket handlers, on namespace /sp of the same IO instance.
-        // SP controllers reach it via require('../../sockets').getIO(); the legacy
-        // req.app.get('io') call sites are served by the app.set below. Master itself
-        // never reads app.get('io'), so this key is free.
-        const { configureSPSocketServer } = await import('./src/modules/serviceProvider/sockets/index.js');
-        const spNamespace = configureSPSocketServer(getIO());
-        app.set('io', spNamespace);
-
-        // 3d. Quick-commerce socket handlers, on namespace /qc. Until this line
+        // 3c. Quick-commerce socket handlers, on namespace /qc. Until this line
         // existed, QC's initSocket was never called at all and every QC realtime
         // feature (order tracking, chat, emergency alerts) was silently dead.
         const { initSocket: initQCSocket } = await import('./src/modules/quickCommerce/config/socket.js');
@@ -294,36 +284,7 @@ const startServer = async () => {
             }
         };
 
-        // Service-Provider wave-based vendor alerting. Without this a booking is
-        // created and no vendor is ever notified, so it is not optional.
-        const startSPScheduler = async () => {
-            try {
-                const { initializeScheduler } = await import('./src/modules/serviceProvider/services/bookingScheduler.js');
-                spScheduler = initializeScheduler(spNamespace);
-                logger.info('Service-Provider booking scheduler started (wave-based vendor alerting)');
-            } catch (err) {
-                logger.error(`SP booking scheduler failed to start: ${err.message}`);
-            }
-        };
-
         const startIntervals = () => {
-            // The SP scheduler is gated SEPARATELY from the rest.
-            //
-            // BACKGROUND_JOBS_ENABLED covers the food/taxi watchdog, offer expiry
-            // and FSSAI sync, and defaults to ON — the k9-backend instance leaves
-            // it unset and already runs those against the same cluster. Running a
-            // second copy here is what that flag exists to prevent.
-            //
-            // The Service-Provider module lives only in this deployment, so its
-            // scheduler has no competing instance. Tying it to the same switch
-            // meant SP dispatch was collateral damage: no wave promotion, no
-            // notifiedWorkers, and no realtime alert to any vendor or worker.
-            if (process.env.SP_SCHEDULER_ENABLED !== 'false') {
-                startSPScheduler();
-            } else {
-                logger.warn('SP_SCHEDULER_ENABLED=false — SP wave alerting is OFF; partners will only see work by polling');
-            }
-
             // Master ledger nightly reconciliation. Its own flag, off by default, and
             // not tied to BACKGROUND_JOBS_ENABLED: it claims each night in the database,
             // so a second instance cannot double-run it. See core/finance/ledgerNightly.js.

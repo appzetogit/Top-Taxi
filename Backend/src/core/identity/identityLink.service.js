@@ -4,8 +4,8 @@ import { logger } from '../../utils/logger.js';
 /**
  * Phase 1 of the identity merge: every customer gets exactly ONE platform identity.
  *
- * Today a customer exists as up to three documents -- `users` (food + taxi),
- * `sp_users`, `qc_users` -- glued together at read time by matching the last ten
+ * Today a customer exists as up to two documents -- `users` (food + taxi),
+ * `qc_users` -- glued together at read time by matching the last ten
  * digits of a phone number (see core/activity/identityResolver.js). That works, but
  * it is a heuristic: it runs a regex query per lookup, breaks if a satellite stores
  * a malformed phone, and nothing in the data says these documents ARE one person.

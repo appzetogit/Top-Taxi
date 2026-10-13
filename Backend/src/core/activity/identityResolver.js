@@ -1,21 +1,20 @@
 import { logger } from '../../utils/logger.js';
 
 /**
- * Every id a single customer is known by, across the four verticals.
+ * Every id a single customer is known by, across the verticals.
  *
  * The activity feed is keyed on the userId that each vertical stamped on its own
  * document, and those are NOT the same id:
  *
  *   food, taxi        -> `users`      (one shared collection, so one id)
- *   service-provider  -> `sp_users`   (its own document, linked by phone)
  *   quick-commerce    -> `qc_users`   (its own document, linked by phone)
  *
  * So querying activities by the caller's token id alone returns food and taxi and
- * silently omits the other two -- a "unified" feed that is quietly missing half the
- * customer's history. Phone is the only link that exists today: the service-provider
- * identity bridge matches on the last ten digits rather than storing a foreign key.
+ * silently omits quick-commerce -- a "unified" feed that is quietly missing part of the
+ * customer's history. Phone is the only link that exists today: the identity bridge
+ * matches on the last ten digits rather than storing a foreign key.
  *
- * This goes away once the identity merge in SUPERAPP_DATA_MODEL.md lands and all four
+ * This goes away once the identity merge in SUPERAPP_DATA_MODEL.md lands and all
  * share `users`. Until then, resolving here keeps the feed honest.
  */
 
@@ -50,16 +49,6 @@ export const resolveCustomerIdentities = async (masterUserId) => {
     const bySatellite = phone
         ? { $or: [{ platformUserId: masterUserId }, { platformUserId: null, phone: new RegExp(`${phone}$`) }] }
         : { platformUserId: masterUserId };
-
-    try {
-        const { createRequire } = await import('node:module');
-        const require = createRequire(import.meta.url);
-        const SPUser = require('../../modules/serviceProvider/models/User.js');
-        const sp = await SPUser.findOne(bySatellite).select('_id').lean();
-        if (sp?._id) { ids.push(sp._id); resolved.push('serviceProvider'); }
-    } catch (err) {
-        logger.warn(`[Activity] service-provider identity unresolved: ${err.message}`);
-    }
 
     try {
         const { FoodUser: QCUser } = await import('../../modules/quickCommerce/core/users/user.model.js');

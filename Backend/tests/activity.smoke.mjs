@@ -28,20 +28,15 @@ const { recordActivity, normaliseStatus, getUserActivity, getUserSpend } = await
 
 const oid = () => new mongoose.Types.ObjectId();
 
-console.log('\n[1] four vocabularies collapse to one');
+console.log('\n[1] every vocabulary collapses to one');
 {
     check('food delivered -> completed', () => assert.equal(normaliseStatus('food', 'delivered'), ACTIVITY_STATUS.COMPLETED));
     check('taxi completed -> completed', () => assert.equal(normaliseStatus('taxi', 'completed'), ACTIVITY_STATUS.COMPLETED));
-    check('service-provider work_done -> ACTIVE (not finished until completed)', () =>
-        assert.equal(normaliseStatus('serviceProvider', 'work_done'), ACTIVITY_STATUS.ACTIVE));
-    check('service-provider completed -> completed', () =>
-        assert.equal(normaliseStatus('serviceProvider', 'completed'), ACTIVITY_STATUS.COMPLETED));
     check('all three food cancel variants -> cancelled', () => {
         for (const s of ['cancelled_by_user', 'cancelled_by_restaurant', 'cancelled_by_admin']) {
             assert.equal(normaliseStatus('food', s), ACTIVITY_STATUS.CANCELLED, s);
         }
     });
-    check('sp no_vendors -> cancelled', () => assert.equal(normaliseStatus('serviceProvider', 'no_vendors'), ACTIVITY_STATUS.CANCELLED));
     check('quick-commerce shares the food machine', () =>
         assert.equal(normaliseStatus('quickCommerce', 'delivered'), ACTIVITY_STATUS.COMPLETED));
     check('an unknown status falls to ACTIVE, never dropped', () =>
@@ -65,11 +60,10 @@ console.log('\n[3] the unified feed');
     const userId = oid();
     await recordActivity({ vertical: 'food', refModel: 'FoodOrder', refId: oid(), userId, rawStatus: 'delivered', amount: 300, title: 'Olive Kitchen', occurredAt: new Date('2026-08-01') });
     await recordActivity({ vertical: 'taxi', refModel: 'TaxiRide', refId: oid(), userId, rawStatus: 'completed', amount: 180, title: 'Ride to Airport', occurredAt: new Date('2026-08-03') });
-    await recordActivity({ vertical: 'serviceProvider', refModel: 'SPBooking', refId: oid(), userId, rawStatus: 'completed', amount: 900, title: 'AC Repair', occurredAt: new Date('2026-08-02') });
     await recordActivity({ vertical: 'quickCommerce', refModel: 'QCOrder', refId: oid(), userId, rawStatus: 'preparing', amount: 120, occurredAt: new Date('2026-08-04') });
 
     const feed = await getUserActivity(userId);
-    check(`one query returns all four verticals (${feed.length})`, () => assert.equal(feed.length, 4));
+    check(`one query returns all three verticals (${feed.length})`, () => assert.equal(feed.length, 3));
     check('newest first', () => {
         const times = feed.map((f) => new Date(f.occurredAt).getTime());
         assert.deepEqual(times, [...times].sort((a, b) => b - a));
@@ -79,8 +73,8 @@ console.log('\n[3] the unified feed');
     check('and it is the quick-commerce order', () => assert.equal(active[0].vertical, 'quickCommerce'));
 
     const spend = await getUserSpend(userId);
-    check(`cross-vertical spend = 1380 (${spend.total})`, () => assert.equal(spend.total, 1380));
-    check('broken down by vertical, excluding the unfinished one', () => assert.equal(spend.byVertical.length, 3));
+    check(`cross-vertical spend = 480 (${spend.total})`, () => assert.equal(spend.total, 480));
+    check('broken down by vertical, excluding the unfinished one', () => assert.equal(spend.byVertical.length, 2));
 }
 
 console.log('\n[4] it cannot break what it observes');
@@ -175,23 +169,21 @@ console.log('\n[6] the endpoint unifies ids across verticals');
     const server = app.listen(0);
 
     const { FoodUser } = await import('../src/core/users/user.model.js');
-    const { createRequire } = await import('node:module');
-    const require = createRequire(import.meta.url);
-    const SPUser = require('../src/modules/serviceProvider/models/User.js');
+    const { FoodUser: QCUser } = await import('../src/modules/quickCommerce/core/users/user.model.js');
 
     // ONE person, but a different user document per vertical -- exactly what makes a
     // naive feed keyed on the token id silently omit half the customer's history.
     const phone = '9876500123';
     const master = await FoodUser.create({ phone, name: 'Cross Vertical' });
-    const sp = await SPUser.create({ phone, name: 'Cross Vertical' });
+    const qc = await QCUser.create({ phone, name: 'Cross Vertical' });
 
     await recordActivity({ vertical: 'food', refModel: 'FoodOrder', refId: oid(), userId: master._id, rawStatus: 'delivered', amount: 200, occurredAt: new Date('2026-08-01') });
-    await recordActivity({ vertical: 'serviceProvider', refModel: 'SPBooking', refId: oid(), userId: sp._id, rawStatus: 'completed', amount: 800, occurredAt: new Date('2026-08-02') });
+    await recordActivity({ vertical: 'quickCommerce', refModel: 'QCOrder', refId: oid(), userId: qc._id, rawStatus: 'delivered', amount: 800, occurredAt: new Date('2026-08-02') });
 
     const { resolveCustomerIdentities } = await import('../src/core/activity/identityResolver.js');
     const { ids, resolved } = await resolveCustomerIdentities(master._id);
     check(`resolver found ${ids.length} identities for one person`, () => assert.ok(ids.length >= 2, JSON.stringify(resolved)));
-    check('service-provider identity resolved by phone', () => assert.ok(resolved.includes('serviceProvider')));
+    check('quick-commerce identity resolved by phone', () => assert.ok(resolved.includes('quickCommerce')));
 
     const { getMyActivityController, getMySpendController } = await import('../src/core/activity/activity.controller.js');
 
@@ -203,7 +195,7 @@ console.log('\n[6] the endpoint unifies ids across verticals');
     );
     check('endpoint returns BOTH verticals for one customer', () => {
         const vs = payload.data.items.map((i) => i.vertical).sort();
-        assert.deepEqual(vs, ['food', 'serviceProvider']);
+        assert.deepEqual(vs, ['food', 'quickCommerce']);
     });
     check('cross-vertical total is right', () => assert.equal(payload.data.total, 2));
 

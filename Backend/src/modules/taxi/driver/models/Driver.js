@@ -52,7 +52,7 @@ const activeAssignmentSchema = new mongoose.Schema(
  */
 const activeAssignmentEntrySchema = new mongoose.Schema(
   {
-    vertical: { type: String, enum: ['food', 'quickCommerce', 'taxi', 'serviceProvider'] },
+    vertical: { type: String, enum: ['food', 'quickCommerce', 'taxi'] },
     jobType: {
       type: String,
       enum: ['foodDelivery', 'quickCommerceDelivery', 'taxiRide', 'serviceBooking'],

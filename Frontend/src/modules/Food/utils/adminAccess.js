@@ -264,8 +264,6 @@ const TAXI_PAGE_RULES = [
 /** Can this admin open the screen at `pathname`? */
 export function canOpenPath(access, pathname) {
   if (!isRestricted(access)) return true
-  // The Services admin is for superadmins only (its own isSuperAdmin guard).
-  if (pathname.startsWith("/admin/sp")) return false
   if (pathname.startsWith("/taxi/admin")) {
     if (!hasPanel(access, "taxi")) return false
     const hit = TAXI_PAGE_RULES.find(([prefix]) => pathname.startsWith(prefix))

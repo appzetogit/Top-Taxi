@@ -31,7 +31,7 @@ if (!(await FoodAdmin.findOne({ email: EMAIL }))) {
         password: PASSWORD,
         name: 'Dev Platform Admin',
         isActive: true,
-        servicesAccess: ['food', 'quickCommerce', 'taxi', 'serviceProvider'],
+        servicesAccess: ['food', 'quickCommerce', 'taxi'],
         adminLevel: 'platform_superadmin',
         admin_type: 'superadmin',
         role: 'super_admin', // SP's isSuperAdmin re-reads this from the DB

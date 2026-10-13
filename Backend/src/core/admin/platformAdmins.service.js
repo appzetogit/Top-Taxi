@@ -332,7 +332,7 @@ function applyTo(doc, data, admin) {
     doc.admin_type = 'superadmin';
     doc.module = null;
     doc.permissions = ['*'];
-    doc.servicesAccess = ['food', 'quickCommerce', 'taxi', 'serviceProvider'];
+    doc.servicesAccess = ['food', 'quickCommerce', 'taxi'];
     doc.canDelete = true;
   } else {
     if (data.canDelete !== undefined) doc.canDelete = data.canDelete;

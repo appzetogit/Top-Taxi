@@ -26,9 +26,6 @@ import petpoojaWebhookRoutes from '../modules/food/orders/routes/petpooja.routes
 import searchRoutes from '../modules/food/search/routes/search.routes.js';
 import { taxiRouter } from '../modules/taxi/routes/index.js';
 import { promotionsRouter as taxiPromotionsRouter } from '../modules/taxi/admin/promotions/routes/index.js';
-// Service-Provider module is CommonJS (see modules/serviceProvider/package.json).
-// ESM importing CJS yields module.exports as the default export.
-import spRouter from '../modules/serviceProvider/routes/index.js';
 // Quick-commerce is a fork of this repo's own food module -- 55 of its 61 model names
 // were identical. Its models are renamed QC* on qc_* collections so nothing shares a
 // collection with food, and its routes are mounted here rather than on /v1/food.
@@ -189,34 +186,16 @@ router.use('/v1', taxiPromotionsRouter);
 router.use('/v1/taxi', requireModuleEnabled(MODULES.TAXI), taxiRouter);
 
 // ─── Cross-vertical customer feed ──────────────────────────────────────────
-// One customer's history and spend across food, taxi, quick-commerce and
-// service-provider. Mounted at the platform root rather than under any vertical,
+// One customer's history and spend across food, taxi and quick-commerce.
+// Mounted at the platform root rather than under any vertical,
 // because it belongs to none of them.
 router.get('/v1/me/activity', authMiddleware, getMyActivityController);
 router.get('/v1/me/spend', authMiddleware, getMySpendController);
 
 // ─── Quick-Commerce ────────────────────────────────────────────────────────
-// No legacy alias block: unlike service-provider, this module's original paths were
+// No legacy alias block: this module's original paths were
 // /v1/food/*, which master's own food module already owns. Aliasing them would hand
 // food traffic to quick-commerce.
 router.use('/v1/qc', requireModuleEnabled(MODULES.QUICK_COMMERCE), qcRouter);
-
-// ─── Service-Provider (Homster) ────────────────────────────────────────────
-// Canonical prefix.
-router.use('/v1/sp', requireModuleEnabled(MODULES.SERVICE_PROVIDER), spRouter);
-
-// Legacy prefixes the shipped Flutter / seller-APK builds still call. These were
-// top-level in the old standalone server.js and none of them collide with the
-// /v1/* namespace above. Do NOT remove until those clients are retired.
-//
-// Delegating instead of router.use('/users', spRouter): a prefixed mount strips
-// the prefix, and spRouter's own table is written with it (`/users/auth/...`),
-// so the stripped path would never match. This hands spRouter the full path.
-// Registered last, so every master route above still wins on any overlap.
-const SP_LEGACY_PREFIXES = ['/users', '/user', '/vendors', '/workers', '/admin', '/bookings', '/payments', '/notifications', '/public', '/scrap', '/image'];
-router.use((req, res, next) => {
-    const matched = SP_LEGACY_PREFIXES.some((p) => req.path === p || req.path.startsWith(`${p}/`));
-    return matched ? spRouter(req, res, next) : next();
-});
 
 export default router;

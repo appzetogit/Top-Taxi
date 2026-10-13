@@ -13,15 +13,11 @@
  * Covers the multer surface the codebase depends on:
  *   - memoryStorage + .single()                 src/middleware/upload.js
  *   - limits.fileSize -> LIMIT_FILE_SIZE        src/modules/quickCommerce/middleware/upload.js
- *   - .fields() with maxCount                   serviceProvider uploadMiddleware
- *   - fileFilter rejection                      serviceProvider uploadMiddleware
- *   - multer.MulterError still an instanceof    serviceProvider handleMulterError
+ *   - .fields() with maxCount                   document-upload forms (inline config)
+ *   - fileFilter rejection                      document-upload forms (inline config)
+ *   - multer.MulterError still an instanceof    every handleMulterError
  *   - diskStorage via { dest }                  taxi userSafety.routes
  *   - text fields alongside files in req.body   every registration form
- *
- * serviceProvider's module itself is not imported: it is CommonJS and constructs a
- * CloudinaryStorage at load time, which needs live credentials. Its multer surface is
- * reproduced here instead.
  *
  * No database required.
  *

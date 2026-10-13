@@ -18,12 +18,11 @@
  * food's wrapper into the QC fork.
  */
 
-/** The job kinds a partner can be holding. One vocabulary for all four verticals. */
+/** The job kinds a partner can be holding. One vocabulary for every vertical. */
 export const JOB_TYPES = Object.freeze({
     FOOD_DELIVERY: 'foodDelivery',
     QUICK_COMMERCE_DELIVERY: 'quickCommerceDelivery',
     TAXI_RIDE: 'taxiRide',
-    SERVICE_BOOKING: 'serviceBooking',
 });
 
 export const ALL_JOB_TYPES = Object.freeze(Object.values(JOB_TYPES));
@@ -56,7 +55,6 @@ export const DEFAULT_POLICY = Object.freeze({
         [JOB_TYPES.FOOD_DELIVERY]: Object.freeze([]),
         [JOB_TYPES.QUICK_COMMERCE_DELIVERY]: Object.freeze([]),
         [JOB_TYPES.TAXI_RIDE]: Object.freeze([]),
-        [JOB_TYPES.SERVICE_BOOKING]: Object.freeze([]),
     }),
 });
 
@@ -75,7 +73,6 @@ export const EXAMPLE_STACKING_POLICY = Object.freeze({
         [JOB_TYPES.FOOD_DELIVERY]: Object.freeze([JOB_TYPES.FOOD_DELIVERY, JOB_TYPES.QUICK_COMMERCE_DELIVERY]),
         [JOB_TYPES.QUICK_COMMERCE_DELIVERY]: Object.freeze([JOB_TYPES.QUICK_COMMERCE_DELIVERY, JOB_TYPES.FOOD_DELIVERY]),
         [JOB_TYPES.TAXI_RIDE]: Object.freeze([]),
-        [JOB_TYPES.SERVICE_BOOKING]: Object.freeze([]),
     }),
 });
 

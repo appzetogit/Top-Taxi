@@ -16,7 +16,6 @@ import { FoodNotification } from './models/notification.model.js';
  * under the customer's PLATFORM id:
  *   food, taxi       already are platform ids (`users`)
  *   quickCommerce    qc_users -> platformUserId, else the same phone in `users`
- *   serviceProvider  sp_users -> platformUserId, else the same phone
  * (worked out from the id itself -- see OWN_USERS)
  * A customer with no platform account is left out rather than filed somewhere
  * the app cannot read.
@@ -39,7 +38,6 @@ function sourceFor(vertical, data = {}) {
   const type = plain(data.type).toLowerCase();
   if (type.includes('payment') || type.includes('refund') || type.includes('wallet')) return 'PAYMENT';
   if (vertical === 'taxi') return 'RIDE';
-  if (vertical === 'serviceProvider') return 'BOOKING';
   if (data.orderId || data.orderMongoId || type.includes('order')) return 'ORDER';
   return 'SYSTEM';
 }
@@ -48,7 +46,7 @@ function sourceFor(vertical, data = {}) {
  * File one customer notification in the shared inbox.
  *
  * @param {object} n
- * @param {'food'|'quickCommerce'|'taxi'|'serviceProvider'} n.vertical  label when the id is a platform id
+ * @param {'food'|'quickCommerce'|'taxi'} n.vertical  label when the id is a platform id
  * @param {string} n.userId   the service's own customer id (translated here)
  * @param {string} n.title
  * @param {string} n.message

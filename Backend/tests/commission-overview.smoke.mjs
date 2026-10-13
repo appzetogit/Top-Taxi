@@ -11,7 +11,6 @@
  *   - last-30-day commission and the effective rate come from delivered
  *     orders only;
  *   - Taxi's rates come from each fare row, named by vehicle and city;
- *   - Services shows the platform's share of service charges and parts;
  *   - each admin sees only what their permissions cover.
  */
 import assert from 'node:assert/strict';
@@ -92,9 +91,6 @@ await db.collection('taxisetprices').insertMany([
   { vehicle_type: cab, transport_type: 'taxi', admin_commission_type_from_driver: 0, admin_commission_from_driver: 25, active: true },
 ]);
 
-// --- Services split.
-await db.collection('sp_settings').insertOne({ type: 'global', servicePayoutPercentage: 75, partsPayoutPercentage: 20 });
-
 const owner = { _id: oid(), role: 'ADMIN', adminLevel: 'platform_superadmin' };
 const report = await commissionOverview(owner);
 const svc = Object.fromEntries(report.services.map((s) => [s.key, s]));
@@ -131,17 +127,13 @@ await check('a store with no rate pays nothing, and is counted', async () => {
   assert.equal(row('quick', 'Plain Mart').source, 'none');
 });
 
-console.log('\nTaxi and Services');
+console.log('\nTaxi');
 await check('Taxi rates come from each fare row, by vehicle and city', async () => {
   const by = Object.fromEntries(svc.taxi.rows.map((r) => [r.vehicle, r]));
   assert.deepEqual(by.Bike.rate, { type: 'percentage', value: 12 });
   assert.equal(by.Bike.where, 'Palampur');
   assert.deepEqual(by.Sedan.rate, { type: 'amount', value: 25 });
   assert.equal(by.Sedan.where, 'Every city');
-});
-await check('Services: the platform keeps what the vendor does not', async () => {
-  assert.deepEqual(svc.services.platformShare, { service: 25, parts: 80 });
-  assert.equal(svc.services.fromSettings, true);
 });
 
 console.log('\nWho sees what');

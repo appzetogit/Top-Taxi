@@ -8,7 +8,6 @@
  *   - Food and Quick use only DELIVERED orders placed in the range, and the
  *     platform's share each service already recorded (platformNetProfit);
  *   - Taxi: fare - driver credit - insurance, for rides completed in range;
- *   - Services: paid bills' company revenue less GST;
  *   - GST is reported beside income, never inside it;
  *   - the breakdown lines add up to the net;
  *   - a sub-admin sees only services they have Reports access for.
@@ -76,12 +75,6 @@ await db.collection('taxirides').insertMany([
   { status: 'completed', completedAt: ist('2026-09-11', '00:30'), fare: 999, driverEarnings: 0 },
 ]);
 
-// --- Services: one paid bill in range, one draft.
-await db.collection('sp_vendor_bills').insertMany([
-  { status: 'paid', paidAt: ist('2026-09-08'), grandTotal: 1180, totalGST: 180, vendorTotalEarning: 640, companyRevenue: 540, totalServiceBase: 900, vendorServiceEarning: 630, totalPartsBase: 100, vendorPartsEarning: 10 },
-  { status: 'draft', paidAt: ist('2026-09-08'), grandTotal: 999, totalGST: 9, vendorTotalEarning: 9, companyRevenue: 999 },
-]);
-
 const owner = { _id: oid(), role: 'ADMIN', adminLevel: 'platform_superadmin' };
 const report = await platformPnl(owner, RANGE);
 const by = Object.fromEntries(report.services.map((s) => [s.key, s]));
@@ -131,21 +124,11 @@ await check('commission, incentives and promos explain it; the rest is recovered
   assert.equal(by.taxi.lines.reduce((a, l) => a + l.amount, 0), by.taxi.net);
 });
 
-console.log('\nServices');
-await check('paid bills only, company revenue less GST', async () => {
-  assert.equal(by.services.count, 1);
-  assert.equal(by.services.net, 360);
-  assert.equal(by.services.gst, 180);
-  assert.equal(line('services', 'serviceShare'), 270);
-  assert.equal(line('services', 'partsShare'), 90);
-  assert.equal(line('services', 'other'), 0);
-});
-
 console.log('\nTotals and the chart');
 await check('totals are the sum of the services', async () => {
-  assert.equal(report.totals.net, 120 + 22 + 65 + 360);
-  assert.equal(report.totals.gst, 35 + 10 + 180);
-  assert.equal(report.totals.gross, 800 + 200 + 400 + 1180);
+  assert.equal(report.totals.net, 120 + 22 + 65);
+  assert.equal(report.totals.gst, 35 + 10);
+  assert.equal(report.totals.gross, 800 + 200 + 400);
 });
 await check('every day in the range is present, with each service\'s share', async () => {
   assert.equal(report.daily.length, 10);

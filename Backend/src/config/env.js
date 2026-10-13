@@ -182,8 +182,8 @@ export const config = {
     petpoojaApiUrl: process.env.PETPOOJA_API_URL || 'https://api.petpooja.com/v2',
     petpoojaWebhookSecret: process.env.PETPOOJA_WEBHOOK_SECRET || '',
 
-    // Background jobs: boot watchdog, seeders, offer/FSSAI expiry sweeps, and the
-    // service-provider booking scheduler. Default ON so normal deployments are
+    // Background jobs: boot watchdog, seeders and offer/FSSAI expiry sweeps.
+    // Default ON so normal deployments are
     // unchanged; set BACKGROUND_JOBS_ENABLED=false on any SECOND instance sharing a
     // database with a primary.
     //
