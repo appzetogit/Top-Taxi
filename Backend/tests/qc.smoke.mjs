@@ -148,7 +148,7 @@ check('the declared platform refs actually exist (no stale exceptions)', () => {
 
 console.log('\n[4] routing');
 
-for (const p of ['/api/v1/health', '/api/v1/food/admin/business-settings/public', '/api/v1/sp/public/cities']) {
+for (const p of ['/api/v1/health', '/api/v1/food/admin/business-settings/public']) {
     const r = await get(p);
     check(`existing ${p} -> ${r.status} (unaffected)`, () => assert.notEqual(r.status, 404));
 }

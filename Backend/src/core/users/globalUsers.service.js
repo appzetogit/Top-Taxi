@@ -9,9 +9,9 @@ import { toTenDigits } from '../identity/phoneMatch.js';
  * Food and taxi customers are ALREADY the same documents: both
  * `core/users/user.model.js` and `modules/taxi/user/models/User.js` declare
  * `collection: 'users'`. So this is not a migration -- it is the read that was
- * never written. Quick commerce (`qc_users`) and service provider (`sp_users`)
- * still keep their own documents, linked by `platformUserId` where it has been
- * stamped and by phone where it has not (core/identity).
+ * never written. Quick commerce (`qc_users`) still keeps its own documents,
+ * linked by `platformUserId` where it has been stamped and by phone where it
+ * has not (core/identity).
  *
  * STRICTLY READ ONLY, and deliberately so. Two mongoose schemas share the
  * `users` collection and they diverge additively -- food alone has
@@ -156,10 +156,10 @@ export async function enrichUsers(users = []) {
     }
 
     /*
-     * Quick commerce and service provider still hold their own customer
-     * documents. Matched on the explicit link first, and on the last ten digits
-     * of the phone for the ones the backfill has not reached -- the same
-     * fallback core/activity/identityResolver.js uses.
+     * Quick commerce still holds its own customer documents. Matched on the
+     * explicit link first, and on the last ten digits of the phone for the
+     * ones the backfill has not reached -- the same fallback
+     * core/activity/identityResolver.js uses.
      */
     const satellite = async (conn, name) => {
         try {
@@ -228,7 +228,7 @@ export async function enrichUsers(users = []) {
     })());
 
     await Promise.all(jobs);
-    await Promise.all([satellite('qc_users', 'quick'), satellite('sp_users', 'services')]);
+    await Promise.all([satellite('qc_users', 'quick')]);
 
     // Apps derived from what they actually did, plus the satellites above.
     for (const [, e] of out) {

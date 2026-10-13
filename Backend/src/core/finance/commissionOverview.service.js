@@ -6,11 +6,10 @@ import { decideAdminAccess } from '../admin/adminAccessPolicy.js';
  * What the platform takes, from every partner, in one view
  * (Master > Report Management > Commission Overview).
  *
- * Four places set it, each on its own screen:
+ * Three places set it, each on its own screen:
  *   Food              per restaurant, with dated schedules, or none in plan mode
  *   Quick Commerce    per store
  *   Taxi              per vehicle type and city, on each fare row
- *   Services          the vendor's payout share; the platform keeps the rest
  *
  * The rate shown for a seller is the one its next order would be charged:
  * each service's own rate function (getRestaurantCommissionSnapshot) is asked
@@ -29,7 +28,6 @@ const SERVICES = {
   food: { label: 'Food', service: 'food', resource: 'restaurants', editPath: '/admin/food/restaurants/commission' },
   quick: { label: 'Quick Commerce', service: 'quickCommerce', resource: 'restaurants', editPath: '/admin/quick-commerce/restaurants/commission' },
   taxi: { label: 'Taxi', service: 'taxi', resource: 'fee_settings', editPath: '/taxi/admin/pricing/set-price' },
-  services: { label: 'Services', service: 'serviceProvider', resource: 'settings', editPath: '/admin/sp/settings' },
 };
 
 const round = (n) => Math.round((Number(n) || 0) * 100) / 100;
@@ -139,22 +137,7 @@ async function taxiOverview() {
   };
 }
 
-async function servicesOverview() {
-  const settings = await coll('sp_settings').findOne({ type: 'global' });
-  // Defaults from modules/serviceProvider/utils/commission.js and the bill controller.
-  const servicePayout = Number(settings?.servicePayoutPercentage ?? 90);
-  const partsPayout = Number(settings?.partsPayoutPercentage ?? 10);
-  return {
-    platformShare: {
-      service: round(100 - servicePayout),
-      parts: round(100 - partsPayout),
-    },
-    vendorShare: { service: round(servicePayout), parts: round(partsPayout) },
-    fromSettings: Boolean(settings && (settings.servicePayoutPercentage !== undefined || settings.partsPayoutPercentage !== undefined)),
-  };
-}
-
-const LOADERS = { food: foodOverview, quick: quickOverview, taxi: taxiOverview, services: servicesOverview };
+const LOADERS = { food: foodOverview, quick: quickOverview, taxi: taxiOverview };
 
 /** How many sellers pay nothing because no rate is set -- the misconfiguration to look for. */
 function summarise(rows = []) {

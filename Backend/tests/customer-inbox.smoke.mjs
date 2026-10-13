@@ -1,22 +1,21 @@
 /**
- * One customer inbox across Food, Quick & Medical, Taxi and Services.
+ * One customer inbox across Food, Quick and Taxi.
  *
  * Run: node tests/customer-inbox.smoke.mjs
  *
  * Drives the real push senders, then reads the inbox the app reads
  * (getInboxNotifications, ownerType USER, the platform user id):
  *   - every customer push is filed, even with no device registered;
- *   - Quick and Services ids are filed under the customer's platform account
+ *   - Quick ids are filed under the customer's platform account
  *     (platformUserId, else the same phone), whichever sender carried them;
  *   - a customer with no platform account is not filed anywhere unreadable;
  *   - the same update twice is filed once; restaurants and riders are not
  *     customers; skipInbox is honoured;
- *   - the inbox shows all four services, newest first.
+ *   - the inbox shows all three services, newest first.
  */
 import assert from 'node:assert/strict';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
-import { createRequire } from 'node:module';
 
 process.env.NODE_ENV = 'test';
 process.env.MONGOMS_STARTUP_TIMEOUT ||= '180000';
@@ -43,23 +42,19 @@ const quick = await import('../src/modules/quickCommerce/core/notifications/fire
 const taxi = await import('../src/modules/taxi/services/pushNotificationService.js');
 const { getInboxNotifications } = await import('../src/core/notifications/notification.service.js');
 const { FoodNotification } = await import('../src/core/notifications/models/notification.model.js');
-const require = createRequire(import.meta.url);
-const { mirrorNotification } = require('../src/modules/serviceProvider/utils/mirrorNotification.js');
 
 const oid = () => new mongoose.Types.ObjectId();
 
-// Asha has one platform account, and her own row in Quick and in Services.
+// Asha has one platform account, and her own row in Quick.
 const asha = oid();
 const ashaQuickLinked = oid();
 const ashaQuickByPhone = oid();
-const ashaServices = oid();
 const stranger = oid();
 await db.collection('users').insertOne({ _id: asha, name: 'Asha', phone: '9876543210' });
 await db.collection('qc_users').insertMany([
   { _id: ashaQuickLinked, phone: '9876543210', platformUserId: asha },
   { _id: ashaQuickByPhone, phone: '+91 98765 43210' },
 ]);
-await db.collection('sp_users').insertOne({ _id: ashaServices, phone: '9876543210', platformUserId: asha });
 await db.collection('qc_users').insertOne({ _id: stranger, phone: '9000000000' }); // no platform account
 
 const inbox = async () => (await getInboxNotifications({ ownerType: 'USER', ownerId: String(asha), limit: 50 })).items;
@@ -100,25 +95,11 @@ await check('Taxi: a ride update to a rider is filed', async () => {
   assert.equal(n.vertical, 'taxi');
   assert.equal(n.source, 'RIDE');
 });
-await check('Services: its mirror now files under the platform account', async () => {
-  await mirrorNotification({ _id: oid(), userId: ashaServices, title: 'Professional has reached', message: 'Your electrician is at the door', type: 'booking_update' });
-  const n = (await inbox()).find((x) => x.title === 'Professional has reached');
-  assert.ok(n, 'not in inbox');
-  assert.equal(n.vertical, 'serviceProvider');
-  assert.equal(n.source, 'BOOKING');
-  assert.equal(await FoodNotification.countDocuments({ ownerId: ashaServices }), 0);
-});
 
 console.log('\nWhat is not filed');
 await check('a customer with no platform account is not filed anywhere unreadable', async () => {
   await push(quick, stranger, 'Hello', 'Nobody reads this');
   assert.equal(await FoodNotification.countDocuments({ title: 'Hello' }), 0);
-});
-await check('a Services customer with no platform account keeps the old copy', async () => {
-  const orphan = oid();
-  await db.collection('sp_users').insertOne({ _id: orphan, phone: '9111111111' });
-  await mirrorNotification({ _id: oid(), userId: orphan, title: 'Booking received', message: 'We got it', type: 'booking' });
-  assert.equal(await FoodNotification.countDocuments({ ownerId: orphan }), 1);
 });
 await check('the same update twice is filed once', async () => {
   await push(core, asha, 'Order accepted', 'Joy is preparing your order', { orderId: 'FOD-1' });
@@ -136,11 +117,11 @@ await check('skipInbox is honoured', async () => {
 });
 
 console.log('\nThe inbox the app reads');
-await check('shows all four services together, newest first', async () => {
+await check('shows all three services together, newest first', async () => {
   const items = await inbox();
-  assert.deepEqual([...new Set(items.map((x) => x.vertical))].sort(), ['food', 'quickCommerce', 'serviceProvider', 'taxi']);
-  assert.equal(items[0].title, 'Professional has reached');
-  assert.equal(items.length, 6);
+  assert.deepEqual([...new Set(items.map((x) => x.vertical))].sort(), ['food', 'quickCommerce', 'taxi']);
+  assert.equal(items[0].title, 'Driver arriving');
+  assert.equal(items.length, 5);
 });
 
 await mongoose.disconnect();

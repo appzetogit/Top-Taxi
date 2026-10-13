@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import { Loader2, RefreshCw, ExternalLink, Search, AlertTriangle } from "lucide-react"
 import { commissionOverviewAPI } from "@food/api"
-import { SERVICE_PROVIDER_ENABLED } from "@/config/features"
 
 /**
  * Master > Report Management > Commission Overview.
@@ -124,7 +123,7 @@ export default function CommissionOverview() {
   }, [load])
 
   const services = useMemo(
-    () => (data?.services || []).filter((s) => s.key !== "services" || SERVICE_PROVIDER_ENABLED),
+    () => (data?.services || []).filter((s) => s.key !== "services"),
     [data],
   )
   const query = q.trim().toLowerCase()

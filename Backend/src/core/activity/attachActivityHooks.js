@@ -191,25 +191,6 @@ export const attachAllActivityHooks = async () => {
         attached.push('taxi');
     } catch (err) { logger.warn(`[Activity] taxi hooks skipped: ${err.message}`); }
 
-    // ── service-provider (CommonJS) ─────────────────────────────────────────
-    try {
-        const { createRequire } = await import('node:module');
-        const require = createRequire(import.meta.url);
-        const SPBooking = require('../../modules/serviceProvider/models/Booking.js');
-        attachActivityHooks(SPBooking, {
-            vertical: 'serviceProvider',
-            refModel: 'SPBooking',
-            map: (d) => ({
-                userId: d.userId,
-                rawStatus: d.status,
-                amount: d.finalAmount ?? d.basePrice ?? 0,
-                title: d.serviceName ? `${d.serviceName}` : 'Service booking',
-                occurredAt: d.updatedAt || d.createdAt,
-            }),
-        });
-        attached.push('serviceProvider');
-    } catch (err) { logger.warn(`[Activity] service-provider hooks skipped: ${err.message}`); }
-
     logger.info(`Activity feed hooks attached: ${attached.join(', ') || 'none'}`);
     return attached;
 };

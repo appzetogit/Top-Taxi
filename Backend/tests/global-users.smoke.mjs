@@ -54,7 +54,7 @@ await mongoose.connection.collection('food_orders').insertMany([
 ]);
 await mongoose.connection.collection('taxirides').insertOne({ userId: vikram });
 await mongoose.connection.collection('food_user_wallets').insertOne({ userId: asha, balance: 75 });
-// A quick-commerce document with the explicit link, and a services one with only a phone.
+// A quick-commerce document with the explicit link.
 const ashaQc = (await mongoose.connection.collection('qc_users').insertOne({ platformUserId: asha, phone: '9876543210' })).insertedId;
 // Quick-commerce and medical orders live in qc_orders, keyed by the qc_users id.
 // This page used to claim they shared food_orders and counted none of them.
@@ -65,7 +65,6 @@ await mongoose.connection.collection('qc_orders').insertMany([
 // An unlinked qc_users row for Vikram, matched only by phone.
 const vikramQc = (await mongoose.connection.collection('qc_users').insertOne({ phone: '+919812345678' })).insertedId;
 await mongoose.connection.collection('qc_orders').insertOne({ userId: vikramQc, pricing: { total: 40 } });
-await mongoose.connection.collection('sp_users').insertOne({ phone: '+919812345678' });
 
 await check('food and taxi customers are one list, not two', async () => {
   const { users, pagination } = await listGlobalUsers({});
@@ -93,13 +92,6 @@ await check('orders, spend, rides and wallet are attributed correctly', async ()
 await check('a linked quick-commerce account shows against its owner', async () => {
   const { users } = await listGlobalUsers({ search: 'Asha' });
   assert.ok(users[0].apps.includes('quick'), `apps were ${users[0].apps}`);
-});
-
-await check('an UNLINKED services account is still matched, by phone', async () => {
-  // sp_users has no platformUserId and stores +91XXXXXXXXXX; the user row is bare
-  // ten digits. This is the fallback the backfill has not reached yet.
-  const { users } = await listGlobalUsers({ search: 'Vikram' });
-  assert.ok(users[0].apps.includes('services'), `apps were ${users[0].apps}`);
 });
 
 await check('a phone is found however it was typed', async () => {

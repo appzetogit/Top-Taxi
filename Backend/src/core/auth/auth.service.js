@@ -293,7 +293,7 @@ export const adminLogin = async (email, password) => {
       password: DEFAULT_CREDENTIALS.adminPassword,
       name: "Top Taxi Admin",
       isActive: true,
-      servicesAccess: ["food", "quickCommerce", "taxi", "serviceProvider"],
+      servicesAccess: ["food", "quickCommerce", "taxi"],
       adminLevel: "platform_superadmin",
       admin_type: "superadmin",
       permissions: ["*"]
@@ -807,9 +807,9 @@ export const getProfile = async (userId, role) => {
   return { user: profile };
 };
 
-// Every value the model accepts. This list once lacked serviceProvider, so
-// saving a profile quietly removed that access from the admin.
-const ADMIN_SERVICES_ALLOWED = ["food", "quickCommerce", "taxi", "serviceProvider"];
+// Every value the model accepts. A value missing here would be quietly
+// removed from the admin when they save their profile.
+const ADMIN_SERVICES_ALLOWED = ["food", "quickCommerce", "taxi"];
 
 /** Update admin profile (name, email, phone, profileImage). Only for ADMIN role. */
 export const updateAdminProfile = async (userId, body) => {

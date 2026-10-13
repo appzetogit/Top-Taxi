@@ -48,7 +48,6 @@ const jobTypeForVertical = Object.freeze({
     food: JOB_TYPES.FOOD_DELIVERY,
     quickCommerce: JOB_TYPES.QUICK_COMMERCE_DELIVERY,
     taxi: JOB_TYPES.TAXI_RIDE,
-    serviceProvider: JOB_TYPES.SERVICE_BOOKING,
 });
 
 export const jobTypeOf = (vertical) => jobTypeForVertical[vertical] || null;
@@ -285,7 +284,6 @@ const TERMINAL = Object.freeze({
     [JOB_TYPES.QUICK_COMMERCE_DELIVERY]: [
         'delivered', 'cancelled_by_user', 'cancelled_by_restaurant', 'cancelled_by_admin',
     ],
-    [JOB_TYPES.SERVICE_BOOKING]: ['completed', 'cancelled', 'rejected'],
 });
 
 const resolveJobState = async (entry) => {
@@ -313,12 +311,6 @@ const resolveJobState = async (entry) => {
             const order = await QCOrder.findById(jobId).select('orderStatus').lean();
             if (!order) return { known: true, terminal: true };
             return { known: true, terminal: TERMINAL[jobType].includes(String(order.orderStatus || '').toLowerCase()) };
-        }
-        if (jobType === JOB_TYPES.SERVICE_BOOKING) {
-            const Booking = (await import('../../modules/serviceProvider/models/Booking.js')).default;
-            const booking = await Booking.findById(jobId).select('status').lean();
-            if (!booking) return { known: true, terminal: true };
-            return { known: true, terminal: TERMINAL[jobType].includes(String(booking.status || '').toLowerCase()) };
         }
     } catch (err) {
         // A lookup that FAILED is not evidence the job is over. Freeing a lock on a

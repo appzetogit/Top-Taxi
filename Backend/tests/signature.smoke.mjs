@@ -3,14 +3,11 @@
  *
  * Every assertion corresponds to a hole that was live in this codebase:
  *
- *  1. Nine payment-verification sites compared signatures with `===`, which returns
+ *  1. Payment-verification sites compared signatures with `===`, which returns
  *     as soon as two bytes differ and so leaks how many leading hex characters were
  *     correct through response timing.
- *  2. serviceProvider/services/razorpayService.js returned true for any order id
- *     starting with `order_mock_`, in EVERY environment, so a caller could confirm
- *     any payment by naming its own order id.
- *  3. The same function returned true when RAZORPAY_KEY_SECRET was unset — "cannot
- *     verify" was treated as "verified".
+ *  2. The food gateway helper could be made to mock payments and refunds in
+ *     production.
  *
  * No database or network is required.
  *
@@ -101,17 +98,6 @@ test('no payment site compares a signature with === or !==', () => {
         });
     }
     assert.deepEqual(offenders, [], `raw signature comparison found:\n        ${offenders.join('\n        ')}`);
-});
-
-// ── serviceProvider verifyPayment fails closed ────────────────────────────────
-test('SP verifyPayment no longer trusts order_mock_ ids unconditionally', () => {
-    const source = readFileSync(path.join(root, 'src/modules/serviceProvider/services/razorpayService.js'), 'utf8');
-    assert.ok(
-        !/startsWith\('order_mock_'\)\s*\)\s*\{\s*return true/.test(source.replace(/\s+/g, ' ')),
-        'order_mock_ ids are accepted with no environment gate',
-    );
-    assert.ok(source.includes('timingSafeEqual'), 'SP verifyPayment still uses a plain comparison');
-    assert.ok(!/if \(!secret\) return true;/.test(source), 'a missing secret still confirms every payment');
 });
 
 // ── the food gateway cannot be faked in production ────────────────────────────

@@ -10,7 +10,7 @@ import mongoose from 'mongoose';
  * going forward; `module` is kept in step by a pre-save hook so nothing that reads it
  * breaks.
  */
-export const PAYMENT_VERTICALS = Object.freeze(['food', 'quickCommerce', 'taxi', 'serviceProvider']);
+export const PAYMENT_VERTICALS = Object.freeze(['food', 'quickCommerce', 'taxi']);
 
 /**
  * Model each vertical's payer and subject documents live in. Defaults reproduce the

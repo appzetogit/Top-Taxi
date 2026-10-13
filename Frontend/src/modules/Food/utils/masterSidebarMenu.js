@@ -1,5 +1,3 @@
-import { SERVICE_PROVIDER_ENABLED } from "@/config/features"
-
 /**
  * The Master panel's own menu: everything that is managed once for the whole
  * platform, in the ten groups the business asked for.
@@ -21,8 +19,6 @@ import { SERVICE_PROVIDER_ENABLED } from "@/config/features"
  * Every entry is still filtered by the admin's permissions (filterMenuForAccess),
  * so a sub-admin sees only the screens they can open.
  */
-
-const sp = (items) => (SERVICE_PROVIDER_ENABLED ? items : [])
 
 export const masterSidebarMenu = [
   {
@@ -75,9 +71,7 @@ export const masterSidebarMenu = [
           { label: "Delivery Partners", path: "/admin/master/delivery-partners", countKey: "masterRiders" },
           { label: "Delivery Join Requests", path: "/admin/master/delivery-partners/join-requests", alertKey: "masterRiderRequests" },
           { label: "Taxi Drivers", path: "/admin/master/taxi-drivers", countKey: "masterTaxiDrivers" },
-          { label: "Taxi Pending Drivers", path: "/admin/master/taxi-drivers/pending", alertKey: "masterTaxiPending" },
-          ...sp([{ label: "Services · Workers", path: "/admin/sp/workers/all" }]),
-        ],
+          { label: "Taxi Pending Drivers", path: "/admin/master/taxi-drivers/pending", alertKey: "masterTaxiPending" },        ],
       },
       {
         type: "expandable",
@@ -93,9 +87,7 @@ export const masterSidebarMenu = [
           { label: "Quick · Orders", path: "/admin/quick-commerce/order-report/regular" },
           { label: "Quick · Tax", path: "/admin/quick-commerce/tax-report" },
           { label: "Taxi · Finance", path: "/taxi/admin/reports/finance" },
-          { label: "Taxi · Drivers", path: "/taxi/admin/reports/driver" },
-          ...sp([{ label: "Services · Reports", path: "/admin/sp/reports" }]),
-        ],
+          { label: "Taxi · Drivers", path: "/taxi/admin/reports/driver" },        ],
       },
       {
         type: "expandable",
@@ -163,9 +155,7 @@ export const masterSidebarMenu = [
         subItems: [
           // Customers are one `users` collection for every app, so one list.
           { label: "All Customers", path: "/admin/master/customers", countKey: "masterCustomers" },
-          { label: "Account Deletion Requests", path: "/taxi/admin/users/delete-requests", alertKey: "masterDeletionRequests" },
-          ...sp([{ label: "Services · Users", path: "/admin/sp/users/all" }]),
-        ],
+          { label: "Account Deletion Requests", path: "/taxi/admin/users/delete-requests", alertKey: "masterDeletionRequests" },        ],
       },
       {
         type: "expandable",

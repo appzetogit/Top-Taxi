@@ -8,12 +8,10 @@
  *   node scripts/seed-platform-admin.js --email=you@example.com --password='...' --apply
  *
  * Grants what the panels actually check:
- *   servicesAccess : food, quickCommerce, taxi, serviceProvider
+ *   servicesAccess : food, quickCommerce, taxi
  *   adminLevel     : platform_superadmin   (core/admin/adminHierarchy.service.js)
  *   admin_type     : superadmin
- *   role           : super_admin           (service-provider routes gate on this --
- *                    cityManagement.routes.js does a path-less router.use(isSuperAdmin)
- *                    mounted ahead of every other /admin route)
+ *   role           : super_admin
  *
  * Existing account with that email: password is UPDATED and access widened. It is
  * never downgraded and no other admin is touched.
@@ -51,7 +49,7 @@ if (!URI) {
 await mongoose.connect(URI);
 const { FoodAdmin } = await import('../src/core/admin/admin.model.js');
 
-const SERVICES = ['food', 'quickCommerce', 'taxi', 'serviceProvider'];
+const SERVICES = ['food', 'quickCommerce', 'taxi'];
 const existing = await FoodAdmin.findOne({ email });
 
 console.log(`\ndatabase: ${mongoose.connection.db.databaseName}`);
@@ -68,7 +66,7 @@ if (!APPLY) {
 if (existing) {
     // Assigning triggers the schema's pre('save') bcrypt hook -- do not hash here.
     existing.password = password;
-    existing.servicesAccess = [...new Set([...(existing.servicesAccess || []), ...SERVICES])];
+    existing.servicesAccess = [...new Set([...(existing.servicesAccess || []).filter((s) => SERVICES.includes(s)), ...SERVICES])];
     existing.adminLevel = 'platform_superadmin';
     existing.admin_type = 'superadmin';
     existing.role = 'super_admin';

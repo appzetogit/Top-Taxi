@@ -46,7 +46,6 @@ import {
   Users,
   UtensilsCrossed,
   Wallet,
-  Wrench,
   ShoppingBasket,
   Zap,
   SlidersHorizontal,
@@ -56,7 +55,6 @@ import { twMerge } from 'tailwind-merge';
 import quickSpicyLogo from "@food/assets/k9-logo.jpg";
 import { getCachedSettings, loadBusinessSettings, normalizeCompanyName } from "@food/utils/businessSettings";
 import { refreshAdminAccess, useAdminAccess, hasPanel, isRestricted, canOpenPath } from "@food/utils/adminAccess";
-import { SERVICE_PROVIDER_ENABLED } from "@/config/features";
 
 function cn(...inputs) {
   return twMerge(clsx(inputs));
@@ -1551,19 +1549,6 @@ const AdminLayout = () => {
                   <Truck className="w-3.5 h-3.5 text-[var(--sb-active-ink)]" />
                   Taxi
                 </button>
-                {/* Services: per site (config/features.js), the same flag that
-                    gates the /admin/sp route. */}
-                {SERVICE_PROVIDER_ENABLED && showPanel("serviceProvider") && <button
-                  type="button"
-                  onClick={() => navigate("/admin/sp/dashboard")}
-                  className={cn(
-                    "flex-1 min-w-0 flex flex-col items-center justify-center gap-1 px-1 py-2 text-[11px] leading-none font-bold rounded-lg transition-all duration-300",
-                    "text-[var(--sb-ink-faint)] hover:text-[var(--sb-ink-soft)] hover:bg-[var(--sb-hover)]"
-                  )}
-                >
-                  <Wrench className="w-3.5 h-3.5 text-[var(--sb-ink-faint)]" />
-                  Services
-                </button>}
                 {showPanel("quickCommerce") && <button
                   type="button"
                   onClick={() => navigate("/admin/quick-commerce")}

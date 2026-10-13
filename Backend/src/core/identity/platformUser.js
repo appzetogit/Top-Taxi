@@ -3,8 +3,8 @@ import mongoose from 'mongoose';
 /**
  * The customer's one platform account, for any service's own customer id.
  *
- * Food and Taxi key customers by the platform account (`users`). Quick and
- * Services keep their own customer rows (`qc_users`, `sp_users`), linked by
+ * Food and Taxi key customers by the platform account (`users`). Quick
+ * keeps its own customer rows (`qc_users`), linked by
  * platformUserId or, failing that, the same phone. Shared features -- the
  * inbox (core/notifications/customerInbox.js) and the wallet Quick now shares
  * (modules/quickCommerce/modules/food/user/models/userWallet.model.js) -- file
@@ -28,7 +28,6 @@ const lastTen = (phone) => String(phone || '').replace(/\D/g, '').slice(-10);
 const OWN_USERS = [
   ['users', null],
   ['qc_users', 'quickCommerce'],
-  ['sp_users', 'serviceProvider'],
 ];
 
 /**

@@ -1,5 +1,5 @@
 /**
- * Other people's data stays theirs: seven read-side leaks found in one sweep.
+ * Other people's data stays theirs: read-side leaks found in one sweep.
  *
  * Run: node tests/data-exposure.smoke.mjs
  *
@@ -15,17 +15,12 @@
  *     with no userId, skipping getOrderById's ownership check.
  *  5. Taxi pool group returned every passenger's name, address, coordinates and
  *     ride OTP to anyone with the id.
- *  6. SP scrap detail returned any customer's pickup address and contact details.
- *  7. SP worker job detail showed every unassigned booking to every worker.
  */
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { createRequire } from 'node:module';
 import express from 'express';
 import mongoose from 'mongoose';
 import { MongoMemoryReplSet } from 'mongodb-memory-server';
-
-const require = createRequire(import.meta.url);
 
 let failed = 0;
 const check = async (label, fn) => {
@@ -255,64 +250,6 @@ const main = async () => {
         assert.equal(theirs.coordinates, undefined);
         assert.equal(theirs.passengerName, 'Bala');
         assert.equal(theirs.address, 'B street');
-    });
-
-    // --- 6/7. service provider -----------------------------------------------
-    console.log('\nservice provider');
-    const Scrap = require('../src/modules/serviceProvider/models/Scrap.js');
-    const SPUser = require('../src/modules/serviceProvider/models/User.js');
-    require('../src/modules/serviceProvider/models/Vendor.js'); // registered for getScrapById's populate
-    const Booking = require('../src/modules/serviceProvider/models/Booking.js');
-    const { getScrapById } = require('../src/modules/serviceProvider/controllers/scrapController.js');
-    const { getJobById } = require('../src/modules/serviceProvider/controllers/bookingControllers/workerBookingController.js');
-    const spCall = async (handler, req) => {
-        const res = { statusCode: 200, body: null, status(c) { this.statusCode = c; return this; }, json(b) { this.body = b; return this; } };
-        await handler(req, res);
-        return res;
-    };
-    const scrapOwner = oid();
-    await SPUser.collection.insertOne({ _id: scrapOwner, name: 'Ravi', phone: '9811111111', email: 'ravi@t.test' });
-    const pendingScrap = oid();
-    const acceptedScrap = oid();
-    const acceptingVendor = oid();
-    await mongoose.connection.db.collection('sp_vendors').insertOne({ _id: acceptingVendor, name: 'Vendor', businessName: 'Scrap Co', phone: '9822222222', email: 'sv@t.test' });
-    await Scrap.collection.insertMany([
-        { _id: pendingScrap, userId: scrapOwner, title: 'Old AC', status: 'pending', address: { fullAddress: 'Flat 1' } },
-        { _id: acceptedScrap, userId: scrapOwner, title: 'Old fridge', status: 'accepted', vendorId: acceptingVendor },
-    ]);
-    const asRole = (role, id) => ({ user: { id: String(id), _id: String(id) }, userRole: role });
-    await check('scrap: another customer or a worker gets 404', async () => {
-        assert.equal((await spCall(getScrapById, { params: { id: String(pendingScrap) }, ...asRole('USER', oid()) })).statusCode, 404);
-        assert.equal((await spCall(getScrapById, { params: { id: String(pendingScrap) }, ...asRole('WORKER', oid()) })).statusCode, 404);
-    });
-    await check('scrap: a vendor browsing a pending request sees it without the customer\'s phone or email', async () => {
-        const r = await spCall(getScrapById, { params: { id: String(pendingScrap) }, ...asRole('VENDOR', oid()) });
-        assert.equal(r.statusCode, 200);
-        assert.equal(r.body.data.userId.name, 'Ravi');
-        assert.equal(r.body.data.userId.phone, undefined);
-        assert.equal(r.body.data.userId.email, undefined);
-    });
-    await check('scrap: another vendor cannot read an ACCEPTED request; its vendor and owner can', async () => {
-        assert.equal((await spCall(getScrapById, { params: { id: String(acceptedScrap) }, ...asRole('VENDOR', oid()) })).statusCode, 404);
-        assert.equal((await spCall(getScrapById, { params: { id: String(acceptedScrap) }, ...asRole('VENDOR', acceptingVendor) })).body.data.userId.phone, '9811111111');
-        assert.equal((await spCall(getScrapById, { params: { id: String(acceptedScrap) }, ...asRole('USER', scrapOwner) })).statusCode, 200);
-    });
-
-    const offeredWorker = oid();
-    const openBooking = oid();
-    await Booking.collection.insertOne({
-        _id: openBooking, bookingNumber: 'BK-OPEN', userId: scrapOwner, workerId: null, status: 'searching',
-        potentialWorkers: [{ _id: oid(), workerId: offeredWorker, distance: 2 }], notifiedWorkers: [],
-    });
-    const job = (workerId) => spCall(getJobById, { params: { id: String(openBooking) }, user: { id: String(workerId) } });
-    await check('worker job: a worker it was never offered to is refused', async () => {
-        assert.equal((await job(oid())).statusCode, 403);
-    });
-    await check('worker job: the offered worker sees it, without the customer\'s phone or email until assigned', async () => {
-        const r = await job(offeredWorker);
-        assert.equal(r.statusCode, 200, JSON.stringify(r.body));
-        assert.equal(r.body.data.userId.phone, undefined);
-        assert.equal(r.body.data.userId.name, 'Ravi');
     });
 
     await mongoose.disconnect();

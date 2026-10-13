@@ -22,8 +22,7 @@ const SERVICES = Object.freeze({
     QUICK_COMMERCE: 'quickCommerce',
     TAXI_USER: 'taxi:user',
     TAXI_DRIVER: 'taxi:driver',
-    TAXI_ONBOARDING: 'taxi:onboarding',
-    SERVICE_PROVIDER: 'serviceProvider'
+    TAXI_ONBOARDING: 'taxi:onboarding'
 });
 
 /**
