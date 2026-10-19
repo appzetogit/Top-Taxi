@@ -65,7 +65,7 @@ export const printZomatoInvoice = (order, companyName, termsHtml = "") => {
     <html lang="en">
     <head>
       <meta charset="UTF-8">
-      <title>Top Taxi Food Order: Summary and Receipt</title>
+      <title>Gogo Food Order: Summary and Receipt</title>
       <style>
         body {
           font-family: Arial, sans-serif;
@@ -155,7 +155,7 @@ export const printZomatoInvoice = (order, companyName, termsHtml = "") => {
     </head>
     <body>
       <div class="header">
-        Top Taxi Food Order: Summary and Receipt
+        Gogo Food Order: Summary and Receipt
       </div>
 
       <div class="summary-grid">

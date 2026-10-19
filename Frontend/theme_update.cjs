@@ -1,5 +1,5 @@
 const fs = require('fs');
-const path = 'c:/Users/MAYAN/Appzeto Projects/toptaxi/frontend/src/modules/Food/pages/user/Dining.jsx';
+const path = 'c:/Users/MAYAN/Appzeto Projects/gogo/frontend/src/modules/Food/pages/user/Dining.jsx';
 let content = fs.readFileSync(path, 'utf8');
 
 // Primary colors

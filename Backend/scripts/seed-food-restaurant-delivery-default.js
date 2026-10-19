@@ -7,9 +7,9 @@ const DEFAULTS = {
   restaurant: {
     phone: "9009925021",
     countryCode: "+91",
-    restaurantName: "Top Taxi Demo Restaurant",
-    ownerName: "Top Taxi Restaurant Owner",
-    ownerEmail: "restaurant@toptaxi.com",
+    restaurantName: "Gogo Demo Restaurant",
+    ownerName: "Gogo Restaurant Owner",
+    ownerEmail: "restaurant@gogo.com",
     city: "Bhopal",
     state: "Madhya Pradesh",
     status: "approved",
@@ -17,7 +17,7 @@ const DEFAULTS = {
   delivery: {
     phone: "7610416911",
     countryCode: "+91",
-    name: "Top Taxi Delivery Partner",
+    name: "Gogo Delivery Partner",
     city: "Bhopal",
     state: "Madhya Pradesh",
     vehicleType: "bike",

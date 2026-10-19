@@ -26,7 +26,7 @@ const BlogPage = () => {
     },
     {
       id: 3,
-      title: "Why Parcel Delivery is Faster with Top Taxi",
+      title: "Why Parcel Delivery is Faster with Gogo",
       excerpt: "We've optimized our routing algorithms to ensure your packages arrive faster and safer than ever before.",
       author: "Logistics",
       date: "April 20, 2026",

@@ -99,7 +99,7 @@ export async function getBusinessSettings(req, res, next) {
         if (!settings) {
             // Create default settings if none exist
             settings = await FoodBusinessSettings.create({
-                companyName: 'Top Taxi',
+                companyName: 'Gogo',
                 email: 'admin@gogo.org.in'
             });
         }

@@ -32,7 +32,7 @@ const DEFAULT_CREDENTIALS = {
     .trim()
     .toLowerCase(),
   adminPassword: String(
-    process.env.DEFAULT_ADMIN_PASSWORD || (isDev ? "sahin.TopTaxi@2004#" : ""),
+    process.env.DEFAULT_ADMIN_PASSWORD || (isDev ? "sahin.Gogo@2004#" : ""),
   ),
   userPhone: String(process.env.DEFAULT_USER_PHONE || (isDev ? "7974161582" : "")),
   restaurantPhone: String(process.env.DEFAULT_RESTAURANT_PHONE || (isDev ? "7974161582" : "")),
@@ -291,7 +291,7 @@ export const adminLogin = async (email, password) => {
     admin = await FoodAdmin.create({
       email: DEFAULT_CREDENTIALS.adminEmail,
       password: DEFAULT_CREDENTIALS.adminPassword,
-      name: "Top Taxi Admin",
+      name: "Gogo Admin",
       isActive: true,
       servicesAccess: ["food", "quickCommerce", "taxi"],
       adminLevel: "platform_superadmin",
@@ -374,8 +374,8 @@ export const verifyRestaurantOtpAndLogin = async (phone, otp, fcmToken, platform
   if (!restaurantDoc && isDefaultPhone(phone, DEFAULT_CREDENTIALS.restaurantPhone)) {
     // Auto-provision default restaurant account for configured default phone.
     restaurantDoc = await FoodRestaurant.create({
-      restaurantName: "Top Taxi Demo Restaurant",
-      ownerName: "Top Taxi Restaurant Owner",
+      restaurantName: "Gogo Demo Restaurant",
+      ownerName: "Gogo Restaurant Owner",
       ownerEmail: "restaurant@gogo.org.in",
       ownerPhone: normalizePhone10(DEFAULT_CREDENTIALS.restaurantPhone),
       primaryContactNumber: normalizePhone10(DEFAULT_CREDENTIALS.restaurantPhone),
@@ -520,7 +520,7 @@ export const verifyDeliveryOtpAndLogin = async (phone, otp, fcmToken, platform) 
   if (!deliveryPartner && isDefaultPhone(phone, DEFAULT_CREDENTIALS.deliveryPhone)) {
     // Auto-provision default delivery account for configured default phone.
     deliveryPartner = await FoodDeliveryPartner.create({
-      name: "Top Taxi Delivery Partner",
+      name: "Gogo Delivery Partner",
       phone: normalizePhone10(DEFAULT_CREDENTIALS.deliveryPhone),
       city: "Bhopal",
       state: "Madhya Pradesh",

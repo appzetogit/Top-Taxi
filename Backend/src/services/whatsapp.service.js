@@ -159,7 +159,7 @@ export async function sendFoodInvoiceWhatsApp(order, user) {
   } else {
     // Free-form Receipt Fallback Mode
     const itemsListText = items.map(i => `• _${i.name}_ x${i.quantity} - *₹${i.total.toFixed(2)}*`).join('\n');
-    const invoiceText = `*TOP TAXI - FOOD INVOICE* 🍔
+    const invoiceText = `*GOGO - FOOD INVOICE* 🍔
 ---------------------------------------------
 *Hi ${customerName},*
 Thank you for your order! Here is your receipt.
@@ -253,7 +253,7 @@ export async function sendTaxiInvoiceWhatsApp(ride, user) {
     return sendWhatsAppMessage(recipientPhone, templatePayload);
   } else {
     // Free-form Receipt Fallback Mode
-    const invoiceText = `*TOP TAXI - TRIP INVOICE* 🚖
+    const invoiceText = `*GOGO - TRIP INVOICE* 🚖
 ---------------------------------------------
 *Hi ${customerName},*
 Thanks for riding with us! Here is your trip receipt.

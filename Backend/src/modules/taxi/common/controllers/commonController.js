@@ -138,26 +138,26 @@ export const getLandingPageSettings = asyncHandler(async (_req, res) => {
             video_url: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
             logo_url: '',
             hero_title: 'All-in-One Platform for Rides, Food & Logistics',
-            hero_description: 'Top Taxi is the multi-service super-app designed for modern cities. Easily book a taxi, order from your favorite local restaurants, ship parcels, arrange airport transfers, rent vehicles, and coordinate complex supply chains.',
+            hero_description: 'Gogo is the multi-service super-app designed for modern cities. Easily book a taxi, order from your favorite local restaurants, ship parcels, arrange airport transfers, rent vehicles, and coordinate complex supply chains.',
             hero_image_url: '',
             why_us_image_url: '',
             social_links: {
-                facebook: 'https://facebook.com/toptaxi',
-                twitter: 'https://twitter.com/toptaxi',
-                instagram: 'https://instagram.com/toptaxi',
-                linkedin: 'https://linkedin.com/company/toptaxi',
-                youtube: 'https://youtube.com/toptaxi'
+                facebook: 'https://facebook.com/gogo',
+                twitter: 'https://twitter.com/gogo',
+                instagram: 'https://instagram.com/gogo',
+                linkedin: 'https://linkedin.com/company/gogo',
+                youtube: 'https://youtube.com/gogo'
             },
             contact_email: 'k9bharatrides@gmail.com',
             contact_phone: '+91 7358789910',
-            contact_address: 'Top Taxi, Siliguri, West Bengal, India',
+            contact_address: 'Gogo, Siliguri, West Bengal, India',
             contact_location: { lat: 26.7271, lng: 88.3953 },
             play_store_url: '/login/services',
             app_store_url: '/login/services',
             faqs: [
                 {
-                    question: 'What is Top Taxi?',
-                    answer: 'Top Taxi is a unified multi-service super-app offering on-demand taxi bookings, local food ordering, courier deliveries, rentals, and airport transfers.',
+                    question: 'What is Gogo?',
+                    answer: 'Gogo is a unified multi-service super-app offering on-demand taxi bookings, local food ordering, courier deliveries, rentals, and airport transfers.',
                     order: 0
                 },
                 {
@@ -177,11 +177,11 @@ export const getLandingPageSettings = asyncHandler(async (_req, res) => {
                 }
             ],
             pages: {
-                about_us: '<h1>About Top Taxi</h1><p>Top Taxi is a leading technology platform dedicated to providing safe, reliable, and affordable mobility solutions for everyone. Our mission is to transform urban transportation and logistics by connecting people with professional drivers and efficient services.</p>',
-                careers: '<h1>Careers at Top Taxi</h1><p>Join our team and build the future of urban mobility. We are constantly looking for talented software engineers, product managers, driver relationship experts, and support specialists to join our journey.</p>',
-                newsroom: '<h1>Top Taxi Newsroom</h1><p>Stay updated with our latest press releases, company announcements, service launches, and regulatory breakthroughs. Top Taxi is growing quickly to serve more cities across Bharat.</p>',
-                terms_conditions: '<h1>Terms of Service</h1><p>By using Top Taxi app or website, you agree to these Terms of Service. Top Taxi acts as a technology platform connecting users with third-party service providers. You must provide accurate details and use the platform lawfully.</p>',
-                privacy_policy: '<h1>Privacy Policy</h1><p>We value your privacy. Top Taxi collects your personal information (name, contact, location) solely to match and execute rides, deliveries, and orders. We do not sell your personal data to advertisers.</p>',
+                about_us: '<h1>About Gogo</h1><p>Gogo is a leading technology platform dedicated to providing safe, reliable, and affordable mobility solutions for everyone. Our mission is to transform urban transportation and logistics by connecting people with professional drivers and efficient services.</p>',
+                careers: '<h1>Careers at Gogo</h1><p>Join our team and build the future of urban mobility. We are constantly looking for talented software engineers, product managers, driver relationship experts, and support specialists to join our journey.</p>',
+                newsroom: '<h1>Gogo Newsroom</h1><p>Stay updated with our latest press releases, company announcements, service launches, and regulatory breakthroughs. Gogo is growing quickly to serve more cities across Bharat.</p>',
+                terms_conditions: '<h1>Terms of Service</h1><p>By using Gogo app or website, you agree to these Terms of Service. Gogo acts as a technology platform connecting users with third-party service providers. You must provide accurate details and use the platform lawfully.</p>',
+                privacy_policy: '<h1>Privacy Policy</h1><p>We value your privacy. Gogo collects your personal information (name, contact, location) solely to match and execute rides, deliveries, and orders. We do not sell your personal data to advertisers.</p>',
                 refund_policy: '<h1>Refund Policy</h1><p>Refunds are processed for verified overcharges or cancelled bookings prior to partner dispatch. UPI and wallet refunds settle within 1 to 3 days, and bank cards settle in 5 to 10 days.</p>',
                 cancellation_policy: '<h1>Cancellation Policy</h1><p>Users may cancel bookings free of charge before a driver accepts. Nominal cancellation charges apply once a driver is assigned or dispatch preparation has already started.</p>'
             }

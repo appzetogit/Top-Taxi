@@ -402,7 +402,7 @@ export const saveImageFromUrl = async (imageUrl, folder) => {
         timeout: 30000,
         maxContentLength: config.uploadMaxFileSizeBytes,
         maxBodyLength: config.uploadMaxFileSizeBytes,
-        headers: { 'User-Agent': 'TopTaxi/1.0 (media import)' }
+        headers: { 'User-Agent': 'Gogo/1.0 (media import)' }
     });
 
     const buffer = Buffer.from(response.data);

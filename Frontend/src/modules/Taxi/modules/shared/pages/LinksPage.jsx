@@ -7,27 +7,27 @@ const LinksPage = () => {
   const links = [
     {
       id: 'user',
-      title: 'Top Taxi - User app',
+      title: 'Gogo - User app',
       subtitle: 'Book rides, send parcels, and more.',
       description: 'Get where you need to go with ease. Request a ride or send packages across the city in minutes.',
-      url: 'https://play.google.com/store/apps/details?id=com.toptaxi.user',
+      url: 'https://play.google.com/store/apps/details?id=com.gogo.user',
       type: 'Customer App',
       icon: <Zap className="link-icon" />,
       color: '#FFB300'
     },
     {
       id: 'driver',
-      title: 'Top Taxi Driver',
-      subtitle: 'Drive and earn with Top Taxi.',
+      title: 'Gogo Driver',
+      subtitle: 'Drive and earn with Gogo.',
       description: 'Join our fleet of professional drivers. Flexible hours, great earnings, and a supportive community.',
-      url: 'https://play.google.com/store/apps/details?id=com.toptaxi.driver',
+      url: 'https://play.google.com/store/apps/details?id=com.gogo.driver',
       type: 'Partner App',
       icon: <Shield className="link-icon" />,
       color: '#2563EB'
     }
   ];
   React.useEffect(() => {
-    document.title = "Download Apps | Top Taxi";
+    document.title = "Download Apps | Gogo";
   }, []);
 
   return (
@@ -35,20 +35,20 @@ const LinksPage = () => {
       <nav className="links-nav">
         <div className="nav-container">
           <a href="/" className="nav-logo">
-            <span className="logo-top-taxi">Top Taxi</span>
+            <span className="logo-gogo">Gogo</span>
           </a>
           <a href="/" className="back-home">Back to Home</a>
         </div>
       </nav>
 
       <div className="links-banner">
-        <img src={bannerImg} alt="Top Taxi Banner" className="banner-image" />
+        <img src={bannerImg} alt="Gogo Banner" className="banner-image" />
         <div className="banner-gradient"></div>
       </div>
 
       <div className="links-content-wrapper">
         <header className="links-header">
-          <h1 className="links-title">Download <span className="highlight">Top Taxi</span></h1>
+          <h1 className="links-title">Download <span className="highlight">Gogo</span></h1>
           <p className="links-tagline">Choose the app that's right for you and start your journey today.</p>
         </header>
 
@@ -90,7 +90,7 @@ const LinksPage = () => {
         </div>
 
         <footer className="links-footer">
-          <p>© 2026 Top Taxi. All rights reserved.</p>
+          <p>© 2026 Gogo. All rights reserved.</p>
           <div className="footer-links">
             <a href="https://gogo.org.in" target="_blank" rel="noopener noreferrer">Visit Website</a>
             <span className="dot"></span>

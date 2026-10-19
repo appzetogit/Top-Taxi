@@ -58,7 +58,7 @@ export const getPublicPageByKey = async (key) => {
     }
     const doc = await FoodPageContent.findOne({ key: k }).lean();
     if (!doc) {
-        if (k === 'about') return { key: k, data: { appName: 'Top Taxi', version: '1.0.0', description: '', logo: '', features: [], stats: [] } };
+        if (k === 'about') return { key: k, data: { appName: 'Gogo', version: '1.0.0', description: '', logo: '', features: [], stats: [] } };
         if (k === 'help_support') return { key: k, data: null };
         const titles = {
             terms: 'Terms and Conditions',
@@ -107,7 +107,7 @@ export const upsertLegalPage = async (key, payload, updatedBy) => {
 };
 
 export const upsertAboutPage = async (payload, updatedBy) => {
-    const appName = decodeHtmlEntities(String(payload?.appName || '')).trim() || 'Top Taxi';
+    const appName = decodeHtmlEntities(String(payload?.appName || '')).trim() || 'Gogo';
     const version = decodeHtmlEntities(String(payload?.version || '')).trim() || '1.0.0';
     const description = decodeHtmlEntities(String(payload?.description || '')).trim();
     const logo = decodeHtmlEntities(String(payload?.logo || '')).trim();

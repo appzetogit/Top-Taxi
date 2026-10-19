@@ -55,7 +55,7 @@ export default function Footer({ settings }) {
 
   const playStoreUrl = settings?.play_store_url || 'https://play.google.com/store/apps/details?id=com.k9bharat.user'
   const appStoreUrl = settings?.app_store_url || 'https://www.apple.com/app-store/'
-  const contactAddress = settings?.contact_address || 'Top Taxi, Siliguri, West Bengal, India'
+  const contactAddress = settings?.contact_address || 'Gogo, Siliguri, West Bengal, India'
   const contactPhone = settings?.contact_phone || '+91 7358789910'
   const contactEmail = settings?.contact_email || 'k9bharatrides@gmail.com'
 
@@ -89,7 +89,7 @@ export default function Footer({ settings }) {
             <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight">
               Ready to ride? Download the app.
             </h3>
-            <p className="text-slate-500 text-sm mt-1">Join the Top Taxi community today.</p>
+            <p className="text-slate-500 text-sm mt-1">Join the Gogo community today.</p>
           </div>
           <div className="flex flex-wrap gap-3 shrink-0">
             <a href={playStoreUrl} className="transition-transform duration-200 hover:scale-[1.04]">
@@ -120,16 +120,16 @@ export default function Footer({ settings }) {
           <div className="lg:col-span-4 text-left space-y-6">
             <a href="#" className="flex items-center gap-3 group w-fit">
               {appLogo ? (
-                <img src={appLogo} alt="Top Taxi" className="h-11 w-auto object-contain bg-white/10 p-1 rounded-lg" loading="lazy" />
+                <img src={appLogo} alt="Gogo" className="h-11 w-auto object-contain bg-white/10 p-1 rounded-lg" loading="lazy" />
               ) : (
                 <div className="flex flex-col text-left">
-                  <span className="font-black text-xl tracking-tight text-white block leading-none">Top Taxi</span>
+                  <span className="font-black text-xl tracking-tight text-white block leading-none">Gogo</span>
                 </div>
               )}
             </a>
 
             <p className="text-sm leading-relaxed text-slate-400 max-w-sm">
-              Top Taxi is the leading on-demand super-app platform connecting passengers, diners, merchants, and cargo owners to drivers and logistics providers.
+              Gogo is the leading on-demand super-app platform connecting passengers, diners, merchants, and cargo owners to drivers and logistics providers.
             </p>
 
             {/* Social Icons */}
@@ -226,7 +226,7 @@ export default function Footer({ settings }) {
 
         {/* Copyright Bar */}
         <div className="border-t border-slate-900 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-600">
-          <p>© {currentYear} Top Taxi Inc. All rights reserved.</p>
+          <p>© {currentYear} Gogo Inc. All rights reserved.</p>
           <div className="flex gap-6">
             <a href="/terms?tab=terms" className="hover:text-white transition-colors duration-200">Terms</a>
             <a href="/terms?tab=privacy" className="hover:text-white transition-colors duration-200">Privacy</a>

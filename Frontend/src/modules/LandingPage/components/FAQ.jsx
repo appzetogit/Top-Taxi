@@ -4,8 +4,8 @@ import { Plus, Minus } from 'lucide-react'
 
 const defaultFaqs = [
   {
-    question: 'What services are supported by Top Taxi?',
-    answer: 'Top Taxi is an all-in-one super-app supporting Ride Hailing (Taxi & Cab Sharing), Food & Dining Delivery, secure Parcel Courier Services, pre-scheduled Airport Transfers, Hourly Vehicle Rentals, and commercial Cargo/Logistics.'
+    question: 'What services are supported by Gogo?',
+    answer: 'Gogo is an all-in-one super-app supporting Ride Hailing (Taxi & Cab Sharing), Food & Dining Delivery, secure Parcel Courier Services, pre-scheduled Airport Transfers, Hourly Vehicle Rentals, and commercial Cargo/Logistics.'
   },
   {
     question: 'How do I register as a driver partner?',
@@ -17,7 +17,7 @@ const defaultFaqs = [
   },
   {
     question: 'Is in-app payment secure?',
-    answer: 'Yes. Top Taxi utilizes secure SSL encryption and integrated payment gateways to secure credit cards, digital wallets, UPI, and bank transfers.'
+    answer: 'Yes. Gogo utilizes secure SSL encryption and integrated payment gateways to secure credit cards, digital wallets, UPI, and bank transfers.'
   },
   {
     question: 'Can I schedule airport transfers in advance?',

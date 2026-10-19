@@ -1,4 +1,4 @@
-# Top Taxi — Customer App Integration
+# Gogo — Customer App Integration
 
 Five backend changes are live on production. One is already returning errors to
 real users on every order that trips it, one makes a value the app hardcodes

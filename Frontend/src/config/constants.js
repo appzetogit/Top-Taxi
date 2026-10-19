@@ -1,5 +1,5 @@
 export const APP_CONFIG = {
-  NAME: 'Top Taxi',
+  NAME: 'Gogo',
   VERSION: '1.0.0',
 };
 

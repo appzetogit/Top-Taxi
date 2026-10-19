@@ -33,7 +33,7 @@ export default function AdminLogin() {
   const [error, setError] = useState("")
   const [successMessage, setSuccessMessage] = useState("")
   const [businessLogo, setBusinessLogo] = useState(() => getCachedSettings()?.logo?.url || null)
-  const [companyName, setCompanyName] = useState(() => getCachedSettings()?.companyName || "Top Taxi")
+  const [companyName, setCompanyName] = useState(() => getCachedSettings()?.companyName || "Gogo")
   const submittingRef = useRef(false)
 
   const resolvedLogo = activeLogo ||

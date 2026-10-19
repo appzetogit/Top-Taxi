@@ -96,9 +96,9 @@ export default function Ecosystem() {
               {/* Brand */}
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 flex items-center justify-center bg-white rounded-xl shadow-lg overflow-hidden">
-                  <img src={k9Logo} alt="Top Taxi" className="w-full h-full object-cover" loading="lazy" />
+                  <img src={k9Logo} alt="Gogo" className="w-full h-full object-cover" loading="lazy" />
                 </div>
-                <span className="text-xl font-black tracking-tight text-white">Top Taxi</span>
+                <span className="text-xl font-black tracking-tight text-white">Gogo</span>
               </div>
 
               {/* Tagline */}

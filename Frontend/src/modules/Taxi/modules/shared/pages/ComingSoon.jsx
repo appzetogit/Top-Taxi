@@ -39,7 +39,7 @@ const FEATURE_META = {
   '/cab-sharing': {
     icon: <Bus size={48} strokeWidth={1.5} />,
     title: 'Cab Sharing',
-    subtitle: 'Share rides, save big — Top Taxi\'s USP',
+    subtitle: 'Share rides, save big — Gogo\'s USP',
     description: 'Real-time seat booking in shared cabs. Choose your seat, split the fare, and travel smart.',
     color: 'bg-green-50',
     accent: 'text-green-600',

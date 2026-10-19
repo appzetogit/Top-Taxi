@@ -1,5 +1,5 @@
 /**
- * Fill every EMPTY banner slot with the Top Taxi artwork in
+ * Fill every EMPTY banner slot with the Gogo artwork in
  * scripts/app-store-banners/ -- a temporary set for App Store review.
  *
  * The artwork is original vector art: no third-party names, logos, vehicle

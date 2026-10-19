@@ -6,7 +6,7 @@ const ContactPage = () => {
   const navigate = useNavigate();
 
   React.useEffect(() => {
-    document.title = "Contact Us | Top Taxi";
+    document.title = "Contact Us | Gogo";
   }, []);
 
   return (
