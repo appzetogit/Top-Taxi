@@ -10,7 +10,7 @@ const PartnerStatus = lazy(() => import("./pages/PartnerStatus"))
 const FONT_HREF = "https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap"
 
 /**
- * /partner -- one door for everyone who sells on Top Taxi.
+ * /partner -- one door for everyone who sells on Gogo.
  *
  *   /partner                 choose Restaurant or Store
  *   /partner/login/:type     phone and OTP (restaurants go to their own login)
@@ -52,7 +52,7 @@ export default function PartnerApp() {
               <Package className="h-5 w-5" />
             </span>
             <span className="whitespace-nowrap text-lg font-bold tracking-tight sm:text-xl">
-              Top Taxi <span className="font-semibold text-emerald-600">Partner</span>
+              Gogo <span className="font-semibold text-emerald-600">Partner</span>
             </span>
           </Link>
           <nav className="flex items-center gap-3 md:gap-5">

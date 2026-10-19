@@ -9,7 +9,7 @@
  * DLT: the text must match the registered template character for character,
  * spaces before the full stops included, or the operator drops the message.
  * Registered "App Login Temp" (id 1077028660045857084):
- *   Your Top Taxi Login OTP is {#num#} . Do not Share it with anyone . Top Taxi Pvt Ltd
+ *   Your Gogo Login OTP is {#num#} . Do not Share it with anyone . Gogo Pvt Ltd
  * WEBTECH_SMS_TEMPLATE_TEXT overrides it; {{OTP}} (or the panel's {#num#} /
  * {#var#}) marks where the code goes.
  *
@@ -18,7 +18,7 @@
  */
 
 export const WEBTECH_DEFAULT_TEMPLATE =
-    'Your Top Taxi Login OTP is {{OTP}} . Do not Share it with anyone . Top Taxi Pvt Ltd';
+    'Your Gogo Login OTP is {{OTP}} . Do not Share it with anyone . Gogo Pvt Ltd';
 export const WEBTECH_DEFAULT_TEMPLATE_ID = '1077028660045857084';
 
 const str = (v) => String(v ?? '').trim();

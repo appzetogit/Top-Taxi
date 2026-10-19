@@ -10,7 +10,7 @@ const debugError = (...args) => {}
  * Features:
  * - HTML5 Geolocation API for user location
  * - No reverse geocoding by default (avoids extra API calls); coords only unless you add a backend later
- * - Top Taxi-style location display
+ * - Gogo-style location display
  * - Comprehensive error handling
  * 
  * @returns {Object} { location, loading, error, permissionGranted, requestLocation }
@@ -71,7 +71,7 @@ export function useLocationSimple() {
         }
       }
 
-      // Method 2: Extract from formatted_address (Top Taxi-style parsing)
+      // Method 2: Extract from formatted_address (Gogo-style parsing)
       // Indian address format: "Area, City, State" (e.g., "New Palasia, Indore, Madhya Pradesh")
       if (result.formatted_address) {
         const addressParts = result.formatted_address

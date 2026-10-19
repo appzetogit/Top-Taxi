@@ -1,5 +1,5 @@
-export const LOCATION_STORAGE_KEY = 'top-taxi:lastLocation';
-export const LOCATION_UPDATED_EVENT = 'top-taxi:location-updated';
+export const LOCATION_STORAGE_KEY = 'gogo:lastLocation';
+export const LOCATION_UPDATED_EVENT = 'gogo:location-updated';
 
 export const DEFAULT_LOCATION_LABEL = 'Choose your location';
 export const DEFAULT_LOCATION_COORDS = [78.4867, 17.385];

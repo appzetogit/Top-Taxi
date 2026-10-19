@@ -127,7 +127,7 @@ export async function pushOrderToPetpooja(orderMongoId) {
                 subtotal: order.pricing?.subtotal || 0,
                 packaging_charge: order.pricing?.packagingFee || 0,
                 platform_fee: order.pricing?.platformFee || 0,
-                order_source: 'Top Taxi',
+                order_source: 'Gogo',
                 order_time: order.createdAt
             },
             customer: {
@@ -220,9 +220,9 @@ export async function pushOrderToPetpooja(orderMongoId) {
 }
 
 /**
- * Synchronizes order status transitions from Top Taxi to Petpooja.
+ * Synchronizes order status transitions from Gogo to Petpooja.
  * @param {string} orderMongoId 
- * @param {string} status - New Top Taxi status
+ * @param {string} status - New Gogo status
  */
 export async function updateOrderStatusInPetpooja(orderMongoId, status) {
     try {

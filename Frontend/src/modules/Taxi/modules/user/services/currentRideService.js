@@ -1,6 +1,6 @@
-const CURRENT_RIDE_STORAGE_KEY = 'top_taxi_current_ride';
+const CURRENT_RIDE_STORAGE_KEY = 'gogo_current_ride';
 
-export const CURRENT_RIDE_UPDATED_EVENT = 'top-taxi:current-ride-updated';
+export const CURRENT_RIDE_UPDATED_EVENT = 'gogo:current-ride-updated';
 
 const ACTIVE_RIDE_STATUSES = new Set(['accepted', 'arriving', 'started', 'ongoing', 'assigned', 'confirmed', 'end_requested']);
 const TERMINAL_RIDE_STATUSES = new Set(['completed', 'cancelled', 'delivered']);

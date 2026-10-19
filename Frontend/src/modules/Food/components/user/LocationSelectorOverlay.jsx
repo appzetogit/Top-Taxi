@@ -438,7 +438,7 @@ export default function LocationSelectorOverlay({ isOpen, onClose }) {
     location?.accuracy || null,
   ])
 
-  // Initialize Google Maps with Loader (Top Taxi-STYLE)
+  // Initialize Google Maps with Loader (Gogo-STYLE)
   useEffect(() => {
     if (!MAPS_ENABLED) {
       // Maps disabled: ensure loading spinner is off and rely on coordinates-only UX
@@ -473,7 +473,7 @@ export default function LocationSelectorOverlay({ isOpen, onClose }) {
         const map = new google.maps.Map(mapContainerRef.current, {
           center: initialLocation,
           zoom: 15,
-          disableDefaultUI: true, // Top Taxi-style clean look
+          disableDefaultUI: true, // Gogo-style clean look
           zoomControl: true,
           mapTypeControl: false,
           streetViewControl: false,

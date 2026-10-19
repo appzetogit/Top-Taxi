@@ -644,10 +644,10 @@ const AdminLayout = () => {
   const notificationsMenuRef = useRef(null);
   const [adminProfile, setAdminProfile] = useState(() => readAdminProfile());
 
-  const appName = settings.general?.app_name || 'Top Taxi';
+  const appName = settings.general?.app_name || 'Gogo';
   const [businessCompanyName, setBusinessCompanyName] = useState(() => {
     const cached = getCachedSettings();
-    return normalizeCompanyName(cached?.companyName) || settings.general?.app_name || 'Top Taxi';
+    return normalizeCompanyName(cached?.companyName) || settings.general?.app_name || 'Gogo';
   });
 
   useEffect(() => {

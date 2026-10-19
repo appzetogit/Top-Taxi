@@ -4,7 +4,7 @@ const debugWarn = (...args) => {}
 const debugError = (...args) => {}
 
 
-const STORAGE_KEY = "top_taxi_restaurants"
+const STORAGE_KEY = "gogo_restaurants"
 
 // Get restaurants from localStorage
 export const getRestaurants = () => {

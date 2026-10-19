@@ -19,7 +19,7 @@ export default function LandingPage() {
 
   useEffect(() => {
     // Dynamic SEO Title & Meta tags for better discoverability
-    document.title = "Top Taxi - All-in-One Super-App for Rides, Food & Logistics"
+    document.title = "Gogo - All-in-One Super-App for Rides, Food & Logistics"
 
     // Find or create meta description tag
     let metaDesc = document.querySelector('meta[name="description"]')
@@ -28,7 +28,7 @@ export default function LandingPage() {
       metaDesc.name = 'description'
       document.head.appendChild(metaDesc)
     }
-    metaDesc.setAttribute('content', 'Top Taxi is the ultimate multi-service super-app for Ride Hailing (Taxi & Shares), Food & Dining Delivery, secure Courier Parcels, Airport Transfers, Hourly rentals, and Logistics cargo.')
+    metaDesc.setAttribute('content', 'Gogo is the ultimate multi-service super-app for Ride Hailing (Taxi & Shares), Food & Dining Delivery, secure Courier Parcels, Airport Transfers, Hourly rentals, and Logistics cargo.')
 
     // Fetch dynamic landing settings
     const fetchLandingSettings = async () => {

@@ -25,7 +25,7 @@ import { toast } from "sonner"
 import { loadRuntimeEnv } from "@/config/runtimeEnv"
 
 /**
- * Google Maps API Key Management for the entire SuperApp / Top Taxi platform.
+ * Google Maps API Key Management for the entire SuperApp / Gogo platform.
  *
  * Stored in the shared database settings document and served to every module
  * (Food, Taxi, Delivery Logistics, Service Provider, Quick Commerce, and Admin dashboards)

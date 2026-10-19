@@ -91,7 +91,7 @@ export default function Showcase() {
                 Passenger Insurance Included
               </div>
               <p className="text-slate-400 text-sm sm:text-base leading-relaxed max-w-lg">
-                Enrolling 1 Lac+ Drivers across India. Top Taxi does more than just drive you — interactive voice controls, media playlists, and local insights directly to your ride.
+                Enrolling 1 Lac+ Drivers across India. Gogo does more than just drive you — interactive voice controls, media playlists, and local insights directly to your ride.
               </p>
             </div>
 
@@ -161,7 +161,7 @@ export default function Showcase() {
                   >
                     <img
                       src={item.src}
-                      alt="Top Taxi Service"
+                      alt="Gogo Service"
                       className="w-full h-full object-cover transition-transform duration-700 hover:scale-110"
                       loading="lazy"
                     />

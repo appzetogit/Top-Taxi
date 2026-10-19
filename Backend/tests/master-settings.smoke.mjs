@@ -93,18 +93,18 @@ await check('an sms template without {{OTP}} is refused', async () => {
   await assert.rejects(() => save({ integrations: { sms: { templateText: 'Your code' } } }), /OTP/);
 });
 await check('a mail host switches email as one block', async () => {
-  await save({ integrations: { email: { host: 'smtp.master.test', port: 465, user: 'm@test', pass: 'mpass', from: 'Top Taxi <m@test>' } } });
+  await save({ integrations: { email: { host: 'smtp.master.test', port: 465, user: 'm@test', pass: 'mpass', from: 'Gogo <m@test>' } } });
   const mail = svc.emailCredentials();
   assert.equal(mail.host, 'smtp.master.test');
   assert.equal(mail.secure, true);
-  assert.equal(mail.from, 'Top Taxi <m@test>');
+  assert.equal(mail.from, 'Gogo <m@test>');
 });
 
 console.log('\nbrand, contact and legal pages');
 await check('a saved name and phone show in every service\'s settings', async () => {
-  await save({ brand: { name: 'Top Taxi' }, contact: { phone: '9876543210', phoneCountryCode: '+91' } });
+  await save({ brand: { name: 'Gogo' }, contact: { phone: '9876543210', phoneCountryCode: '+91' } });
   const out = await svc.overlayBusinessSettings({ companyName: 'Switcheats', email: 'old@x.in', phone: { countryCode: '+1', number: '1' } });
-  assert.equal(out.companyName, 'Top Taxi');
+  assert.equal(out.companyName, 'Gogo');
   assert.equal(out.phone.number, '9876543210');
   assert.equal(out.phone.countryCode, '+91');
   assert.equal(out.email, 'old@x.in', 'email not saved in master: the service keeps its own');
@@ -118,8 +118,8 @@ await check('a saved legal page is served; others keep their own', async () => {
   assert.equal(await svc.managedLegalPage('privacy'), null);
 });
 await check('an older screen editing a managed field updates the master', async () => {
-  await svc.syncManagedFromLegacy({ name: 'Top Taxi India', email: 'ignored@x.in' });
-  assert.equal((await svc.managedBrand()).name, 'Top Taxi India');
+  await svc.syncManagedFromLegacy({ name: 'Gogo India', email: 'ignored@x.in' });
+  assert.equal((await svc.managedBrand()).name, 'Gogo India');
   assert.equal((await svc.managedBrand()).email, undefined, 'unmanaged fields are not pulled in');
 });
 await check('an older screen editing a managed legal page updates the master', async () => {

@@ -1751,7 +1751,7 @@ const getBiometricFingerHand = (fingerCode = "") => {
 };
 
 const getBiometricEncryptionKey = () =>
-  crypto.createHash("sha256").update(String(env.jwtSecret || "Top Taxi-biometric-secret")).digest();
+  crypto.createHash("sha256").update(String(env.jwtSecret || "Gogo-biometric-secret")).digest();
 
 const encryptBiometricTemplate = (template = "") => {
   const raw = String(template || "");

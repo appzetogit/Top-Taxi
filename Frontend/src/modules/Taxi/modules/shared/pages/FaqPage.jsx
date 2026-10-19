@@ -7,7 +7,7 @@ const FaqPage = () => {
   const [openIndex, setOpenIndex] = useState(0);
 
   React.useEffect(() => {
-    document.title = "FAQs | Top Taxi";
+    document.title = "FAQs | Gogo";
   }, []);
 
   const faqs = [

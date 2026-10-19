@@ -9,14 +9,14 @@ import { publicGetOnce } from "@food/api";
 
 const SETTINGS_KEY = 'food_business_settings';
 
-const DEFAULT_COMPANY_NAME = "Top Taxi";
+const DEFAULT_COMPANY_NAME = "Gogo";
 
 // Names the backend seeds into a fresh settings document, or that survive from earlier
 // vendor builds. They are placeholders, not choices, so they get replaced by the default.
 //
 // This used to be a SUBSTRING test, which meant any name merely CONTAINING one of these
 // -- "K9 Rides Pvt Ltd", and every name with a stray "k9" in it -- was silently rewritten
-// to "Top Taxi". An operator would save a company name in Business Setup, watch the
+// to "Gogo". An operator would save a company name in Business Setup, watch the
 // sidebar and tab title keep showing the old brand, and reasonably conclude the save had
 // failed. Matching the whole name exactly leaves anything deliberately typed alone.
 const SEEDED_PLACEHOLDER_NAMES = new Set([
@@ -169,7 +169,7 @@ export const getCachedSettings = () => {
 
 /**
  * Get company name from business settings with fallback
- * @returns {string} Company name or default "Top Taxi"
+ * @returns {string} Company name or default "Gogo"
  */
 export const getCompanyName = () => {
   const settings = getCachedSettings();
@@ -178,14 +178,14 @@ export const getCompanyName = () => {
 
 /**
  * Get company name asynchronously (loads if not cached)
- * @returns {Promise<string>} Company name or default "Top Taxi"
+ * @returns {Promise<string>} Company name or default "Gogo"
  */
 export const getCompanyNameAsync = async () => {
   try {
     const settings = await loadBusinessSettings();
     return normalizeCompanyName(settings?.companyName);
   } catch (error) {
-    return "Top Taxi";
+    return "Gogo";
   }
 };
 

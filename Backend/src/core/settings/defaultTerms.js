@@ -15,7 +15,7 @@
 
 const esc = (s) => String(s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-export function defaultTermsHtml({ brand = 'Top Taxi', operator = '', email = '', updated = new Date() } = {}) {
+export function defaultTermsHtml({ brand = 'Gogo', operator = '', email = '', updated = new Date() } = {}) {
   const b = esc(brand);
   const op = esc(operator || brand);
   const date = updated.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });

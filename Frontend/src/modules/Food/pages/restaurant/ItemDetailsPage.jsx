@@ -1519,7 +1519,7 @@ export default function ItemDetailsPage() {
                       {taxSettings.priceIncludesGst
                         ? "The price you enter already includes GST, so the customer pays exactly this price."
                         : `GST${Number(taxSettings.gstRate) > 0 ? ` of ${taxSettings.gstRate}%` : ""} is added on top of the price you enter, at checkout.`}
-                      {" "}Set by Top Taxi admin.
+                      {" "}Set by Gogo admin.
                     </p>
                   </div>
 

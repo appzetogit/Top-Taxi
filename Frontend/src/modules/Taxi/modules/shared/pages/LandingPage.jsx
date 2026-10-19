@@ -62,7 +62,7 @@ function LandingPage() {
                {appLogo ? (
                  <img src={appLogo} alt={appName} className="h-[40px] w-auto object-contain" />
                ) : (
-                 <span style={{color: '#333'}}>Top Taxi</span>
+                 <span style={{color: '#333'}}>Gogo</span>
                )}
              </a>
           </div>
@@ -86,7 +86,7 @@ function LandingPage() {
                {appLogo ? (
                  <img src={appLogo} alt={appName} className="h-[32px] w-auto object-contain" />
                ) : (
-                 <span>Top Taxi</span>
+                 <span>Gogo</span>
                )}
             </a>
             <nav className={`new-nav-links ${isMobileMenuOpen ? 'mobile-open' : ''}`}>
@@ -100,7 +100,7 @@ function LandingPage() {
             </nav>
             <div className="new-nav-actions">
               <button className="new-login-btn hidden-mobile" onClick={() => navigate('/taxi/user/login')}>Login</button>
-              <button className="new-book-btn hidden-mobile" onClick={() => window.open('https://play.google.com/store/apps/details?id=com.toptaxi.user', '_blank')}>Book a Taxi</button>
+              <button className="new-book-btn hidden-mobile" onClick={() => window.open('https://play.google.com/store/apps/details?id=com.gogo.user', '_blank')}>Book a Taxi</button>
               <button className="mobile-menu-btn" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
                 ☰
               </button>
@@ -113,9 +113,9 @@ function LandingPage() {
           <div className="new-hero-left">
             <span className="new-hero-subtitle">Travel securely with us!</span>
             <h1 className="new-hero-title">Book your taxi from<br/>anywhere today!</h1>
-            <p className="new-hero-desc">Everything your taxi business needs is already here!<br/>Top Taxi made for taxi service companies!</p>
+            <p className="new-hero-desc">Everything your taxi business needs is already here!<br/>Gogo made for taxi service companies!</p>
             <div className="new-hero-cta-row">
-              <button className="new-hero-action-btn" onClick={() => window.open('https://play.google.com/store/apps/details?id=com.toptaxi.user', '_blank')}>Book Your Ride</button>
+              <button className="new-hero-action-btn" onClick={() => window.open('https://play.google.com/store/apps/details?id=com.gogo.user', '_blank')}>Book Your Ride</button>
               <button className="new-hero-login-btn" onClick={() => navigate('/taxi/user/login')}>
                 <LogIn size={18} />
                 <span>Login</span>
@@ -256,7 +256,7 @@ function LandingPage() {
               <h3 className="newsletter-title">Subscribe Our Newsletter.</h3>
               <form className="newsletter-form">
                 <input type="email" placeholder="Email" />
-                <button type="button" onClick={() => window.open('https://play.google.com/store/apps/details?id=com.toptaxi.user', '_blank')}>Book Now →</button>
+                <button type="button" onClick={() => window.open('https://play.google.com/store/apps/details?id=com.gogo.user', '_blank')}>Book Now →</button>
               </form>
             </div>
           </div>
@@ -268,7 +268,7 @@ function LandingPage() {
                {appLogo ? (
                  <img src={appLogo} alt={appName} className="h-[48px] w-auto object-contain" />
                ) : (
-                 <span style={{color: '#FFB300', fontSize: '2.5rem', fontWeight: 800}}>Top Taxi</span>
+                 <span style={{color: '#FFB300', fontSize: '2.5rem', fontWeight: 800}}>Gogo</span>
                )}
             </a>
             <p>We provide the best taxi and ride services in the region. Reliable, fast, and secure rides at your fingertips.</p>
@@ -311,7 +311,7 @@ function LandingPage() {
             <Link to="/terms">Terms & Conditions</Link>
           </div>
           <div className="footer-copyright">
-            Copyright 2026 © All Right Reserved Design by Top Taxi
+            Copyright 2026 © All Right Reserved Design by Gogo
           </div>
         </div>
       </footer>

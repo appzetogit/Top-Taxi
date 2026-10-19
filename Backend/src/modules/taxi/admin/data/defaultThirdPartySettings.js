@@ -28,7 +28,7 @@ export const createDefaultThirdPartySettings = () => {
       mail_password: '',
       mail_encryption: 'tls',
       mail_from_address: 'noreply@gogo.org.in',
-      mail_from_name: 'Top Taxi',
+      mail_from_name: 'Gogo',
     },
     sms: {
       firebase: { enabled: '1' },

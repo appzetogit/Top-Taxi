@@ -7,7 +7,7 @@ import { getHaversineDistance, calculateETA } from '@/modules/DeliveryV2/utils/g
 
 /**
  * NewOrderModal - Ported to Original 1:1 Theme with Slider Accept.
- * Matches the Top Taxi Partner style Green Header + White Card.
+ * Matches the Gogo Partner style Green Header + White Card.
  */
 export const NewOrderModal = ({ order, onAccept, onReject, onMinimize }) => {
   const { riderLocation } = useDeliveryStore();
