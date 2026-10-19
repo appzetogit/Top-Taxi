@@ -9,7 +9,7 @@ const DEFAULTS = {
     countryCode: "+91",
     restaurantName: "Top Taxi Demo Restaurant",
     ownerName: "Top Taxi Restaurant Owner",
-    ownerEmail: "restaurant@K9 Rides.com",
+    ownerEmail: "restaurant@toptaxi.com",
     city: "Bhopal",
     state: "Madhya Pradesh",
     status: "approved",

@@ -32,7 +32,7 @@ const DEFAULT_CREDENTIALS = {
     .trim()
     .toLowerCase(),
   adminPassword: String(
-    process.env.DEFAULT_ADMIN_PASSWORD || (isDev ? "sahin.Quick Drop@2004#" : ""),
+    process.env.DEFAULT_ADMIN_PASSWORD || (isDev ? "sahin.TopTaxi@2004#" : ""),
   ),
   userPhone: String(process.env.DEFAULT_USER_PHONE || (isDev ? "7974161582" : "")),
   restaurantPhone: String(process.env.DEFAULT_RESTAURANT_PHONE || (isDev ? "7974161582" : "")),
@@ -376,7 +376,7 @@ export const verifyRestaurantOtpAndLogin = async (phone, otp, fcmToken, platform
     restaurantDoc = await FoodRestaurant.create({
       restaurantName: "Top Taxi Demo Restaurant",
       ownerName: "Top Taxi Restaurant Owner",
-      ownerEmail: "restaurant@Quick Drop.com",
+      ownerEmail: "restaurant@gogo.org.in",
       ownerPhone: normalizePhone10(DEFAULT_CREDENTIALS.restaurantPhone),
       primaryContactNumber: normalizePhone10(DEFAULT_CREDENTIALS.restaurantPhone),
       city: "Bhopal",

@@ -41,7 +41,7 @@ const run = (fn, req) => new Promise((resolve) => {
 const hook = (req) => run(petpoojaWebhookController, { body: { order_id: 'FOD-1234567', status: 'bogus', outlet_code: 'OUT1' }, ...req });
 
 await check('enabling the integration generates a secret and returns the callback URL', async () => {
-  const r = await run(admin.updatePetpoojaSettings, { body: { enabled: true, apiKey: 'k', clientCode: 'c' }, headers: { host: 'quickdropsindia.com' } });
+  const r = await run(admin.updatePetpoojaSettings, { body: { enabled: true, apiKey: 'k', clientCode: 'c' }, headers: { host: 'gogo.org.in' } });
   assert.equal(r.status, 200, JSON.stringify(r.body));
   const doc = await FoodPetpoojaSettings.findOne().lean();
   assert.ok(doc.webhookSecret.length >= 32);

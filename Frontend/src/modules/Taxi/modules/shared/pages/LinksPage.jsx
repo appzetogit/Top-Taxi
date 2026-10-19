@@ -10,7 +10,7 @@ const LinksPage = () => {
       title: 'Top Taxi - User app',
       subtitle: 'Book rides, send parcels, and more.',
       description: 'Get where you need to go with ease. Request a ride or send packages across the city in minutes.',
-      url: 'https://play.google.com/store/apps/details?id=com.Quick Drop.user',
+      url: 'https://play.google.com/store/apps/details?id=com.toptaxi.user',
       type: 'Customer App',
       icon: <Zap className="link-icon" />,
       color: '#FFB300'
@@ -20,7 +20,7 @@ const LinksPage = () => {
       title: 'Top Taxi Driver',
       subtitle: 'Drive and earn with Top Taxi.',
       description: 'Join our fleet of professional drivers. Flexible hours, great earnings, and a supportive community.',
-      url: 'https://play.google.com/store/apps/details?id=com.Quick Drop.driver',
+      url: 'https://play.google.com/store/apps/details?id=com.toptaxi.driver',
       type: 'Partner App',
       icon: <Shield className="link-icon" />,
       color: '#2563EB'
@@ -92,7 +92,7 @@ const LinksPage = () => {
         <footer className="links-footer">
           <p>© 2026 Top Taxi. All rights reserved.</p>
           <div className="footer-links">
-            <a href="https://Quick Drop.com" target="_blank" rel="noopener noreferrer">Visit Website</a>
+            <a href="https://gogo.org.in" target="_blank" rel="noopener noreferrer">Visit Website</a>
             <span className="dot"></span>
             <a href="/support">Support</a>
           </div>

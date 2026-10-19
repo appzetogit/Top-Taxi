@@ -1,4 +1,4 @@
-const DEFAULT_BACKEND_ORIGIN = 'https://k9rides.onrender.com';
+const DEFAULT_BACKEND_ORIGIN = 'https://gogo.org.in';
 
 const trimTrailingSlash = (value = '') => value.replace(/\/+$/, '');
 

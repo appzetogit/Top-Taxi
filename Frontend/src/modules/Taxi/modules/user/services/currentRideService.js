@@ -1,4 +1,4 @@
-const CURRENT_RIDE_STORAGE_KEY = 'Quick Drop_current_ride';
+const CURRENT_RIDE_STORAGE_KEY = 'top_taxi_current_ride';
 
 export const CURRENT_RIDE_UPDATED_EVENT = 'top-taxi:current-ride-updated';
 

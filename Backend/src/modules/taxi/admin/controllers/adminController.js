@@ -1693,11 +1693,11 @@ export const getLandingPageSettings = asyncHandler(async (req, res) => {
       hero_image_url: '',
       why_us_image_url: '',
       social_links: {
-        facebook: 'https://facebook.com/k9rides',
-        twitter: 'https://twitter.com/k9rides',
-        instagram: 'https://instagram.com/k9rides',
-        linkedin: 'https://linkedin.com/company/k9rides',
-        youtube: 'https://youtube.com/k9rides'
+        facebook: 'https://facebook.com/toptaxi',
+        twitter: 'https://twitter.com/toptaxi',
+        instagram: 'https://instagram.com/toptaxi',
+        linkedin: 'https://linkedin.com/company/toptaxi',
+        youtube: 'https://youtube.com/toptaxi'
       },
       contact_email: 'k9bharatrides@gmail.com',
       contact_phone: '+91 7358789910',

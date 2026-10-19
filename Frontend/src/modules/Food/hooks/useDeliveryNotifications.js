@@ -678,8 +678,8 @@ export const useDeliveryNotifications = () => {
     }
 
     // IMPORTANT: Socket.IO server is on the origin (not /api/v1).
-    // Our API baseURL is typically like: https://k9rides.onrender.com/api/v1
-    // So for sockets we always connect to: https://k9rides.onrender.com
+    // Our API baseURL is typically like: https://gogo.org.in/api/v1
+    // So for sockets we always connect to: https://gogo.org.in
     let backendUrl = API_BASE_URL;
     try {
       const base =

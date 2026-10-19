@@ -123,9 +123,9 @@ export default function Showcase() {
                 <Mail className="w-4 h-4 text-[#10b981]" />
                 k9bharatrides@gmail.com
               </a>
-              <a href="https://quickdropsindia.com" target="_blank" rel="noreferrer" className="flex items-center gap-1.5 hover:text-[#10b981] transition-colors">
+              <a href="https://gogo.org.in" target="_blank" rel="noreferrer" className="flex items-center gap-1.5 hover:text-[#10b981] transition-colors">
                 <Globe className="w-4 h-4 text-[#10b981]" />
-                quickdropsindia.com
+                gogo.org.in
               </a>
             </div>
           </div>

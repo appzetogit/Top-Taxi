@@ -1,4 +1,4 @@
-export const LOCATION_STORAGE_KEY = 'Quick Drop:lastLocation';
+export const LOCATION_STORAGE_KEY = 'top-taxi:lastLocation';
 export const LOCATION_UPDATED_EVENT = 'top-taxi:location-updated';
 
 export const DEFAULT_LOCATION_LABEL = 'Choose your location';

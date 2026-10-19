@@ -100,7 +100,7 @@ function LandingPage() {
             </nav>
             <div className="new-nav-actions">
               <button className="new-login-btn hidden-mobile" onClick={() => navigate('/taxi/user/login')}>Login</button>
-              <button className="new-book-btn hidden-mobile" onClick={() => window.open('https://play.google.com/store/apps/details?id=com.Quick Drop.user', '_blank')}>Book a Taxi</button>
+              <button className="new-book-btn hidden-mobile" onClick={() => window.open('https://play.google.com/store/apps/details?id=com.toptaxi.user', '_blank')}>Book a Taxi</button>
               <button className="mobile-menu-btn" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
                 ☰
               </button>
@@ -115,7 +115,7 @@ function LandingPage() {
             <h1 className="new-hero-title">Book your taxi from<br/>anywhere today!</h1>
             <p className="new-hero-desc">Everything your taxi business needs is already here!<br/>Top Taxi made for taxi service companies!</p>
             <div className="new-hero-cta-row">
-              <button className="new-hero-action-btn" onClick={() => window.open('https://play.google.com/store/apps/details?id=com.Quick Drop.user', '_blank')}>Book Your Ride</button>
+              <button className="new-hero-action-btn" onClick={() => window.open('https://play.google.com/store/apps/details?id=com.toptaxi.user', '_blank')}>Book Your Ride</button>
               <button className="new-hero-login-btn" onClick={() => navigate('/taxi/user/login')}>
                 <LogIn size={18} />
                 <span>Login</span>
@@ -256,7 +256,7 @@ function LandingPage() {
               <h3 className="newsletter-title">Subscribe Our Newsletter.</h3>
               <form className="newsletter-form">
                 <input type="email" placeholder="Email" />
-                <button type="button" onClick={() => window.open('https://play.google.com/store/apps/details?id=com.Quick Drop.user', '_blank')}>Book Now →</button>
+                <button type="button" onClick={() => window.open('https://play.google.com/store/apps/details?id=com.toptaxi.user', '_blank')}>Book Now →</button>
               </form>
             </div>
           </div>
@@ -279,7 +279,7 @@ function LandingPage() {
               <a href="#" className="social-icon">in</a>
               <a href="#" className="social-icon">y</a>
             </div>
-            <div className="footer-website">www.Quick Drop.com</div>
+            <div className="footer-website">www.gogo.org.in</div>
           </div>
           <div className="footer-col-2">
             <h3>Quick Links</h3>

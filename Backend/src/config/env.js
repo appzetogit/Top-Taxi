@@ -228,7 +228,7 @@ export const env = {
         cloudName: config.cloudinaryCloudName,
         apiKey: config.cloudinaryApiKey,
         apiSecret: config.cloudinaryApiSecret,
-        folder: process.env.CLOUDINARY_FOLDER || 'Quick Drop-taxi',
+        folder: process.env.CLOUDINARY_FOLDER || 'Top Taxi-taxi',
     },
     firebase: {
         databaseURL: config.firebaseDatabaseUrl,
@@ -263,7 +263,7 @@ export const isOriginAllowed = (origin) => {
         .map((value) => value.trim())
         .filter(Boolean);
 
-    const list = allowed.length > 0 ? allowed : ['https://k9rides.onrender.com'];
+    const list = allowed.length > 0 ? allowed : ['https://gogo.org.in'];
 
     if (list.includes('*') || list.includes(origin)) {
         return true;
@@ -273,8 +273,8 @@ export const isOriginAllowed = (origin) => {
         const url = new URL(origin);
         if (
             url.hostname.endsWith('.vercel.app') ||
-            url.hostname.endsWith('.k9rides.com') ||
-            url.hostname === 'k9rides.com' ||
+            url.hostname.endsWith('.gogo.org.in') ||
+            url.hostname === 'gogo.org.in' ||
             // Service-Provider (Homster/Truliq) front-ends. Only the admin panel moves
             // into master's frontend; the user, vendor and worker apps stay on these
             // domains and keep calling this backend through the legacy /api prefixes.

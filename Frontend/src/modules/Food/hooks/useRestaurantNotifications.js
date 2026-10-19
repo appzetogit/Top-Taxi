@@ -400,10 +400,10 @@ export const useRestaurantNotifications = () => {
       let suggestedBackendUrl = null;
       
       // Common patterns:
-      // - If frontend is on foods.K9 Rides.com, backend might be api.foods.K9 Rides.com or foods.K9 Rides.com
-      if (frontendHost.includes('foods.Quick Drop.com')) {
-        suggestedBackendUrl = `${frontendProtocol}//api.foods.Quick Drop.com/api`;
-      } else if (frontendHost.includes('Quick Drop.com')) {
+      // - If frontend is on foods.gogo.org.in, backend might be api.foods.gogo.org.in or foods.gogo.org.in
+      if (frontendHost.includes('foods.gogo.org.in')) {
+        suggestedBackendUrl = `${frontendProtocol}//api.foods.gogo.org.in/api`;
+      } else if (frontendHost.includes('gogo.org.in')) {
         suggestedBackendUrl = `${frontendProtocol}//api.${frontendHost}/api`;
       }
       
@@ -446,8 +446,8 @@ export const useRestaurantNotifications = () => {
     
     // Construct Socket.IO URL
     // IMPORTANT: Socket.IO server is on the origin (not /api/v1).
-    // Our API baseURL is typically like: https://k9rides.onrender.com/api/v1
-    // So for sockets we always connect to: https://k9rides.onrender.com
+    // Our API baseURL is typically like: https://gogo.org.in/api/v1
+    // So for sockets we always connect to: https://gogo.org.in
     let socketOrigin = backendUrl;
     try {
       socketOrigin = new URL(backendUrl).origin;

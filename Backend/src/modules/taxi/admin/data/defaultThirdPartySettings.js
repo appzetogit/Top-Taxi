@@ -27,7 +27,7 @@ export const createDefaultThirdPartySettings = () => {
       mail_username: '',
       mail_password: '',
       mail_encryption: 'tls',
-      mail_from_address: 'noreply@Quick Drop.com',
+      mail_from_address: 'noreply@gogo.org.in',
       mail_from_name: 'Top Taxi',
     },
     sms: {

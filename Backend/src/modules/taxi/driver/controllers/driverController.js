@@ -1751,7 +1751,7 @@ const getBiometricFingerHand = (fingerCode = "") => {
 };
 
 const getBiometricEncryptionKey = () =>
-  crypto.createHash("sha256").update(String(env.jwtSecret || "Quick Drop-biometric-secret")).digest();
+  crypto.createHash("sha256").update(String(env.jwtSecret || "Top Taxi-biometric-secret")).digest();
 
 const encryptBiometricTemplate = (template = "") => {
   const raw = String(template || "");
@@ -2575,7 +2575,7 @@ export const getCurrentDriver = async (req, res) => {
       // field being present and dated today -- reporting it as always
       // satisfied here keeps the camera screen from appearing without
       // touching the app itself.
-      onlineSelfie: { imageUrl: 'https://quickdrop.appzeto.com/selfie-not-required', forDate: new Date().toISOString().slice(0, 10) },
+      onlineSelfie: { imageUrl: 'https://gogo.org.in/selfie-not-required', forDate: new Date().toISOString().slice(0, 10) },
     },
   });
 };
@@ -4851,7 +4851,7 @@ const getFrontendBaseUrl = () => {
     .map((value) => value.trim())
     .find((value) => value && value !== "*");
 
-  return (configuredOrigin || "https://k9rides.onrender.com").replace(/\/+$/, "");
+  return (configuredOrigin || "https://gogo.org.in").replace(/\/+$/, "");
 };
 
 const getPhonePeBaseUrl = (environment = "test") =>

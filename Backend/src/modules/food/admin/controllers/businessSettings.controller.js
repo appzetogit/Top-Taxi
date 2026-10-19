@@ -100,7 +100,7 @@ export async function getBusinessSettings(req, res, next) {
             // Create default settings if none exist
             settings = await FoodBusinessSettings.create({
                 companyName: 'Top Taxi',
-                email: 'admin@Quick Drop.com'
+                email: 'admin@gogo.org.in'
             });
         }
         // Master settings win where set (core/settings/platformProfile.service.js).
