@@ -42,4 +42,5 @@ nginx -t
 systemctl reload nginx
 
 echo "==> Deploy finished: $(git rev-parse --short HEAD)"
-curl -s http://localhost:5000/health && echo
+sleep 2
+curl -s http://localhost:5000/health && echo || echo "(health check didn't respond yet -- give pm2 a few more seconds and check 'pm2 status')"
