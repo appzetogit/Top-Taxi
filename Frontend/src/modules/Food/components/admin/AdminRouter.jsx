@@ -472,24 +472,24 @@ export default function AdminRouter() {
             {verticalAdminRoutes}
             <Route path="stock" element={<StockManager scope="admin" />} />
           </Route>
+
+          {/*
+            ECOMMERCE ADMIN - its own, separately-ported admin page tree (not
+            a reuse of verticalAdminRoutes -- that reuse is for
+            quick-commerce, a literal fork of Food; ecommerce's admin UI is
+            separately written, with its own page components and paths).
+
+            Mounted INSIDE the shared ProtectedRoute+AdminLayout above, same
+            as food/* and quick-commerce/*, so the Shop vertical gets the
+            same sidebar/navbar chrome instead of its own separate shell.
+            EcommerceAdminRouter itself still wraps its subtree in its own
+            ProtectedRoute for its own RBAC (canAccessAdminPath) -- that is an
+            auth guard, not a layout, and nests fine here. It reuses the same
+            "admin" token/session as Food, so a signed-in admin moving here
+            from Food does not need to sign in again.
+          */}
+          <Route path="ecommerce/*" element={<EcommerceAdminRouter />} />
         </Route>
-
-        {/*
-          ECOMMERCE ADMIN - its own, separately-ported admin page tree (not a
-          reuse of verticalAdminRoutes -- that reuse is for quick-commerce, a
-          literal fork of Food; ecommerce's admin UI is separately written).
-
-          Mounted OUTSIDE the ProtectedRoute+AdminLayout wrapper above on
-          purpose: the ported EcommerceAdminRouter brings its own
-          ProtectedRoute/AdminLayout/AdminSidebar (it has its own :panel
-          sub-routing the shared AdminLayout above knows nothing about), so
-          nesting it inside Food's AdminLayout would render two sidebars.
-          It reuses the same "admin" token/session as Food (see its
-          ProtectedRoute/getCurrentUser("admin") calls), so a signed-in admin
-          moving here from Food does not need to sign in again -- only the
-          chrome around the pages is a separate shell, not the identity.
-        */}
-        <Route path="ecommerce/*" element={<EcommerceAdminRouter />} />
 
         {/* Redirect unknown admin routes to food admin */}
         <Route path="*" element={<Navigate to="/admin/food" replace />} />

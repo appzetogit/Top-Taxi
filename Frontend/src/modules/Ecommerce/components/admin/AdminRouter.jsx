@@ -3,7 +3,6 @@ import { Routes, Route, Navigate, Outlet, useLocation, useParams } from "react-r
 import { ADMIN_PANELS, DEFAULT_ADMIN_PANEL, useAdminBase } from "./useAdminPanel";
 import ProtectedRoute from "./ProtectedRoute";
 import AuthRedirect from "@ecommerce/components/AuthRedirect";
-import AdminLayout from "./AdminLayout";
 import Loader from "@ecommerce/components/Loader";
 import { getCurrentUser } from "@ecommerce/utils/auth";
 import { canAccessFeatureSettings, canAccessSuperPowers } from "@ecommerce/utils/adminPermissions";
@@ -270,14 +269,18 @@ export default function AdminRouter() {
         <Route path="login" element={<AuthRedirect module="admin"><AdminLogin /></AuthRedirect>} />
         <Route path="forgot-password" element={<AuthRedirect module="admin"><AdminForgotPassword /></AuthRedirect>} />
 
-        {/* Protected Routes - With Layout */}
-        <Route
-          element={
-            <ProtectedRoute>
-              <AdminLayout />
-            </ProtectedRoute>
-          }
-        >
+        {/*
+          No AdminLayout here: ecommerce's routes now render inside Food's
+          shared AdminLayout/AdminSidebar/AdminNavbar (see Food's
+          AdminRouter.jsx, which mounts this subtree at "ecommerce/*" inside
+          its own ProtectedRoute+AdminLayout block). ProtectedRoute is kept
+          here because it does ecommerce-specific RBAC
+          (canAccessAdminPath/findFirstAllowedAdminPath) that Food's own
+          ProtectedRoute does not know about -- it was always just an auth/
+          RBAC guard rendering `children`, never a layout itself, so nothing
+          needed to be split out of it.
+        */}
+        <Route element={<ProtectedRoute><Outlet /></ProtectedRoute>}>
           {/* Default Admin Redirect */}
           <Route path="/" element={<Navigate to={DEFAULT_ADMIN_PANEL} replace />} />
 

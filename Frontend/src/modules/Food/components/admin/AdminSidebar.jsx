@@ -54,12 +54,22 @@ import {
   ShoppingBasket,
   Percent,
   ShieldCheck,
+  Star,
+  RotateCcw,
+  Banknote,
+  Layers,
+  Disc3,
+  BellRing,
+  Timer,
+  Coins,
+  Headset,
 } from "lucide-react"
 import { cn } from "@food/utils/utils"
 import { Input } from "@food/components/ui/input"
 
 import { adminSidebarMenu } from "@food/utils/adminSidebarMenu"
 import { masterSidebarMenu } from "@food/utils/masterSidebarMenu"
+import { getAdminSidebarMenu as getEcommerceSidebarMenu } from "@ecommerce/utils/adminSidebarMenu"
 import { rulesFor, VERTICAL } from "@food/utils/verticalVocabulary"
 import { getCachedSettings, loadBusinessSettings } from "@food/utils/businessSettings"
 import quickSpicyLogo from "@food/assets/k9-logo.jpg"
@@ -151,6 +161,15 @@ const iconMap = {
   PiggyBank,
   Lock,
   X,
+  Star,
+  RotateCcw,
+  Banknote,
+  Layers,
+  Disc3,
+  BellRing,
+  Timer,
+  Coins,
+  Headset,
 }
 
 /**
@@ -164,9 +183,14 @@ const iconMap = {
  */
 const FOOD_ADMIN_BASE = "/admin/food"
 const REUSED_ADMIN_BASES = ["/admin/quick-commerce"]
+// Ecommerce (Shop) is not a Food fork: it has its own pages/paths/menu, so it
+// gets its own base recognised below rather than going through rebaseAdminMenu.
+const ECOMMERCE_ADMIN_BASE = "/admin/ecommerce"
 
-export const currentAdminBase = (pathname = "") =>
-  REUSED_ADMIN_BASES.find((base) => pathname.startsWith(base)) || FOOD_ADMIN_BASE
+export const currentAdminBase = (pathname = "") => {
+  if (pathname.startsWith(ECOMMERCE_ADMIN_BASE)) return ECOMMERCE_ADMIN_BASE
+  return REUSED_ADMIN_BASES.find((base) => pathname.startsWith(base)) || FOOD_ADMIN_BASE
+}
 
 /**
  * A food admin path as it lives in the panel for `base`. Quick calls
@@ -189,6 +213,9 @@ export const getVerticalTitle = (base = "", customName = "") => {
   }
   if (base === "/admin/food") {
     return name.toLowerCase().endsWith("food") ? name : `${name} Food`
+  }
+  if (base === ECOMMERCE_ADMIN_BASE) {
+    return name.toLowerCase().endsWith("shop") ? name : `${name} Shop`
   }
   return name
 }
@@ -305,10 +332,28 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
    * switcher tab is how you reach Master now, exactly as for every other panel.
    */
   const inMaster = location.pathname.startsWith("/admin/master")
-  const allowedMenu = useMemo(
-    () => filterMenuForAccess(rebaseAdminMenu(adminSidebarMenu, adminBase), access) || [],
-    [adminBase, access],
-  )
+  /*
+   * Ecommerce (Shop) is a separately-written admin UI, not a reuse of Food's
+   * screens -- rebaseAdminMenu only rewrites /admin/food/... paths, which
+   * makes no sense here. Its own menu (Ecommerce/utils/adminSidebarMenu.js)
+   * already has the right items/paths; getAdminSidebarMenu("shop", base)
+   * keeps its "shop" vs "quick" item-visibility tags working (passing
+   * "ecommerce/shop" as that argument, as an earlier version of this file
+   * did, broke every panels-tagged item's `.includes(panel)` check and
+   * emptied the whole menu) while prefixing every relative path with the
+   * real mounted base, /admin/ecommerce/shop, via the explicit baseOverride.
+   *
+   * filterMenuForAccess is skipped here on purpose: it understands Food's
+   * resource/permission vocabulary (canOpenPath/panelOfPath/PAGE_RULES), which
+   * has no entries for ecommerce paths, and ecommerce's own ProtectedRoute
+   * already enforces its own RBAC (canAccessAdminPath) per route. Unifying
+   * the two permission vocabularies so this menu could be access-filtered too
+   * is a larger RBAC change, out of scope for this layout swap.
+   */
+  const allowedMenu = useMemo(() => {
+    if (adminBase === ECOMMERCE_ADMIN_BASE) return getEcommerceSidebarMenu("shop", "/admin/ecommerce/shop")
+    return filterMenuForAccess(rebaseAdminMenu(adminSidebarMenu, adminBase), access) || []
+  }, [adminBase, access])
   /*
    * The Master screens this admin may actually open, already filtered by their
    * permissions. Derived rather than gated on "is an owner": /admin/master/admins

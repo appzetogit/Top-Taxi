@@ -290,8 +290,15 @@ const isInPanel = (entry, panel, inherited = BOTH) => (entry.panels || inherited
 const withBase = (path, base) => (typeof path === "string" ? `${base}${path}` : path)
 
 /** The sidebar for one panel, with every path made absolute under /admin/<panel>. */
-export function getAdminSidebarMenu(panel = "quick") {
-  const base = `/admin/${panel}`
+/**
+ * @param {string} panel    which panel's items to include ("quick" or "shop") --
+ *                          used only against each item's `panels` tag, never as a path segment.
+ * @param {string} baseOverride  the real mounted base to prefix every path with
+ *                               (e.g. "/admin/ecommerce/shop"); defaults to "/admin/<panel>"
+ *                               for this module's own standalone routing, kept for compatibility.
+ */
+export function getAdminSidebarMenu(panel = "quick", baseOverride) {
+  const base = baseOverride || `/admin/${panel}`
   const mapItem = (item, inherited) => {
     if (!isInPanel(item, panel, inherited)) return null
     const panels = item.panels || inherited
