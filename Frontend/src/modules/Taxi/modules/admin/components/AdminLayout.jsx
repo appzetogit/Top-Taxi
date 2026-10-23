@@ -1560,6 +1560,17 @@ const AdminLayout = () => {
                   <ShoppingBasket className="w-3.5 h-3.5 text-[var(--sb-ink-faint)]" />
                   Quick
                 </button>}
+                {showPanel("ecommerce") && <button
+                  type="button"
+                  onClick={() => navigate("/admin/ecommerce")}
+                  className={cn(
+                    "flex-1 min-w-0 flex flex-col items-center justify-center gap-1 px-1 py-2 text-[11px] leading-none font-bold rounded-lg transition-all duration-300",
+                    "text-[var(--sb-ink-faint)] hover:text-[var(--sb-ink-soft)] hover:bg-[var(--sb-hover)]"
+                  )}
+                >
+                  <Package className="w-3.5 h-3.5 text-[var(--sb-ink-faint)]" />
+                  Shop
+                </button>}
               </div>
             )}
           </div>
