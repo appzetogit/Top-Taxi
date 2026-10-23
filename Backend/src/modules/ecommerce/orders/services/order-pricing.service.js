@@ -1,0 +1,747 @@
+import mongoose from 'mongoose';
+import { Order } from '../models/order.model.js';
+import { Seller } from '../../seller/models/seller.model.js';
+import { FeeSettings } from '../../admin/models/feeSettings.model.js';
+import { Offer } from '../../admin/models/offer.model.js';
+import { OfferUsage } from '../../admin/models/offerUsage.model.js';
+import { Category } from '../../admin/models/category.model.js';
+import { FoodUser as User } from '../../../../core/users/user.model.js';
+import { ValidationError } from '../../../../core/auth/errors.js';
+import {
+  calculateDistanceKm,
+  normalizeDeliveryAddress,
+  normalizeSellerLocation,
+  parseGeoPoint,
+} from '../../shared/geo.utils.js';
+import { fetchDrivingRoute } from '../utils/googleMaps.js';
+import { attachOutletTimingsToSellers } from '../../seller/services/outletTimings.service.js';
+import { resolveOrderCartItems } from '../helpers/order-cart-items.helper.js';
+import { AVG_SPEED_KMPH, PACKING_MINUTES } from './order.helpers.js';
+import { checkFirstOrderEligibility } from './firstOrderGuard.service.js';
+
+const round2 = (value) => Math.round((Number(value) || 0) * 100) / 100;
+
+/** Fixed 18% GST on delivery fee (separate from item GST in fee settings). */
+export const DELIVERY_FEE_GST_RATE = 0.18;
+
+export function computeDeliveryFeeGst(deliveryFee) {
+  const base = Math.max(0, Number(deliveryFee) || 0);
+  if (base <= 0) return 0;
+  return round2(base * DELIVERY_FEE_GST_RATE);
+}
+
+/**
+ * Single-channel collapse (see admin/models/product.model.js): warehouses'
+ * original could add a Quick (rider) surcharge on top of the basic delivery
+ * fee, selected by `dto.deliveryMode`. This module serves only the standard
+ * (courier/shop) storefront, so delivery mode is always 'basic' and there is
+ * no surcharge to add.
+ */
+const applyDeliveryModePricing = (pricing) => ({
+  ...pricing,
+  deliveryMode: 'basic',
+  quickDeliveryFee: 0,
+});
+
+export async function loadSellerForOrdering(sellerId) {
+  if (!sellerId || !mongoose.Types.ObjectId.isValid(String(sellerId))) {
+    throw new ValidationError('Store not found');
+  }
+
+  const doc = await Seller.findById(sellerId)
+    .select(
+      // autoAcceptOrders is read at order creation to decide whether the order
+      // waits for a seller. Left out of this projection it is always undefined,
+      // so the flag silently does nothing however it is set.
+      'status sellerName zoneId location isAcceptingOrders autoAcceptOrders outsideHoursOverride openingTime closingTime openDays deliveryTimings isActive',
+    )
+    .lean();
+
+  if (!doc) throw new ValidationError('Store not found');
+  if (doc.status !== 'approved') throw new ValidationError('Store not available');
+
+  const [withTimings] = await attachOutletTimingsToSellers([doc], {
+    useDefaults: false,
+  });
+  if (withTimings?.location) {
+    withTimings.location = normalizeSellerLocation(withTimings.location);
+  }
+  return withTimings;
+}
+
+/**
+ * This module serves only the standard (courier/shop) storefront (see note
+ * above applyDeliveryModePricing): a Shop order waits for the store to
+ * accept, with no time limit, so the store's hours or online switch never
+ * stop one being placed. Warehouses' original also had a Quick path here
+ * that required the store be open right now; that is gone with the Quick
+ * channel.
+ */
+export function assertSellerOpenForOrdering() {
+  return { isOpen: true, reason: 'courier' };
+}
+
+/**
+ * Single source of truth for seller ↔ customer trip distance.
+ * Prefer Google driving/road km (matches delivery partner Rest→User UI);
+ * fall back to Haversine when Directions is unavailable.
+ */
+export async function getDeliveryDistanceKm(seller, deliveryAddress) {
+  const straightLineKm = calculateDistanceKm(seller, deliveryAddress);
+
+  const sellerPoint = parseGeoPoint(seller);
+  const customerPoint = parseGeoPoint(deliveryAddress);
+  if (!sellerPoint || !customerPoint) {
+    return straightLineKm;
+  }
+
+  try {
+    const route = await fetchDrivingRoute(
+      { lat: sellerPoint.lat, lng: sellerPoint.lng },
+      { lat: customerPoint.lat, lng: customerPoint.lng },
+    );
+    if (route?.distanceKm != null && Number.isFinite(Number(route.distanceKm))) {
+      return Number(route.distanceKm);
+    }
+  } catch {
+    // Fall through to Haversine.
+  }
+
+  return straightLineKm;
+}
+
+// Single money-rounding rule (2 decimals) so preview and charged totals always match.
+
+function resolveBaseDeliveryFee(feeSettings = {}) {
+  const ranges = Array.isArray(feeSettings.deliveryFeeRanges)
+    ? feeSettings.deliveryFeeRanges
+    : [];
+  const rangeFees = ranges
+    .map((range) => Number(range?.fee))
+    .filter((fee) => Number.isFinite(fee) && fee >= 0);
+
+  const flat = Number(feeSettings.deliveryFee);
+  const hasPositiveFlat = Number.isFinite(flat) && flat > 0;
+
+  if (rangeFees.length > 0) {
+    const minRangeFee = Math.min(...rangeFees);
+    return hasPositiveFlat ? flat : minRangeFee;
+  }
+
+  return Number.isFinite(flat) && flat >= 0 ? flat : 0;
+}
+
+function matchFeeRange(ranges, distanceKm, pickValue) {
+  if (!Array.isArray(ranges) || ranges.length === 0 || !Number.isFinite(distanceKm)) {
+    return null;
+  }
+
+  const sorted = [...ranges].sort((a, b) => Number(a.min) - Number(b.min));
+  for (let i = 0; i < sorted.length; i += 1) {
+    const range = sorted[i] || {};
+    const min = Number(range.min);
+    const max = Number(range.max);
+    if (!Number.isFinite(min) || !Number.isFinite(max)) continue;
+
+    const isLast = i === sorted.length - 1;
+    const inRange = isLast
+      ? distanceKm >= min && distanceKm <= max
+      : distanceKm >= min && distanceKm < max;
+
+    if (inRange) {
+      const value = pickValue(range);
+      return Number.isFinite(value) ? value : null;
+    }
+  }
+
+  return null;
+}
+
+export async function loadActiveFeeSettings() {
+  const feeDoc = await FeeSettings.findOne({ isActive: { $ne: false } })
+    .sort({ createdAt: -1 })
+    .lean();
+
+  return (
+    feeDoc || {
+      deliveryFee: 0,
+      deliveryFeeRanges: [],
+      platformFee: 0,
+      gstRate: 0,
+    }
+  );
+}
+
+/**
+ * The delivery promise quoted at checkout: packing, then the ride.
+ *
+ * Same speed and packing constants the live countdown uses, so a customer is
+ * not quoted one number before ordering and shown a different one after.
+ */
+export function estimateDeliveryPromiseMinutes(distanceKm) {
+  // Number(null) is 0, so an unknown distance would otherwise quote the packing
+  // time alone -- a confident promise built on a distance nobody measured.
+  if (distanceKm === null || distanceKm === undefined || distanceKm === '') return null;
+  const km = Number(distanceKm);
+  if (!Number.isFinite(km) || km < 0) return null;
+  return Math.ceil(PACKING_MINUTES + (km / AVG_SPEED_KMPH) * 60);
+}
+
+/**
+ * GST across a basket whose lines can sit in different slabs.
+ *
+ * Groceries are taxed per product — flour at 0, biscuits at 18 — so charging
+ * one rate on the whole basket is wrong in both directions depending on what
+ * the customer bought. A line with no rate of its own falls back to the
+ * order-wide rate, which makes this identical to the old single-rate maths for
+ * any basket of items that predate per-product slabs.
+ *
+ * The discount reduces every line in proportion to its share of the basket,
+ * because a basket-level coupon is not attributable to any one product.
+ */
+export function computeItemsTax(items = [], { subtotal = 0, discount = 0, fallbackRate = 0 } = {}) {
+  if (!(subtotal > 0)) return 0;
+
+  const taxableShare = Math.max(0, subtotal - discount) / subtotal;
+  let tax = 0;
+
+  for (const item of items) {
+    // null and undefined mean "no slab of its own" and must reach the fallback.
+    // Number(null) is 0, so testing the coerced value would silently make every
+    // untagged item tax-free.
+    const own = item?.gstRate;
+    const hasOwnRate = own !== null && own !== undefined && Number.isFinite(Number(own));
+    const rate = hasOwnRate ? Number(own) : Number(fallbackRate) || 0;
+    if (!(rate > 0)) continue;
+
+    const lineValue = (Number(item?.price) || 0) * (Number(item?.quantity) || 1);
+    tax += lineValue * taxableShare * (rate / 100);
+  }
+
+  return Math.round(tax);
+}
+
+export function resolveUserDeliveryFee(feeSettings = {}, { subtotal = 0, distanceKm = null } = {}) {
+  const ranges = Array.isArray(feeSettings.deliveryFeeRanges)
+    ? feeSettings.deliveryFeeRanges
+    : [];
+
+  if (ranges.length > 0 && Number.isFinite(distanceKm)) {
+    const matchedFee = matchFeeRange(ranges, distanceKm, (range) => Number(range.fee));
+    if (Number.isFinite(matchedFee)) {
+      return {
+        deliveryFee: matchedFee,
+        distanceKm: Number(distanceKm.toFixed(2)),
+        source: 'distance',
+      };
+    }
+  }
+
+  const fallbackFee = resolveBaseDeliveryFee(feeSettings);
+  return {
+    deliveryFee: fallbackFee,
+    distanceKm: Number.isFinite(distanceKm) ? Number(distanceKm.toFixed(2)) : null,
+    source: Number.isFinite(distanceKm) ? 'default_unmatched_range' : 'default',
+  };
+}
+
+export function calculateRiderEarning(feeSettings = {}, distanceKm) {
+  const ranges = Array.isArray(feeSettings.deliveryFeeRanges)
+    ? feeSettings.deliveryFeeRanges
+    : [];
+  if (ranges.length === 0) return 0;
+
+  // basePay and perKm are mutually exclusive (the admin UI enforces this too):
+  // a flat basePay wins, otherwise pay per km of the actual trip.
+  const payFor = (range, km) => {
+    const basePay = Number(range?.deliveryBoyBasePay || 0);
+    const perKm = Number(range?.deliveryBoyPerKm || 0);
+
+    if (basePay > 0) return basePay;
+    if (perKm > 0) return km * perKm;
+    return 0;
+  };
+
+  // An unknown distance is not a zero-kilometre trip.
+  //
+  // Number(null) is 0, and 0 is finite and non-negative, so coercing before
+  // testing made every order whose distance could not be resolved look like a
+  // delivery to the shop's own door. calculateDistanceKm returns null (not 0)
+  // when either endpoint lacks coordinates, and resolveUserDeliveryFee already
+  // tells the two apart -- it tests Number.isFinite on the raw value, which is
+  // false for null. This did not, so the customer correctly fell back to the
+  // base fee while the rider was paid for 0 km.
+  //
+  // Falls back to the shortest band, mirroring the customer side's fallback to
+  // the base fee. Deliberately not the widest band: one missing coordinate
+  // should not trigger a full long-distance payout. A perKm-only band is
+  // credited one kilometre so a real delivery never pays nothing.
+  if (distanceKm === null || distanceKm === undefined || distanceKm === '') {
+    const shortest = [...ranges].sort((a, b) => Number(a?.min ?? 0) - Number(b?.min ?? 0))[0];
+    const guaranteed = payFor(shortest, 1);
+    return Number.isFinite(guaranteed) ? Math.round(guaranteed) : 0;
+  }
+
+  const distance = Number(distanceKm);
+  if (!Number.isFinite(distance) || distance < 0) return 0;
+
+  const matched = matchFeeRange(ranges, distance, (range) => payFor(range, distance));
+  // A matched band is authoritative — including an explicit 0.
+  if (matched != null && Number.isFinite(matched)) return Math.round(matched);
+
+  // No band covers this distance. The customer is still charged (resolveUserDeliveryFee
+  // falls back to the base fee), so paying the rider 0 here would mean unpaid work on a
+  // real delivery whenever the bands don't span the dispatch radius. Fall back to the
+  // widest configured band instead of silently zeroing the payout.
+  const widest = [...ranges].sort(
+    (a, b) => Number(a?.max ?? 0) - Number(b?.max ?? 0),
+  )[ranges.length - 1];
+  const fallback = payFor(widest, distance);
+  return Number.isFinite(fallback) ? Math.round(fallback) : 0;
+}
+
+/**
+ * The address the trip should be priced against.
+ *
+ * Order creation passes a full `deliveryAddress`, but the checkout preview only
+ * ever sends `deliveryAddressId`, and the cart summary sends neither — nothing
+ * resolved either, so `distanceKm` came out null on every preview and the
+ * distance bands were skipped entirely in favour of the flat fallback fee. The
+ * customer saw one delivery charge at checkout and was billed another on
+ * placing the order.
+ *
+ * An explicitly chosen address wins even when it has no coordinates: pricing a
+ * different address than the one the customer picked would be worse than
+ * falling back to the flat fee.
+ */
+async function resolveDeliveryAddress(userId, dto) {
+  if (parseGeoPoint(dto.deliveryAddress)) return dto.deliveryAddress;
+  if (!userId || !mongoose.Types.ObjectId.isValid(String(userId))) {
+    return dto.deliveryAddress;
+  }
+
+  const user = await User.findById(userId).select('addresses').lean();
+  const addresses = Array.isArray(user?.addresses) ? user.addresses : [];
+  if (addresses.length === 0) return dto.deliveryAddress;
+
+  const wantedId = String(dto.deliveryAddressId || '').trim();
+  const chosen =
+    (wantedId && addresses.find((entry) => String(entry?._id) === wantedId)) ||
+    addresses.find((entry) => entry?.isDefault) ||
+    addresses[0];
+
+  return chosen || dto.deliveryAddress;
+}
+
+// Orders that never happened don't use up a first-order offer: cancelled
+// ones (every cancelled_by_* status) and checkouts abandoned at payment.
+const NOT_A_REAL_ORDER = ['cancelled_by_user', 'cancelled_by_seller', 'cancelled_by_admin', 'pending_payment'];
+
+async function isFirstOrderCustomer(userId, phones = []) {
+  if (!userId || !mongoose.Types.ObjectId.isValid(userId)) return false;
+  const userOrdersCount = await Order.countDocuments({
+    userId: new mongoose.Types.ObjectId(userId),
+    orderStatus: { $nin: NOT_A_REAL_ORDER },
+  });
+  if (userOrdersCount > 0) return false;
+
+  // The same phone on another account counts as a returning customer.
+  const candidates = [...phones];
+  try {
+    const userDoc = await User.findById(userId).select('phone').lean();
+    if (userDoc?.phone) candidates.push(userDoc.phone);
+  } catch {
+    // ignore
+  }
+  const uniqueCleanPhones = [
+    ...new Set(
+      candidates
+        .filter(Boolean)
+        .map((p) => String(p).replace(/\D/g, '').slice(-10))
+        .filter((p) => p.length >= 10),
+    ),
+  ];
+  for (const phone of uniqueCleanPhones) {
+    const phoneOrderCount = await Order.countDocuments({
+      'deliveryAddress.phone': { $regex: `${phone}$` },
+      orderStatus: { $nin: NOT_A_REAL_ORDER },
+    });
+    if (phoneOrderCount > 0) return false;
+  }
+  return true;
+}
+
+const offerSellerIds = (offer) =>
+  (Array.isArray(offer.sellerIds) && offer.sellerIds.length > 0 ? offer.sellerIds : [offer.sellerId])
+    .filter(Boolean)
+    .map(String);
+
+const offerCategoryIds = (offer) =>
+  (Array.isArray(offer?.categoryIds) ? offer.categoryIds : []).filter(Boolean).map(String);
+
+/**
+ * A store's line subtotals per product category ('' for a line without one),
+ * so a category offer ("20% off Kurtas") can discount just those lines.
+ */
+export function subtotalsByCategory(items = []) {
+  const out = new Map();
+  for (const item of Array.isArray(items) ? items : []) {
+    const key = item?.categoryId ? String(item.categoryId) : '';
+    const line = (Number(item?.price) || 0) * (Number(item?.quantity) || 1);
+    out.set(key, (out.get(key) || 0) + line);
+  }
+  return out;
+}
+
+/**
+ * What an offer discounts in each store: nothing outside its own stores; for a
+ * category offer only the lines in its categories or their subcategories
+ * (`ctx.parentOf` maps a cart category to its parent); otherwise the store's
+ * whole subtotal.
+ */
+const offerBaseBySeller = (offer, subtotalsBySeller, ctx = {}) => {
+  const allowed = offer.sellerScope === 'selected' ? new Set(offerSellerIds(offer)) : null;
+  const cats = offerCategoryIds(offer);
+  const wanted = cats.length ? new Set(cats) : null;
+  const out = new Map();
+  for (const [sellerId, sub] of subtotalsBySeller) {
+    if (allowed && !allowed.has(sellerId)) {
+      out.set(sellerId, 0);
+    } else if (!wanted) {
+      out.set(sellerId, sub);
+    } else {
+      let base = 0;
+      for (const [catId, lineSub] of ctx.bySellerCategory?.get(sellerId) || []) {
+        if (catId && (wanted.has(catId) || wanted.has(ctx.parentOf?.get(catId) || ''))) base += lineSub;
+      }
+      out.set(sellerId, round2(base));
+    }
+  }
+  return out;
+};
+
+const offerDiscount = (offer, base) => {
+  if (offer.discountType === 'percentage') {
+    const raw = base * (Number(offer.discountValue) / 100);
+    const capped = Number(offer.maxDiscount) ? Math.min(raw, Number(offer.maxDiscount)) : raw;
+    return Math.max(0, Math.min(base, Math.floor(capped)));
+  }
+  return Math.max(0, Math.min(base, Math.floor(Number(offer.discountValue) || 0)));
+};
+
+const isFirstOrderOffer = (offer) => offer?.customerScope === 'first-time' || offer?.isFirstOrderOnly === true;
+
+async function isOfferApplicable(offer, { userId, base, isFirstOrder, firstOrderGuard, why, now }) {
+  const offerEnd = offer.endDate ? new Date(offer.endDate) : null;
+  if (offerEnd && offerEnd.getHours() === 0 && offerEnd.getMinutes() === 0) {
+    offerEnd.setHours(23, 59, 59, 999);
+  }
+  if (offerEnd && now > offerEnd) return false;
+  if (offer.startDate && now < new Date(offer.startDate)) return false;
+  if (!(offer.status === 'active' && offer.showInCart !== false)) return false;
+  if (base <= 0) return false; // no store in the cart is covered
+  if (base < (Number(offer.minOrderValue) || 0)) return false;
+  if (Number(offer.usageLimit) > 0 && Number(offer.usedCount || 0) >= Number(offer.usageLimit)) return false;
+  if (userId && mongoose.Types.ObjectId.isValid(userId) && Number(offer.perUserLimit) > 0) {
+    const usage = await OfferUsage.findOne({
+      offerId: offer._id,
+      userId: new mongoose.Types.ObjectId(userId),
+    }).lean();
+    if (usage && Number(usage.count) >= Number(offer.perUserLimit)) return false;
+  }
+  if (isFirstOrderOffer(offer)) {
+    if (!(await isFirstOrder())) {
+      if (why) why.reason = 'This offer is only for your first order.';
+      return false;
+    }
+    // Once per person: account, phone, device or payment already used it.
+    const guard = firstOrderGuard ? await firstOrderGuard() : { ok: true };
+    if (!guard.ok) {
+      if (why) Object.assign(why, { reason: guard.reason, signal: guard.signal });
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * The coupon a cart gets: the code the customer typed, or else the best
+ * first-order offer, applied automatically.
+ *
+ * `subtotalsBySeller` is each store's subtotal, so one call serves a
+ * single-store order and a whole multi-store checkout alike. A coupon limited
+ * to some stores discounts only their share; `appliedCoupon.sellerIds` says
+ * which stores it covers (null: all).
+ */
+export async function resolveCoupon({
+  userId,
+  codeRaw = '',
+  subtotalsBySeller,
+  subtotalsBySellerCategory = new Map(),
+  phones = [],
+  deviceId = '',
+  now = new Date(),
+}) {
+  // Category offers need each cart category's parent, so an offer on "Ethnic
+  // Wear" covers a Kurta filed under its "Kurtas" subcategory. Loaded once,
+  // and only when some offer in play is category-scoped.
+  const ctx = { bySellerCategory: subtotalsBySellerCategory, parentOf: null };
+  const categoryNames = new Map();
+  const loadCategories = async (offer) => {
+    const wanted = offerCategoryIds(offer);
+    if (!wanted.length) return;
+    if (!ctx.parentOf) {
+      ctx.parentOf = new Map();
+      const cartCats = new Set();
+      for (const byCat of subtotalsBySellerCategory.values()) {
+        for (const catId of byCat.keys()) if (mongoose.Types.ObjectId.isValid(catId)) cartCats.add(catId);
+      }
+      if (cartCats.size) {
+        const docs = await Category.find({ _id: { $in: [...cartCats] } }).select('parentId name').lean();
+        for (const doc of docs) {
+          if (doc.parentId) ctx.parentOf.set(String(doc._id), String(doc.parentId));
+          categoryNames.set(String(doc._id), doc.name);
+        }
+      }
+    }
+    const missing = wanted.filter((id) => !categoryNames.has(id) && mongoose.Types.ObjectId.isValid(id));
+    if (missing.length) {
+      const docs = await Category.find({ _id: { $in: missing } }).select('name').lean();
+      for (const doc of docs) categoryNames.set(String(doc._id), doc.name);
+    }
+  };
+  const baseBySellerOf = async (offer) => {
+    await loadCategories(offer);
+    return offerBaseBySeller(offer, subtotalsBySeller, ctx);
+  };
+  const sumOf = (map) => [...map.values()].reduce((a, b) => a + b, 0);
+
+  let firstOrder;
+  const isFirstOrder = async () => {
+    if (firstOrder === undefined) firstOrder = await isFirstOrderCustomer(userId, phones);
+    return firstOrder;
+  };
+  let guardResult;
+  const firstOrderGuard = async () => {
+    if (guardResult === undefined) guardResult = await checkFirstOrderEligibility({ userId, deviceId });
+    return guardResult;
+  };
+  const pick = (offer, isAutoApplied, baseBySeller) => {
+    const discount = offerDiscount(offer, sumOf(baseBySeller));
+    const cats = offerCategoryIds(offer);
+    return {
+      discount,
+      // What each store's share of the discount is weighed by (split checkout).
+      couponBaseBySeller: baseBySeller,
+      appliedCoupon: {
+        code: offer.couponCode,
+        discount,
+        isAutoApplied,
+        sellerIds: offer.sellerScope === 'selected' ? offerSellerIds(offer) : null,
+        firstOrder: isFirstOrderOffer(offer),
+        categoryIds: cats.length ? cats : null,
+        ...(cats.length ? { categoryNames: cats.map((id) => categoryNames.get(id)).filter(Boolean) } : {}),
+      },
+    };
+  };
+
+  if (codeRaw) {
+    const offer = await Offer.findOne({ couponCode: codeRaw }).lean();
+    const why = {};
+    const baseBySeller = offer ? await baseBySellerOf(offer) : null;
+    if (offer && (await isOfferApplicable(offer, { userId, base: sumOf(baseBySeller), isFirstOrder, firstOrderGuard, why, now }))) {
+      return pick(offer, false, baseBySeller);
+    }
+    // A refused first-order coupon says why, so checkout can show it.
+    return {
+      discount: 0,
+      appliedCoupon: null,
+      couponRefusal: why.reason ? { code: codeRaw, reason: why.reason, signal: why.signal || null } : null,
+    };
+  }
+
+  // No code: the best of the automatic offers, i.e. the seller's auto-apply
+  // offers for anyone, plus the first-order offers on a first order.
+  const knownUser = Boolean(userId && mongoose.Types.ObjectId.isValid(userId));
+  const firstOrderEligible = knownUser && (await isFirstOrder());
+  const autoFilters = [{ autoApply: true }];
+  if (firstOrderEligible) autoFilters.push({ isFirstOrderOnly: true }, { customerScope: 'first-time' });
+  const candidates = await Offer.find({
+    status: 'active',
+    showInCart: true,
+    $or: autoFilters,
+  }).lean();
+  let best = null;
+  let refused = null;
+  for (const candidate of candidates) {
+    // A first-order offer is never applied for someone we cannot identify.
+    if (isFirstOrderOffer(candidate) && !firstOrderEligible) continue;
+    const baseBySeller = await baseBySellerOf(candidate);
+    const base = sumOf(baseBySeller);
+    const why = {};
+    if (!(await isOfferApplicable(candidate, { userId, base, isFirstOrder, firstOrderGuard, why, now }))) {
+      if (why.signal && !refused) refused = { code: candidate.couponCode, reason: why.reason, signal: why.signal };
+      continue;
+    }
+    const d = offerDiscount(candidate, base);
+    if (d > 0 && (!best || d > best.d)) best = { offer: candidate, d, baseBySeller };
+  }
+  return best ? pick(best.offer, true, best.baseBySeller) : { discount: 0, appliedCoupon: null, couponRefusal: refused };
+}
+
+/**
+ * One store's order inside a split checkout: its share of the checkout's
+ * coupon and coins applied to its coupon-free pricing.
+ *
+ * GST is recomputed on the discounted item value, as for a single order.
+ * Coins are a way of paying, not a discount on the goods, so they come off
+ * the total without changing the tax.
+ */
+export function applyCheckoutShare(pricing, items, { couponShare = 0, coinsDiscount = 0, fallbackRate = 0, couponCode = null } = {}) {
+  const discount = round2(Math.max(0, Math.min(Number(pricing.subtotal) || 0, Number(couponShare) || 0)));
+  const tax = computeItemsTax(items, { subtotal: Number(pricing.subtotal) || 0, discount, fallbackRate });
+  const beforeCoins = round2(Math.max(0, (Number(pricing.total) || 0) - ((Number(pricing.tax) || 0) - tax) - discount));
+  const coins = round2(Math.max(0, Math.min(Number(coinsDiscount) || 0, beforeCoins)));
+  return {
+    ...pricing,
+    tax,
+    discount,
+    couponCode: discount > 0 ? couponCode : null,
+    appliedCoupon: discount > 0 && couponCode ? { code: couponCode, discount } : null,
+    coinsDiscount: coins,
+    total: round2(beforeCoins - coins),
+  };
+}
+
+export async function calculateOrderPricing(userId, dto, options = {}) {
+  const seller =
+    options.seller || (await loadSellerForOrdering(dto.sellerId));
+
+  if (!options.skipAvailabilityCheck) {
+    assertSellerOpenForOrdering();
+  }
+
+  const deliveryAddress = normalizeDeliveryAddress(
+    await resolveDeliveryAddress(userId, dto),
+  );
+
+  const resolvedItems = await resolveOrderCartItems(dto.sellerId, dto.items, { seller });
+  const items = resolvedItems.map((item) => ({
+    ...item,
+    price: Number(item.price) || 0,
+    quantity: Number(item.quantity) || 1,
+  }));
+  const subtotal = round2(
+    items.reduce(
+      (sum, it) => sum + (Number(it.price) || 0) * (Number(it.quantity) || 1),
+      0,
+    ),
+  );
+
+  const feeSettings = await loadActiveFeeSettings();
+
+  const packagingFee = 0;
+  const platformFee = Number(feeSettings.platformFee || 0);
+
+  let distanceKm = await getDeliveryDistanceKm(seller, deliveryAddress);
+  const straightLineKm = calculateDistanceKm(seller, deliveryAddress);
+
+  const deliveryFeeResult = resolveUserDeliveryFee(feeSettings, { subtotal, distanceKm });
+  const deliveryFee = round2(deliveryFeeResult.deliveryFee);
+  distanceKm = deliveryFeeResult.distanceKm ?? distanceKm;
+
+  const codeRaw = dto.couponCode
+    ? String(dto.couponCode).trim().toUpperCase()
+    : "";
+  // A split checkout prices each store with coupons off and applies one
+  // coupon across the whole cart itself, so a coupon is used once, not per store.
+  const { discount, appliedCoupon, couponRefusal = null } = options.skipCoupons
+    ? { discount: 0, appliedCoupon: null }
+    : await resolveCoupon({
+      userId,
+      codeRaw,
+      subtotalsBySeller: new Map([[String(dto.sellerId || ''), subtotal]]),
+      subtotalsBySellerCategory: new Map([[String(dto.sellerId || ''), subtotalsByCategory(items)]]),
+      phones: [deliveryAddress?.phone, dto?.deliveryAddress?.phone],
+      deviceId: dto.deviceId,
+    });
+
+  // GST is charged on the post-discount item value (discount is already clamped to <= subtotal).
+  const tax = computeItemsTax(items, {
+    subtotal,
+    discount,
+    fallbackRate: Number(feeSettings.gstRate || 0),
+  });
+
+  const deliveryFeeGst = computeDeliveryFeeGst(deliveryFee);
+
+  const total = round2(
+    Math.max(
+      0,
+      subtotal + packagingFee + deliveryFee + deliveryFeeGst + platformFee + tax - discount,
+    ),
+  );
+
+  const basePricing = {
+    subtotal,
+    tax,
+    packagingFee,
+    deliveryFee,
+    deliveryFeeGst,
+    platformFee,
+    discount,
+    total,
+    currency: "INR",
+    couponCode: appliedCoupon?.code || (options.skipCoupons ? null : codeRaw) || null,
+    appliedCoupon,
+    couponRefusal,
+    distanceKm: Number.isFinite(distanceKm) ? Number(distanceKm.toFixed(2)) : null,
+    roadDistanceKm: Number.isFinite(distanceKm) ? Number(distanceKm.toFixed(2)) : null,
+    straightLineDistanceKm: Number.isFinite(straightLineKm)
+      ? Number(straightLineKm.toFixed(2))
+      : null,
+    deliveryFeeBreakdown: deliveryFeeResult.breakdown || null,
+    // Shop orders are promised a date, not minutes; this is still packing
+    // plus the ride, from the same numbers the live countdown uses, so the
+    // quote and the tracking screen agree. Warehouses' Quick channel floored
+    // this against the zone's advertised ETA; that is gone with the channel.
+    deliveryPromiseMinutes: estimateDeliveryPromiseMinutes(distanceKm),
+  };
+
+  const pricing = applyDeliveryModePricing(basePricing);
+
+  const priceChanges = (Array.isArray(dto.items) ? dto.items : [])
+    .map((rawItem) => {
+      const itemId = String(rawItem?.itemId || rawItem?.id || '').trim();
+      const resolved = items.find((entry) => String(entry.itemId) === itemId);
+      if (!resolved) return null;
+
+      const previousPrice = Number(rawItem?.price);
+      const nextPrice = Number(resolved.price);
+      if (!Number.isFinite(previousPrice) || previousPrice === nextPrice) return null;
+
+      return {
+        itemId,
+        name: resolved.name,
+        previousPrice,
+        price: nextPrice,
+      };
+    })
+    .filter(Boolean);
+
+  return {
+    items,
+    priceChanges,
+    pricing: {
+      ...pricing,
+      deliveryFeeBreakdown: {
+        source: deliveryFeeResult.source,
+        distanceKm: Number.isFinite(distanceKm) ? Number(distanceKm.toFixed(2)) : null,
+        deliveryFee,
+        message: Number.isFinite(distanceKm)
+          ? `Distance: ${Number(distanceKm).toFixed(1)} km`
+          : null,
+      },
+    },
+  };
+}

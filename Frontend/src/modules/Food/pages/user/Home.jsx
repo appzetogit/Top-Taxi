@@ -2942,6 +2942,20 @@ export default function Home() {
         </div>
         {/* NEW UI END */}
 
+        {/* Shop entry point: links out to the Ecommerce module's storefront. */}
+        <div className="px-4 pt-4">
+          <Link
+            to="/ecommerce"
+            className="flex items-center justify-between gap-3 rounded-2xl bg-primary px-5 py-4 text-primary-foreground shadow-sm transition hover:opacity-95"
+          >
+            <span className="flex items-center gap-3">
+              <ShoppingBag className="h-5 w-5" aria-hidden="true" />
+              <span className="text-sm font-bold sm:text-base">Shop products, delivered to your door</span>
+            </span>
+            <ChevronRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+          </Link>
+        </div>
+
 
 
           {/* Horizontal Filters Row */}

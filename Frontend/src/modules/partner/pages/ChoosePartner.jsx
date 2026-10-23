@@ -4,6 +4,7 @@ import {
   BarChart3,
   Check,
   MapPin,
+  Package,
   ShieldCheck,
   ShoppingBasket,
   Star,
@@ -45,6 +46,19 @@ const OPTIONS = [
       iconBg: "bg-blue-100 text-blue-600",
       tick: "bg-blue-600",
       button: "bg-blue-600 hover:bg-blue-700 focus-visible:ring-blue-300",
+    },
+  },
+  {
+    type: "ecommerce",
+    icon: Package,
+    image: photo("1472851294608-062f824d29cc"),
+    imageAlt: "Packed boxes ready for courier pickup",
+    points: ["List your products", "Nationwide courier shipping", "Track every order"],
+    theme: {
+      card: "from-violet-50/80",
+      iconBg: "bg-violet-100 text-violet-600",
+      tick: "bg-violet-600",
+      button: "bg-violet-600 hover:bg-violet-700 focus-visible:ring-violet-300",
     },
   },
 ]

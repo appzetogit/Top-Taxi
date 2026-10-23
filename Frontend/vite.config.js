@@ -19,6 +19,7 @@ const buildId = String(Date.now())
 
 const foodSrc = path.resolve(__dirname, './src/modules/Food')
 const servicesApi = path.resolve(__dirname, './src/services/api')
+const ecommerceSrc = path.resolve(__dirname, './src/modules/Ecommerce')
 
 export default defineConfig({
   plugins: [
@@ -45,6 +46,7 @@ export default defineConfig({
       '@food/api/config': path.resolve(servicesApi, 'config.js'),
       '@food/api': servicesApi,
       '@food': foodSrc,
+      '@ecommerce': ecommerceSrc,
       '@delivery': path.resolve(__dirname, './src/modules/DeliveryV2'),
       '@/assets': path.resolve(__dirname, './src/modules/Taxi/assets'),
       '@': path.resolve(__dirname, './src'),

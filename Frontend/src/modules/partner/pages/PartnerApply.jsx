@@ -168,7 +168,7 @@ export default function PartnerApply() {
 
   useEffect(() => {
     if (!session?.onboardingToken || checklist) return
-    partnerApi.getApplication(session.onboardingToken).then((d) => setChecklist(d.checklist)).catch(() => {})
+    partnerApi.getApplication(session.onboardingToken, type).then((d) => setChecklist(d.checklist)).catch(() => {})
   }, [session, checklist])
 
   const requiredKeys = useMemo(() => {
@@ -227,7 +227,7 @@ export default function PartnerApply() {
           .filter(Boolean)
           .join(", "),
       }
-      const data = await partnerApi.submitApplication(session.onboardingToken, body)
+      const data = await partnerApi.submitApplication(session.onboardingToken, body, type)
       partnerSession.set({ ...session, state: data.state, application: data.application, checklist: data.checklist })
       try {
         localStorage.removeItem(draftKey(session.phone, type))
@@ -326,8 +326,8 @@ export default function PartnerApply() {
               <TextInput label="PAN number" required={isRequired("panNumber")} value={form.panNumber} onChange={(v) => set("panNumber")(v.toUpperCase().slice(0, 10))} placeholder="ABCDE1234F" />
               <TextInput label="Name on PAN" value={form.nameOnPan} onChange={set("nameOnPan")} />
             </div>
-            <UploadField label="PAN card" required={isRequired("panImage")} value={form.panImage} onChange={set("panImage")} token={token} />
-            <UploadField label="FSSAI licence" required={isRequired("fssaiImage")} value={form.fssaiImage} onChange={set("fssaiImage")} token={token} />
+            <UploadField label="PAN card" required={isRequired("panImage")} value={form.panImage} onChange={set("panImage")} token={token} type={type} />
+            <UploadField label="FSSAI licence" required={isRequired("fssaiImage")} value={form.fssaiImage} onChange={set("fssaiImage")} token={token} type={type} />
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={form.gstRegistered} onChange={(e) => set("gstRegistered")(e.target.checked)} className="h-4 w-4 accent-emerald-600" />
               My business is GST registered
@@ -335,7 +335,7 @@ export default function PartnerApply() {
             {form.gstRegistered && (
               <div className="grid gap-4 md:grid-cols-2">
                 <TextInput label="GST number" required value={form.gstNumber} onChange={(v) => set("gstNumber")(v.toUpperCase())} />
-                <UploadField label="GST certificate" required value={form.gstImage} onChange={set("gstImage")} token={token} />
+                <UploadField label="GST certificate" required value={form.gstImage} onChange={set("gstImage")} token={token} type={type} />
               </div>
             )}
           </>
@@ -347,9 +347,9 @@ export default function PartnerApply() {
               We use the front photo to confirm your store is a real, physical shop. Take it from the street so the entrance
               is clearly visible.
             </p>
-            <UploadField label="Front / entrance photo" required={isRequired("storeFrontImage")} value={form.storeFrontImage} onChange={set("storeFrontImage")} token={token} accept="image/*" capture="environment" />
-            <UploadField label="Inside the store" required={isRequired("storeInsideImage")} value={form.storeInsideImage} onChange={set("storeInsideImage")} token={token} accept="image/*" capture="environment" />
-            <UploadField label="Signboard" required={isRequired("storeSignboardImage")} value={form.storeSignboardImage} onChange={set("storeSignboardImage")} token={token} accept="image/*" capture="environment" />
+            <UploadField label="Front / entrance photo" required={isRequired("storeFrontImage")} value={form.storeFrontImage} onChange={set("storeFrontImage")} token={token} type={type} accept="image/*" capture="environment" />
+            <UploadField label="Inside the store" required={isRequired("storeInsideImage")} value={form.storeInsideImage} onChange={set("storeInsideImage")} token={token} type={type} accept="image/*" capture="environment" />
+            <UploadField label="Signboard" required={isRequired("storeSignboardImage")} value={form.storeSignboardImage} onChange={set("storeSignboardImage")} token={token} type={type} accept="image/*" capture="environment" />
           </>
         )}
 

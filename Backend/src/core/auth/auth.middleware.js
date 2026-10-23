@@ -95,6 +95,26 @@ export const authMiddleware = (req, res, next) => {
             }).catch(() => sendError(res, 401, 'Invalid user token'));
             return;
         }
+        if (role === 'SELLER') {
+            if (!mongoose.Types.ObjectId.isValid(userId)) {
+                return sendError(res, 401, 'Invalid token');
+            }
+            import('../../modules/ecommerce/seller/models/seller.model.js').then(({ Seller }) =>
+                Seller.findById(userId).select('status rejectionReason tokenVersion sessionVersions').lean()
+            ).then(async (seller) => {
+                if (!seller) return sendError(res, 401, 'Account not found');
+                if (seller.status === 'rejected') {
+                    return sendError(res, 403, 'This account has been rejected. Please contact support.');
+                }
+                const { isSessionVersionValid } = await import('../../modules/ecommerce/shared/sessionVersion.js');
+                if (!isSessionVersionValid('SELLER', seller, decoded.tokenVersion)) {
+                    return sendError(res, 401, 'You have been signed out because this account was used on another device');
+                }
+                req.user.accountStatus = seller.status;
+                next();
+            }).catch(() => sendError(res, 401, 'Invalid token'));
+            return;
+        }
         if (role === 'DELIVERY_PARTNER' || role === 'RESTAURANT') {
             if (!mongoose.Types.ObjectId.isValid(userId)) {
                 return sendError(res, 401, 'Invalid token');

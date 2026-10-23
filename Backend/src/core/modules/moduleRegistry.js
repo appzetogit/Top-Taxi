@@ -25,6 +25,7 @@ export const MODULES = Object.freeze({
     FOOD: 'food',
     TAXI: 'taxi',
     QUICK_COMMERCE: 'quickCommerce',
+    ECOMMERCE: 'ecommerce',
 });
 
 export const ALL_MODULES = Object.freeze(Object.values(MODULES));

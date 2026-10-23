@@ -1,0 +1,310 @@
+import mongoose from 'mongoose';
+import { Product } from '../../admin/models/product.model.js';
+import { Order } from '../models/order.model.js';
+import { ValidationError } from '../../../../core/auth/errors.js';
+import { logger } from '../../../../utils/logger.js';
+
+/**
+ * Stock reservation.
+ *
+ * An order claims units when it is created, or two customers can both buy the
+ * last one and the second finds out only after paying.
+ *
+ * Single-channel collapse (see admin/models/product.model.js for the full
+ * rationale): warehouses' original counted stock per channel (`stock.quick`,
+ * `stock.shop`) and every function here took a `channel` argument. With one
+ * channel, `stock` and `lowStockThreshold` are plain scalar fields, and none
+ * of these functions take a channel any more.
+ *
+ * Where stock lives:
+ *   - a product without variants, or a variant with `stock: null`, draws on
+ *     the product's `stock` (pack sizes of one shelf item);
+ *   - a variant with its own `stock` is counted separately.
+ * A `null` count at either level means "not counted": always in stock, never
+ * decremented.
+ */
+
+const toId = (value) => new mongoose.Types.ObjectId(String(value));
+
+const isCounted = (n) => n !== null && n !== undefined;
+
+/**
+ * The `isAvailable` computation as a Mongo aggregation-pipeline update, for
+ * any caller that needs to recompute it on a condition (e.g. a bulk upload
+ * updating a whole seller's catalogue) rather than one product at a time.
+ * Single-channel collapse of warehouses' availableInPipeline() (shared/channels.js,
+ * removed): that returned a 2-channel `availableIn` map plus `isAvailable`;
+ * with one channel there is only `isAvailable` to set.
+ */
+export function availabilityPipeline() {
+  const variants = { $ifNull: ['$variants', []] };
+  const sellable = {
+    $cond: [
+      { $gt: [{ $size: variants }, 0] },
+      {
+        $anyElementTrue: [{
+          $map: {
+            input: variants,
+            as: 'v',
+            in: {
+              $and: [
+                { $ne: ['$$v.isActive', false] },
+                { $or: [{ $eq: [{ $ifNull: ['$$v.stock', null] }, null] }, { $gt: ['$$v.stock', 0] }] },
+              ],
+            },
+          },
+        }],
+      },
+      { $or: [{ $eq: [{ $ifNull: ['$stock', null] }, null] }, { $gt: ['$stock', 0] }] },
+    ],
+  };
+  const manualOn = { $eq: [{ $ifNull: ['$stockOffMode', null] }, null] };
+  return [{ $set: { isAvailable: { $and: [manualOn, sellable] } } }];
+}
+
+/**
+ * Recomputes `isAvailable` from the document as it is at the moment of the
+ * write. A single pipeline update, so it cannot act on a stale read when
+ * orders and restocks race. Products the seller switched off by hand
+ * (`stockOffMode`) stay off whatever the counts say.
+ */
+export async function syncProductAvailability(productId) {
+  await Product.collection.updateOne({ _id: toId(productId) }, availabilityPipeline());
+}
+
+/**
+ * Where each cart line's units come from, summed: the same shelf can appear on
+ * several lines (two pack sizes sharing one count), and it is the sum that has
+ * to be available.
+ *
+ * Returns [{ itemId, variantId, qty }] where variantId is '' for the
+ * product's own count.
+ */
+export function planReservations(items = [], productById = new Map()) {
+  const totals = new Map();
+  for (const item of items) {
+    const itemId = String(item?.itemId || '');
+    if (!itemId || !mongoose.Types.ObjectId.isValid(itemId)) continue;
+    const qty = Math.max(1, Number(item?.quantity) || 1);
+
+    const product = productById.get(itemId);
+    const variantId = String(item?.variantId || '');
+    const variant = variantId && product
+      ? (product.variants || []).find((v) => String(v._id) === variantId)
+      : null;
+    const ownCount = Boolean(variant) && isCounted(variant.stock);
+    const key = `${itemId}:${ownCount ? variantId : ''}`;
+
+    const entry = totals.get(key) || { itemId, variantId: ownCount ? variantId : '', qty: 0 };
+    entry.qty += qty;
+    totals.set(key, entry);
+  }
+  return [...totals.values()];
+}
+
+/** Kept for callers that only need per-item totals (legacy restock). */
+export function totalQuantityByItem(items = []) {
+  const totals = new Map();
+  for (const item of items) {
+    const id = String(item?.itemId || '');
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) continue;
+    const qty = Math.max(1, Number(item?.quantity) || 1);
+    totals.set(id, (totals.get(id) || 0) + qty);
+  }
+  return totals;
+}
+
+const describe = (product, variantId) => {
+  const variant = variantId ? (product.variants || []).find((v) => String(v._id) === variantId) : null;
+  return variant ? `${product.name} (${variant.name})` : product.name;
+};
+
+const STOCK_FIELDS = 'name stock variants._id variants.name variants.stock';
+
+/**
+ * Decrements stock for every counted shelf on the order.
+ *
+ * Each decrement is a conditional update, so the check and the write are one
+ * atomic operation and concurrent orders cannot both pass a "do we have enough"
+ * read. If any line comes up short, what was already taken is put back before
+ * throwing: a rejected order must leave the shelves exactly as it found them.
+ *
+ * Returns what was taken, to be stored on the order for the restock.
+ */
+export async function reserveStockForItems(items = []) {
+  const ids = [...new Set(items.map((i) => String(i?.itemId || '')))].filter((id) => mongoose.Types.ObjectId.isValid(id));
+  if (!ids.length) return [];
+
+  const products = await Product.find({ _id: { $in: ids.map(toId) } }).select(STOCK_FIELDS).lean();
+  const productById = new Map(products.map((p) => [String(p._id), p]));
+
+  const taken = [];
+  for (const plan of planReservations(items, productById)) {
+    const product = productById.get(plan.itemId);
+    if (!product) {
+      await releaseReservations(taken);
+      throw new ValidationError('One or more items are no longer available');
+    }
+    const _id = toId(plan.itemId);
+
+    let res;
+    if (plan.variantId) {
+      // `$gte` never matches null, so a variant that stopped being counted
+      // since the read above falls through to the re-check below.
+      res = await Product.updateOne(
+        { _id, variants: { $elemMatch: { _id: toId(plan.variantId), stock: { $gte: plan.qty } } } },
+        { $inc: { 'variants.$.stock': -plan.qty } },
+      );
+    } else {
+      res = await Product.updateOne({ _id, stock: { $gte: plan.qty } }, { $inc: { stock: -plan.qty } });
+    }
+
+    if (res.modifiedCount === 1) {
+      taken.push(plan);
+      await syncProductAvailability(plan.itemId);
+      await notifyLowStock(plan.itemId, plan.variantId).catch((err) => logger.warn(`low-stock check failed: ${err.message}`));
+      continue;
+    }
+
+    const fresh = await Product.findById(_id).select(STOCK_FIELDS).lean();
+    const count = plan.variantId
+      ? (fresh?.variants || []).find((v) => String(v._id) === plan.variantId)?.stock
+      : fresh?.stock;
+    if (fresh && (count === null || count === undefined)) continue; // not counted
+
+    await releaseReservations(taken);
+    if (!fresh) throw new ValidationError('One or more items are no longer available');
+    const left = Number(count) || 0;
+    const label = describe(fresh, plan.variantId);
+    throw new ValidationError(
+      left > 0 ? `Only ${left} left of ${label}. Please reduce the quantity.` : `${label} just went out of stock`,
+    );
+  }
+
+  return taken;
+}
+
+/**
+ * Tells the seller once when an item drops to its threshold. The flag is set
+ * by a conditional update so concurrent orders send one push; a restock
+ * clears it.
+ */
+export async function notifyLowStock(itemId, variantId) {
+  const _id = toId(itemId);
+  const p = await Product.findById(_id).select('name sellerId stock lowStockThreshold lowStockNotifiedAt variants').lean();
+  if (!p) return false;
+  const v = variantId ? (p.variants || []).find((x) => String(x._id) === String(variantId)) : null;
+  const own = Boolean(v) && isCounted(v.stock);
+  const count = own ? v.stock : p.stock;
+  const threshold = own ? v.lowStockThreshold : p.lowStockThreshold;
+  if (count === null || count === undefined || threshold === null || threshold === undefined || count > threshold) return false;
+
+  const now = new Date();
+  const res = own
+    ? await Product.updateOne(
+      { _id, variants: { $elemMatch: { _id: toId(variantId), lowStockNotifiedAt: null } } },
+      { $set: { 'variants.$.lowStockNotifiedAt': now } },
+    )
+    : await Product.updateOne({ _id, lowStockNotifiedAt: null }, { $set: { lowStockNotifiedAt: now } });
+  if (res.modifiedCount !== 1) return false;
+
+  const label = own ? `${p.name} (${v.name})` : p.name;
+  const { notifyOwnerSafely } = await import('../../../../core/notifications/firebase.service.js');
+  await notifyOwnerSafely(
+    { ownerType: 'SELLER', ownerId: String(p.sellerId) },
+    {
+      title: count > 0 ? 'Running low' : 'Out of stock',
+      body: count > 0 ? `Only ${count} left of ${label}.` : `${label} is out of stock.`,
+      data: {
+        type: 'low_stock',
+        productId: String(p._id),
+        variantId: variantId ? String(variantId) : '',
+        stock: String(count),
+      },
+    },
+  );
+  return true;
+}
+
+/** Returns units to a shelf. A variant that has since been deleted cannot take them back. */
+async function incrementStock(itemId, variantId, qty) {
+  const _id = toId(itemId);
+  if (variantId) {
+    const res = await Product.updateOne(
+      { _id, variants: { $elemMatch: { _id: toId(variantId), stock: { $ne: null } } } },
+      { $inc: { 'variants.$.stock': qty }, $set: { 'variants.$.lowStockNotifiedAt': null } },
+    );
+    if (!res.matchedCount) {
+      logger.warn(`restock skipped: variant ${variantId} of ${itemId} is gone or no longer counted (+${qty})`);
+    }
+  } else {
+    await Product.updateOne({ _id, stock: { $ne: null } }, { $inc: { stock: qty }, $set: { lowStockNotifiedAt: null } });
+  }
+  await syncProductAvailability(itemId);
+}
+
+/** Puts back a partial reservation after a failed line. Never throws. */
+export async function releaseReservations(taken = []) {
+  for (const entry of taken) {
+    try {
+      await incrementStock(entry.itemId, entry.variantId || '', entry.qty);
+    } catch (err) {
+      logger.error(
+        `[CRITICAL] stock rollback failed for item ${entry.itemId}/${entry.variantId || '-'} (+${entry.qty}): ${err?.message || err}`,
+      );
+    }
+  }
+}
+
+/**
+ * Puts returned units back. Which shelf is decided now: a variant counted on
+ * its own gets them, anything else goes to the product's count. Never throws
+ * per line.
+ */
+export async function restockReturnedItems(items = []) {
+  const ids = [...new Set(items.map((i) => String(i?.itemId || '')))].filter((id) => mongoose.Types.ObjectId.isValid(id));
+  if (!ids.length) return [];
+  const products = await Product.find({ _id: { $in: ids.map(toId) } }).select(STOCK_FIELDS).lean();
+  const plans = planReservations(items, new Map(products.map((p) => [String(p._id), p])));
+  await releaseReservations(plans);
+  return plans;
+}
+
+/**
+ * Returns an order's reserved stock to the shelf.
+ *
+ * Safe to call from anywhere an order dies: cancellation by user, seller,
+ * admin or the acceptance timeout, and the two delete paths. The claim on
+ * `stockRestoredAt` is what makes that safe: several of those paths can fire
+ * for the same order, and a double restock would quietly invent inventory.
+ */
+export async function restoreOrderStock(orderLike) {
+  const orderId = orderLike?._id;
+  if (!orderId) return false;
+  if (!orderLike?.stockReservedAt) return false; // never reserved
+
+  const claimed = await Order.findOneAndUpdate(
+    { _id: orderId, stockReservedAt: { $ne: null }, stockRestoredAt: null },
+    { $set: { stockRestoredAt: new Date() } },
+    { new: true, projection: { items: 1, stockReservations: 1 } },
+  ).lean();
+
+  if (!claimed) return false; // already restored, or nothing to restore
+
+  // Orders placed before reservations were recorded took from product counts.
+  const entries = claimed.stockReservations?.length
+    ? claimed.stockReservations
+    : [...totalQuantityByItem(claimed.items)].map(([itemId, qty]) => ({ itemId, variantId: '', qty }));
+
+  for (const entry of entries) {
+    try {
+      await incrementStock(entry.itemId, entry.variantId || '', entry.qty);
+    } catch (err) {
+      logger.error(
+        `[CRITICAL] restock failed for order ${orderId} item ${entry.itemId}/${entry.variantId || '-'} (+${entry.qty}): ${err?.message || err}`,
+      );
+    }
+  }
+
+  return true;
+}

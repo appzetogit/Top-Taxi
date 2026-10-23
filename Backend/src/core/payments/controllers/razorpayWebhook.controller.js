@@ -15,12 +15,12 @@ import { logger } from '../../../utils/logger.js';
 /**
  * Which vertical's order collection this provider event belongs to.
  *
- * There is ONE Razorpay account and one webhook secret, but the platform kept TWO
- * handlers -- master's, reading food_orders, and the quick-commerce fork's, reading
- * qc_orders. Razorpay accepts one URL per event, so whichever handler was not
- * configured simply never ran, and that vertical's orders reconciled only when the
- * customer's app happened to call /verify. Close the app after paying and the money
- * was stranded.
+ * There is ONE Razorpay account and one webhook secret, but the platform has grown
+ * separate order collections per vertical -- master's food_orders, the quick-commerce
+ * fork's qc_orders, and now ecommerce's ecom_orders. Razorpay accepts one URL per
+ * event, so a handler that only knew about one vertical's collection would leave
+ * every other vertical's orders reconciling only when the customer's app happened to
+ * call /verify. Close the app after paying and the money was stranded.
  *
  * So the handler resolves the collection instead of assuming it. Food is tried first
  * because it is the larger table and the common case; a miss costs one indexed
@@ -44,6 +44,17 @@ const ORDER_SOURCES = [
          * for a captured payment would silently never be written.
          */
         ledger: async () => import('../../../modules/quickCommerce/modules/food/orders/services/foodTransaction.service.js'),
+    },
+    {
+        vertical: 'ecommerce',
+        load: async () => (await import('../../../modules/ecommerce/orders/models/order.model.js')).Order,
+        /*
+         * Ecommerce keeps its own transaction service over its own
+         * ecom_order_transactions-backed ledger. Using food's here would look up an
+         * ecommerce order id in food_transactions, find nothing, and report success --
+         * the ledger row for a captured payment would silently never be written.
+         */
+        ledger: async () => import('../../../modules/ecommerce/orders/services/orderTransaction.service.js'),
     },
 ];
 
@@ -144,6 +155,8 @@ export const handleRazorpayWebhook = async (req, res) => {
                     try {
                         const helper = vertical === 'quickCommerce'
                             ? await import('../../../modules/quickCommerce/modules/food/orders/helpers/razorpay.helper.js')
+                            : vertical === 'ecommerce'
+                            ? await import('../../../modules/ecommerce/orders/helpers/razorpay.helper.js')
                             : await import('../../../modules/food/orders/helpers/razorpay.helper.js');
                         const amount = Number(paymentObj.amount || 0) / 100;
                         const refund = await helper.initiateRazorpayRefund(rzPaymentId, amount);

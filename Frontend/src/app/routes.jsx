@@ -8,6 +8,7 @@ const NATIVE_LAST_ROUTE_KEY = 'native_last_route'
 // Eagerly import the Food and Taxi service modules for fast, smooth transitions without reloads
 import FoodApp from '../modules/Food/routes'
 import TaxiApp from '../modules/Taxi/TaxiApp'
+const EcommerceApp = lazy(() => import('../modules/Ecommerce/routes'))
 const AuthApp = lazy(() => import('../modules/auth/routes'))
 const HelpSupportPage = lazy(() => import('../modules/auth/pages/HelpSupportPage'))
 const TermsPage = lazy(() => import('../modules/auth/pages/TermsPage'))
@@ -151,6 +152,9 @@ const AppRoutes = () => {
 
         {/* Food Module */}
         <Route path="/food/*" element={<FoodAppWrapper />} />
+
+        {/* Ecommerce Module (ported from the standalone "warehouses" storefront) */}
+        <Route path="/ecommerce/*" element={<Suspense fallback={<PageLoader />}><EcommerceApp /></Suspense>} />
 
         {/* Taxi Module */}
         <Route path="/taxi/*" element={<TaxiAppWrapper />} />

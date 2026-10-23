@@ -47,12 +47,35 @@ const apiClient = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
+/**
+ * Ecommerce module (modules/Ecommerce, ported from the standalone "warehouses"
+ * storefront). Its /ecommerce/admin and /ecommerce/user routers are guarded by
+ * the SAME shared Admin/User models as Food (see
+ * Backend/src/modules/ecommerce/admin/services/admin.service.js importing
+ * FoodAdmin, FoodUser) -- one platform-wide admin/customer identity, exactly
+ * like Taxi reusing the customer's own "user" login. So those two reuse the
+ * ordinary "admin"/"user" modules below rather than a token of their own.
+ *
+ * Seller is different: ecommerce has its own Seller model (SELLER role),
+ * separate from Food's Restaurant, so it gets its own ecommerce_seller token.
+ */
+const ECOMMERCE_MODULES = ["ecommerce_seller"];
+
+function getEcommerceModuleFromUrl(normalized) {
+  if (!normalized.includes("/ecommerce/")) return null;
+  if (normalized.includes("/ecommerce/seller/") || normalized.includes("/ecommerce/seller?")) return "ecommerce_seller";
+  return null;
+}
+
 function getModuleFromUrl(url = "") {
   const u = typeof url === "string" ? url : (url?.url || "");
   if (!u) return "user";
-  
+
   const normalized = u.toLowerCase();
-  
+
+  const ecommerceModule = getEcommerceModuleFromUrl(normalized);
+  if (ecommerceModule) return ecommerceModule;
+
   // Admin detection
   if (
     normalized.includes("/admin/") ||
@@ -140,6 +163,7 @@ function isTokenForModule(token, module) {
   if (module === "admin") return ["admin", "super_admin"].includes(role) && Boolean(payload.userId);
   if (module === "restaurant") return role === "restaurant" && Boolean(payload.userId);
   if (module === "delivery") return ["delivery_partner", "delivery"].includes(role) && Boolean(payload.userId);
+  if (module === "ecommerce_seller") return role === "seller" && Boolean(payload.userId);
 
   return true;
 }
@@ -502,8 +526,14 @@ apiClient.interceptors.response.use(
       // Use relative URL so this works both with an explicit baseURL and with a dev proxy.
       // Use plain axios to avoid interceptor recursion.
       // A store's session was issued by quick commerce, so it refreshes there.
-      const authPrefix = module === "restaurant" && restaurantOnQc() ? "qc" : "food";
-      const refreshUrl = baseURL ? `${baseURL}/${authPrefix}/auth/refresh-token` : `/api/v1/${authPrefix}/auth/refresh-token`;
+      // Ecommerce tokens are issued by the platform-wide /v1/auth/* router (no
+      // per-vertical alias the way food/qc have), so they refresh there directly.
+      const authPrefix = ECOMMERCE_MODULES.includes(module)
+        ? null
+        : module === "restaurant" && restaurantOnQc() ? "qc" : "food";
+      const refreshUrl = baseURL
+        ? `${baseURL}/${authPrefix ? `${authPrefix}/` : ""}auth/refresh-token`
+        : `/api/v1/${authPrefix ? `${authPrefix}/` : ""}auth/refresh-token`;
       const { data } = await postRefreshWithRetry(refreshUrl, refreshToken);
       const newAccessToken = data?.data?.accessToken || data?.accessToken;
       if (newAccessToken) {

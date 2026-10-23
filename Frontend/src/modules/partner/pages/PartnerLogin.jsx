@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom"
 import { ArrowLeft, Eye, EyeOff, Loader2 } from "lucide-react"
-import { PARTNER_TYPES, partnerApi, partnerSession, errorMessage, openSellerDashboard } from "../partnerApi"
+import { PARTNER_TYPES, partnerApi, partnerSession, errorMessage, openSellerDashboard, openEcommerceSellerDashboard } from "../partnerApi"
 import { isSellerApp, SELLER_APP_READY_EVENT, WEB_USE_PASSWORD_MESSAGE } from "@food/utils/sellerApp"
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -93,7 +93,7 @@ export default function PartnerLogin() {
     setBusy(true)
     setError("")
     try {
-      const data = await partnerApi.webLoginResendOtp(web.ticket, web.email)
+      const data = await partnerApi.webLoginResendOtp(web.ticket, web.email, type)
       setDevOtp(data?.otp ? String(data.otp) : "")
       setCooldown(30)
     } catch (err) {
@@ -115,7 +115,8 @@ export default function PartnerLogin() {
       const data = await partnerApi.webLoginVerifyOtp(web.ticket, web.email, otp.trim(), type)
       if (!data?.session?.accessToken) throw new Error("Could not sign you in. Try again.")
       partnerSession.clear()
-      openSellerDashboard(data.session, navigate)
+      if (type === "ecommerce") openEcommerceSellerDashboard(data.session, navigate)
+      else openSellerDashboard(data.session, navigate)
     } catch (err) {
       setError(errorMessage(err, "That code did not work. Try again."))
     } finally {
@@ -169,7 +170,8 @@ export default function PartnerLogin() {
           return
         }
         partnerSession.clear()
-        openSellerDashboard(data.session, navigate)
+        if (type === "ecommerce") openEcommerceSellerDashboard(data.session, navigate)
+        else openSellerDashboard(data.session, navigate)
         return
       }
       partnerSession.set({

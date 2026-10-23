@@ -177,6 +177,16 @@ const StockManager = lazy(() => import("@food/pages/shared/StockManager"));
 const AdminAccounts = lazy(() => import("@food/pages/admin/management/AdminAccounts"));
 
 /**
+ * Ecommerce admin UI, ported separately from warehouses/Frontend's own Store
+ * module (not a reuse of verticalAdminRoutes the way quick-commerce is -- that
+ * reuse is for a literal fork of Food; ecommerce has its own, separately
+ * written admin page tree). Its own AdminRouter already builds a Routes tree
+ * keyed from "/" for everything under /admin/ecommerce/*, so it is mounted
+ * wholesale as a nested splat route rather than inlined route-by-route here.
+ */
+const EcommerceAdminRouter = lazy(() => import("@ecommerce/components/admin/AdminRouter"));
+
+/**
  * The admin pages for one vertical.
  *
  * Rendered at BOTH /admin/food and /admin/quick-commerce. Quick-commerce is a fork of
@@ -463,6 +473,23 @@ export default function AdminRouter() {
             <Route path="stock" element={<StockManager scope="admin" />} />
           </Route>
         </Route>
+
+        {/*
+          ECOMMERCE ADMIN - its own, separately-ported admin page tree (not a
+          reuse of verticalAdminRoutes -- that reuse is for quick-commerce, a
+          literal fork of Food; ecommerce's admin UI is separately written).
+
+          Mounted OUTSIDE the ProtectedRoute+AdminLayout wrapper above on
+          purpose: the ported EcommerceAdminRouter brings its own
+          ProtectedRoute/AdminLayout/AdminSidebar (it has its own :panel
+          sub-routing the shared AdminLayout above knows nothing about), so
+          nesting it inside Food's AdminLayout would render two sidebars.
+          It reuses the same "admin" token/session as Food (see its
+          ProtectedRoute/getCurrentUser("admin") calls), so a signed-in admin
+          moving here from Food does not need to sign in again -- only the
+          chrome around the pages is a separate shell, not the identity.
+        */}
+        <Route path="ecommerce/*" element={<EcommerceAdminRouter />} />
 
         {/* Redirect unknown admin routes to food admin */}
         <Route path="*" element={<Navigate to="/admin/food" replace />} />

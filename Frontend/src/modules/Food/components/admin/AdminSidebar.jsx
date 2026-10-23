@@ -75,7 +75,7 @@ import { useAdminAccess, filterMenuForAccess, hasPanel, isRestricted } from "@fo
  */
 const useServiceAccess = () =>
   useMemo(() => {
-    const showAll = { food: true, taxi: true, quickCommerce: true }
+    const showAll = { food: true, taxi: true, quickCommerce: true, ecommerce: true }
     try {
       const raw = localStorage.getItem("admin_user") || sessionStorage.getItem("admin_user")
       if (!raw) return showAll
@@ -87,6 +87,7 @@ const useServiceAccess = () =>
         food: access.includes("food"),
         taxi: access.includes("taxi"),
         quickCommerce: access.includes("quickCommerce"),
+        ecommerce: access.includes("ecommerce"),
       }
     } catch {
       return showAll
@@ -336,6 +337,7 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
         food: hasPanel(access, "food"),
         taxi: hasPanel(access, "taxi"),
         quickCommerce: hasPanel(access, "quickCommerce"),
+        ecommerce: hasPanel(access, "ecommerce"),
       }
     : storedAccess
   const [searchQuery, setSearchQuery] = useState("")
@@ -1136,6 +1138,26 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
                   )}
                 />
                 Quick
+              </button>
+              )}
+              {serviceAccess.ecommerce && (
+              <button
+                type="button"
+                onClick={() => navigate("/admin/ecommerce")}
+                className={cn(
+                  "flex-1 min-w-0 flex flex-col items-center justify-center gap-1 px-1 py-2 text-[11px] leading-none font-bold rounded-lg transition-all duration-300",
+                  location.pathname.startsWith("/admin/ecommerce")
+                    ? "bg-[var(--sb-active-bg)] text-[var(--sb-active-ink)] shadow-[0_2px_8px_rgba(26,26,26,0.18)]"
+                    : "text-[var(--sb-ink-faint)] hover:text-[var(--sb-ink-soft)] hover:bg-[var(--sb-hover)]"
+                )}
+              >
+                <Package
+                  className={cn(
+                    "w-3.5 h-3.5",
+                    location.pathname.startsWith("/admin/ecommerce") ? "text-[var(--sb-active-ink)]" : "text-[var(--sb-ink-faint)]"
+                  )}
+                />
+                Shop
               </button>
               )}
             </div>

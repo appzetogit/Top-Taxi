@@ -9,7 +9,7 @@ const isPdf = (url) => /\.pdf(\?|$)/i.test(String(url || ""))
  * shows up here rather than as a long spinner on submit, and the application
  * only ever carries URLs.
  */
-export default function UploadField({ label, hint, required, value, onChange, token, accept = "image/*,application/pdf", capture }) {
+export default function UploadField({ label, hint, required, value, onChange, token, type, accept = "image/*,application/pdf", capture }) {
   const input = useRef(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
@@ -23,7 +23,7 @@ export default function UploadField({ label, hint, required, value, onChange, to
     setBusy(true)
     setError("")
     try {
-      const { url } = await partnerApi.upload(token, file)
+      const { url } = await partnerApi.upload(token, file, type)
       onChange(url)
     } catch (e) {
       setError(errorMessage(e, "Upload failed. Try again."))
