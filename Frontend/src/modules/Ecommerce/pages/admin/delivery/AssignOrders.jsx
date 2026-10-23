@@ -815,9 +815,9 @@ export default function AssignOrders() {
       <div className="min-h-screen bg-slate-50 p-4 lg:p-6">
         <div className="mx-auto max-w-xl rounded-2xl border border-slate-200 bg-white p-8 text-center">
           <h1 className="text-xl font-bold text-slate-900">Assign Orders</h1>
-          <p className="mt-2 text-sm text-slate-500">Rider dispatch is for Quick orders. Shop orders ship by courier.</p>
-          <Link to="/admin/quick/assign-orders" className="mt-4 inline-block text-sm font-bold text-slate-900 underline">
-            Open Assign Orders In Quick
+          <p className="mt-2 text-sm text-slate-500">Rider dispatch is for Gogo's Quick Commerce vertical. Shop orders ship by courier.</p>
+          <Link to="/admin/quick-commerce" className="mt-4 inline-block text-sm font-bold text-slate-900 underline">
+            Open Quick Commerce Admin
           </Link>
         </div>
       </div>

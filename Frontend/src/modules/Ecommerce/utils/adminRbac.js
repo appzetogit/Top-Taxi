@@ -106,9 +106,10 @@ export function canAdminAccess(adminUser, section, action = "view") {
   return actions.includes(action);
 }
 
-// The prefixes above are relative to the panel base: the same pages are served
-// under /admin/quick and /admin/shop (and the legacy /admin/store, which redirects).
-const ADMIN_PANEL_PREFIX = /^\/admin\/(quick|shop|store)(?=\/|$)/;
+// The prefixes above are relative to the panel base: this module is mounted
+// at /admin/ecommerce/shop (legacy /admin/ecommerce/food and /admin/ecommerce/store
+// redirect -- see LegacyStorePathRedirect in AdminRouter.jsx).
+const ADMIN_PANEL_PREFIX = /^\/admin\/ecommerce\/(shop|food|store)(?=\/|$)/;
 
 const toPanelSubPath = (pathname = "") =>
   String(pathname || "").replace(ADMIN_PANEL_PREFIX, "").replace(/\/+$/, "");
@@ -145,8 +146,8 @@ export function canCurrentAdminAction(action = "view", pathname = "") {
   return canAdminAccess(adminUser, section, action);
 }
 
-export function findFirstAllowedAdminPath(adminUser, panel = "quick") {
-  const base = `/admin/${panel === "shop" ? "shop" : "quick"}`;
+export function findFirstAllowedAdminPath(adminUser) {
+  const base = "/admin/ecommerce/shop";
   const sectionHomePath = {
     dashboard: `${base}`,
     point_of_sale: `${base}/point-of-sale`,

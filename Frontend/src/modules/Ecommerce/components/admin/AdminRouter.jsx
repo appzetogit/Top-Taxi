@@ -167,10 +167,10 @@ function PanelRedirect({ to = "" }) {
   return <Navigate to={`${base}${to}`} replace />;
 }
 
-/** Only /admin/quick and /admin/shop are panels; anything else goes to the quick dashboard. */
+/** Only /admin/ecommerce/shop is a panel; anything else goes to the shop dashboard. */
 function AdminPanelGate() {
   const { panel } = useParams();
-  if (!ADMIN_PANELS[panel]) return <Navigate to={`/admin/${DEFAULT_ADMIN_PANEL}`} replace />;
+  if (!ADMIN_PANELS[panel]) return <Navigate to={`/admin/ecommerce/${DEFAULT_ADMIN_PANEL}`} replace />;
   return <Outlet />;
 }
 
@@ -232,7 +232,9 @@ function UnregisteredSellersRouteGuard() {
 }
 
 /**
- * Sends the old /admin/food/* and /admin/store/* addresses to /admin/quick/*.
+ * Sends the old /admin/food/* and /admin/store/* addresses (relative to this
+ * router, i.e. /admin/ecommerce/food/* and /admin/ecommerce/store/*) to
+ * /admin/ecommerce/shop/*.
  *
  * A redirect rather than a second copy of the route table: duplicating ~170
  * routes to keep two spellings alive would mean every future change had to be
@@ -243,7 +245,7 @@ function UnregisteredSellersRouteGuard() {
 function LegacyStorePathRedirect() {
   const location = useLocation();
   const target =
-    location.pathname.replace(/^\/admin\/(food|store)/, `/admin/${DEFAULT_ADMIN_PANEL}`) +
+    location.pathname.replace(/^\/admin\/ecommerce\/(food|store)/, `/admin/ecommerce/${DEFAULT_ADMIN_PANEL}`) +
     location.search +
     location.hash;
   return <Navigate to={target} replace />;

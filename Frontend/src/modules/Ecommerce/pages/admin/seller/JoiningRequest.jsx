@@ -30,7 +30,7 @@ const listFromResponse = (response) => {
 }
 
 export default function JoiningRequest() {
-  // Join requests are per channel: /admin/quick shows quick requests, /admin/shop shop ones.
+  // Single channel now: channel is always "shop" (see useAdminPanel.js).
   const { channel, label: panelLabel } = useAdminPanel()
   const [activeTab, setActiveTab] = useState("pending")
   const [searchQuery, setSearchQuery] = useState("")

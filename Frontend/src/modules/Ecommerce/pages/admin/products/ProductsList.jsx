@@ -196,7 +196,7 @@ export default function ProductsList() {
     try {
       setLoading(true)
 
-      // Panel scope: /admin/quick lists channels.quick = true, /admin/shop channels.shop = true.
+      // Single channel now: channel is always "shop" (see useAdminPanel.js).
       const params = { page: currentPage, limit: pageSize, channel }
       if (selectedSeller !== "all") params.sellerId = selectedSeller
       if (debouncedSearchQuery) params.search = debouncedSearchQuery

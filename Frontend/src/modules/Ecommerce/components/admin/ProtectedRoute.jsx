@@ -9,7 +9,6 @@ import {
   setAuthData,
 } from "@ecommerce/utils/auth"
 import { canAccessAdminPath, findFirstAllowedAdminPath } from "@ecommerce/utils/adminRbac"
-import { getAdminPanelFromPath } from "./useAdminPanel"
 
 export default function ProtectedRoute({ children }) {
   const location = useLocation()
@@ -77,7 +76,7 @@ export default function ProtectedRoute({ children }) {
 
   const adminUser = getCurrentUser("admin")
   if (!canAccessAdminPath(location.pathname, "view")) {
-    return <Navigate to={findFirstAllowedAdminPath(adminUser, getAdminPanelFromPath(location.pathname))} replace />
+    return <Navigate to={findFirstAllowedAdminPath(adminUser)} replace />
   }
 
   return children

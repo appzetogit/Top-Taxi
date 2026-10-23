@@ -3,9 +3,12 @@ const QUICK = ["quick"]
 const SHOP = ["shop"]
 
 /**
- * One menu for both admin panels. Paths are relative to the panel base
- * (/admin/quick or /admin/shop); `panels` on an item, or failing that on its
- * section, says which panel shows it. Untagged entries appear in both.
+ * Paths are relative to the panel base (/admin/ecommerce/shop); `panels` on an
+ * item, or failing that on its section, says which panel shows it. Untagged
+ * entries appear always. Single channel now -- panel is always "shop" (see
+ * useAdminPanel.js) -- so QUICK-tagged items (rider-specific: Point of Sale,
+ * Assign Orders, Safety Emergency Reports, Quick Home Layout) are
+ * permanently, correctly hidden; they have no shop/courier equivalent.
  */
 const adminSidebarMenuTemplate = [
   {
