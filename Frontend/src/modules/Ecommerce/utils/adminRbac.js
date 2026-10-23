@@ -1,5 +1,24 @@
 import { getCurrentUser } from "@ecommerce/utils/auth";
 
+/**
+ * Reads the same admin_access record Food's shared sidebar uses
+ * (Frontend/src/modules/Food/utils/adminAccess.js), refreshed from
+ * /platform/admins/me. Gogo's real Admin model has no `adminType` field --
+ * this module's own isSuperAdmin() originally read `adminUser.adminType ===
+ * "super_admin"` off the raw admin_user blob (a warehouses-era concept that
+ * does not exist here), which was always false for every admin on this
+ * platform and silently redirected every non-/profile/-settings click back
+ * to Profile. isSuperAdmin() below reads the real signal instead.
+ */
+function readAdminAccess() {
+  try {
+    const raw = localStorage.getItem("admin_access");
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 export const ADMIN_ACTIONS = ["view", "create", "edit", "delete", "export"];
 
 export const ADMIN_PERMISSION_SECTIONS = [
@@ -90,6 +109,12 @@ const ALWAYS_ALLOWED_FOR_SUB_ADMIN = new Set([
 ]);
 
 export function isSuperAdmin(adminUser) {
+  const access = readAdminAccess();
+  // isRestricted's own default (adminAccess.js): unrestricted until the
+  // access record says otherwise, not restricted-until-proven-super -- an
+  // admin signed in before this record loads must not have every page
+  // bounce them to Profile for a moment.
+  if (access) return access.isSuperAdmin !== false;
   const type = String(adminUser?.adminType || "").trim().toLowerCase();
   return type === "super_admin";
 }
