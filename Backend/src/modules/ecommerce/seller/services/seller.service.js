@@ -1861,13 +1861,10 @@ export const listApprovedSellers = async (query = {}) => {
         }
     }
 
-    // Strict zone filter for user listing:
-    // if zoneId is provided, return only sellers mapped to that zone.
-    // The shop storefront ships by courier, so zones only apply to quick (or no mode).
-    const zoneIdRaw = fulfilmentMode === 'standard' ? '' : String(query.zoneId || '').trim();
-    if (zoneIdRaw && mongoose.Types.ObjectId.isValid(zoneIdRaw)) {
-        filter.zoneId = new mongoose.Types.ObjectId(zoneIdRaw);
-    }
+    // Single channel now: the shop storefront ships by courier, not by zone
+    // (zones were only ever a quick/rider-delivery concept -- see
+    // admin/models/product.model.js for the single-channel-collapse rationale),
+    // so zoneId from the query is never applied as a filter here.
 
     const lat = toFiniteNumber(query.lat);
     const lng = toFiniteNumber(query.lng);

@@ -10,30 +10,24 @@ import { catalogAPI } from "@ecommerce/services/api"
  * Without a set the user can type options freely. "Generate" builds every
  * combination of the picked values; rows that already exist keep their data.
  *
- * Role-agnostic: the caller passes how to upload an image (`uploadImage`) and
- * which channels its seller may sell in (`approvedChannels`).
+ * Single-channel collapse (see Backend admin/models/product.model.js): the
+ * backend models one sales channel, not a { quick, shop } pair, so this
+ * editor carries one flat stock / low-stock value per variant and has no
+ * per-channel enable switch.
  *
  * Draft shape (strings for inputs, converted by toVariantPayload):
  * { id, name, attributes: [{ name, value }], sku, barcode, price, otherPrice, mrp,
- *   stock: { quick, shop }, lowStockThreshold: { quick, shop },
- *   channels: { quick: "inherit"|"on"|"off", shop: ... }, isActive, images: [url] }
+ *   stock, lowStockThreshold, isActive, images: [url] }
  *
- * Payload (CHANNELS_CONTRACT.md): channels { quick: Boolean|null, shop } (null = inherit
- * the product's), stock { quick: Number|null, shop } (null = draws on the product's
- * stock for that channel), lowStockThreshold { quick: Number|null, shop }.
+ * Payload: stock Number|null (null = draws on the product's stock),
+ * lowStockThreshold Number|null.
  */
 
-export const CHANNELS = ["quick", "shop"]
-export const CHANNEL_LABEL = { quick: "Quick", shop: "Shop" }
 /** Most photos one variant can carry; the product endpoints refuse more. */
 export const MAX_VARIANT_IMAGES = 10
-const overrideToDraft = (v) => (v === true ? "on" : v === false ? "off" : "inherit")
-const overrideToPayload = (v) => (v === "on" ? true : v === "off" ? false : null)
 
 const newId = () => `variant-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 const str = (v) => (v === null || v === undefined ? "" : String(v))
-/** { quick, shop } of input strings from a { quick, shop } object of numbers/nulls. */
-export const perChannelDraft = (obj) => ({ quick: str(obj?.quick), shop: str(obj?.shop) })
 
 export const createVariantDraft = (variant = {}) => ({
   id: String(variant?.id || variant?._id || newId()),
@@ -46,12 +40,8 @@ export const createVariantDraft = (variant = {}) => ({
   price: variant?.price != null ? String(variant.price) : "",
   otherPrice: variant?.otherPrice ? String(variant.otherPrice) : "",
   mrp: str(variant?.mrp),
-  stock: perChannelDraft(variant?.stock),
-  lowStockThreshold: perChannelDraft(variant?.lowStockThreshold),
-  channels: {
-    quick: typeof variant?.channels?.quick === "string" ? variant.channels.quick : overrideToDraft(variant?.channels?.quick),
-    shop: typeof variant?.channels?.shop === "string" ? variant.channels.shop : overrideToDraft(variant?.channels?.shop),
-  },
+  stock: str(variant?.stock),
+  lowStockThreshold: str(variant?.lowStockThreshold),
   isActive: variant?.isActive !== false,
   images: Array.isArray(variant?.images) ? variant.images.filter(Boolean) : [],
 })
@@ -64,17 +54,13 @@ const attributeKey = (attributes = []) =>
 
 const optionalNumber = (v) => (str(v).trim() === "" ? null : Number(v))
 
-/** Converts a { quick, shop } draft of strings; returns [error, { quick, shop }]. */
-export const perChannelPayload = (draft, label, name) => {
-  const out = {}
-  for (const c of CHANNELS) {
-    const n = optionalNumber(draft?.[c])
-    if (n !== null && !(Number.isInteger(n) && n >= 0)) {
-      return [`${CHANNEL_LABEL[c]} ${label}${name ? ` for ${name}` : ""} must be a whole number of 0 or more`, null]
-    }
-    out[c] = n
+/** Converts one stock/threshold string input; returns [error, Number|null]. */
+export const stockFieldPayload = (value, label, name) => {
+  const n = optionalNumber(value)
+  if (n !== null && !(Number.isInteger(n) && n >= 0)) {
+    return [`${label}${name ? ` for ${name}` : ""} must be a whole number of 0 or more`, null]
   }
-  return [null, out]
+  return [null, n]
 }
 
 /** Validates drafts and returns [error, payload] in the shape the product endpoints accept. */
@@ -92,11 +78,10 @@ export const toVariantPayload = (drafts = []) => {
     const mrp = optionalNumber(d.mrp)
     if (mrp !== null && (!Number.isFinite(mrp) || mrp <= 0)) return [`MRP for ${name} is invalid`, null]
     if (mrp !== null && price > mrp) return [`Price of ${name} cannot be above its MRP`, null]
-    const [stockErr, stock] = perChannelPayload(d.stock, "stock", name)
+    const [stockErr, stock] = stockFieldPayload(d.stock, "Stock", name)
     if (stockErr) return [stockErr, null]
-    const [lowErr, lowStockThreshold] = perChannelPayload(d.lowStockThreshold, "low-stock alert", name)
+    const [lowErr, lowStockThreshold] = stockFieldPayload(d.lowStockThreshold, "Low-stock alert", name)
     if (lowErr) return [lowErr, null]
-    const channels = { quick: overrideToPayload(d.channels?.quick), shop: overrideToPayload(d.channels?.shop) }
     if (d.attributes.length) {
       const key = attributeKey(d.attributes)
       if (seen.has(key)) return [`Two variants have the same options: ${name}`, null]
@@ -112,7 +97,6 @@ export const toVariantPayload = (drafts = []) => {
       sku: str(d.sku).trim(),
       barcode: str(d.barcode).trim(),
       mrp,
-      channels,
       stock,
       lowStockThreshold,
       isActive: d.isActive !== false,
@@ -128,49 +112,38 @@ const cartesian = (lists) =>
 const inputCls =
   "w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm md:text-xs outline-none focus:border-slate-900 bg-white disabled:bg-slate-100 disabled:text-slate-400"
 
-/** Channel switch + stock + low-stock alert of one variant in one channel. */
-function ChannelCell({ variant, channel, onChannel, labelled = false }) {
-  const off = variant.channels?.[channel] === "off"
+/** Stock + low-stock alert of one variant. */
+function StockCell({ variant, onField, labelled = false }) {
   return (
-    <div className="space-y-1">
-      {labelled && <p className="text-[11px] font-semibold text-slate-700">{CHANNEL_LABEL[channel]}</p>}
-      <select
-        className={inputCls}
-        value={variant.channels?.[channel] || "inherit"}
-        title={`Sell this variant in ${CHANNEL_LABEL[channel]}`}
-        aria-label={`Sell ${variant.name || "this variant"} in ${CHANNEL_LABEL[channel]}`}
-        onChange={(e) => onChannel("channels", channel, e.target.value)}
-      >
-        <option value="inherit">Inherit product</option>
-        <option value="on">On</option>
-        <option value="off">Off</option>
-      </select>
-      <div className="grid grid-cols-2 gap-1">
+    <div className="grid grid-cols-2 gap-1">
+      <div>
+        {labelled && <p className="mb-1 text-[11px] font-semibold text-slate-700">Stock</p>}
         <input
           type="number"
           inputMode="numeric"
           min="0"
           step="1"
           className={inputCls}
-          placeholder={labelled ? "Stock (shared)" : "Shared"}
-          title={`${CHANNEL_LABEL[channel]} stock. Empty: draws on the product stock for this channel`}
-          aria-label={`${CHANNEL_LABEL[channel]} stock`}
-          disabled={off}
-          value={variant.stock?.[channel] ?? ""}
-          onChange={(e) => onChannel("stock", channel, e.target.value)}
+          placeholder="Shared"
+          title="Stock. Empty: draws on the product's stock"
+          aria-label={`Stock for ${variant.name || "this variant"}`}
+          value={variant.stock ?? ""}
+          onChange={(e) => onField("stock", e.target.value)}
         />
+      </div>
+      <div>
+        {labelled && <p className="mb-1 text-[11px] font-semibold text-slate-700">Low alert</p>}
         <input
           type="number"
           inputMode="numeric"
           min="0"
           step="1"
           className={inputCls}
-          placeholder={labelled ? "Low alert" : "Low"}
-          title={`${CHANNEL_LABEL[channel]} low-stock alert`}
-          aria-label={`${CHANNEL_LABEL[channel]} low-stock alert`}
-          disabled={off}
-          value={variant.lowStockThreshold?.[channel] ?? ""}
-          onChange={(e) => onChannel("lowStockThreshold", channel, e.target.value)}
+          placeholder="Low"
+          title="Low-stock alert"
+          aria-label={`Low-stock alert for ${variant.name || "this variant"}`}
+          value={variant.lowStockThreshold ?? ""}
+          onChange={(e) => onField("lowStockThreshold", e.target.value)}
         />
       </div>
     </div>
@@ -223,9 +196,6 @@ function ImagesCell({ variant, onRemove, onUpload, uploading, busy, canUpload, m
 
 /**
  * Props:
- * - `productChannels`: the product's channel toggles { quick, shop }.
- * - `approvedChannels`: channels the product's seller may sell in (default both).
- *   Only channels that are on for the product AND approved get stock / override fields.
  * - `uploadImage(file) => Promise<url>`: how this panel uploads a photo. Without it,
  *   existing variant photos are shown and can be removed, but not added.
  * - `showOtherPrice`: adds the optional "other platform price" per variant.
@@ -234,13 +204,10 @@ export default function VariantMatrixEditor({
   categoryId,
   variants = [],
   onChange,
-  productChannels = { quick: true, shop: true },
-  approvedChannels = CHANNELS,
   uploadImage,
   showOtherPrice = false,
   maxImages = MAX_VARIANT_IMAGES,
 }) {
-  const activeChannels = CHANNELS.filter((c) => productChannels?.[c] && approvedChannels.includes(c))
   const [attrLoading, setAttrLoading] = useState(false)
   const [attributeSet, setAttributeSet] = useState(null)
   const [setAttributes, setSetAttributes] = useState([])
@@ -248,7 +215,7 @@ export default function VariantMatrixEditor({
   const [picked, setPicked] = useState({})
   // Free-form options when the category has no attribute set: [{ name, values: "S, M, L" }].
   const [freeOptions, setFreeOptions] = useState([{ name: "", values: "" }])
-  const [defaults, setDefaults] = useState({ price: "", mrp: "", stock_quick: "", stock_shop: "", low_quick: "", low_shop: "" })
+  const [defaults, setDefaults] = useState({ price: "", mrp: "", stock: "", low: "" })
   const [uploadingId, setUploadingId] = useState(null)
   // Uploads finish after the user may have edited other rows; always merge into the latest list.
   const variantsRef = useRef(variants)
@@ -347,8 +314,8 @@ export default function VariantMatrixEditor({
         attributes,
         price: defaults.price || undefined,
         mrp: defaults.mrp,
-        stock: { quick: defaults.stock_quick, shop: defaults.stock_shop },
-        lowStockThreshold: { quick: defaults.low_quick, shop: defaults.low_shop },
+        stock: defaults.stock,
+        lowStockThreshold: defaults.low,
       })
     })
     const manual = variants.filter((v) => !v.attributes?.length)
@@ -360,9 +327,6 @@ export default function VariantMatrixEditor({
   }
 
   const update = (id, field, value) => onChange(variants.map((v) => (v.id === id ? { ...v, [field]: value } : v)))
-  /** Sets one channel's value inside a { quick, shop } field. */
-  const updateChannel = (id, field, channel, value) =>
-    onChange(variants.map((v) => (v.id === id ? { ...v, [field]: { ...(v[field] || {}), [channel]: value } } : v)))
   const remove = (id) => onChange(variants.filter((v) => v.id !== id))
   const addManual = () => onChange([...variants, createVariantDraft()])
   const applyDefaultsToAll = () =>
@@ -371,14 +335,8 @@ export default function VariantMatrixEditor({
         ...v,
         ...(defaults.price !== "" ? { price: defaults.price } : {}),
         ...(defaults.mrp !== "" ? { mrp: defaults.mrp } : {}),
-        stock: {
-          quick: defaults.stock_quick !== "" ? defaults.stock_quick : v.stock?.quick ?? "",
-          shop: defaults.stock_shop !== "" ? defaults.stock_shop : v.stock?.shop ?? "",
-        },
-        lowStockThreshold: {
-          quick: defaults.low_quick !== "" ? defaults.low_quick : v.lowStockThreshold?.quick ?? "",
-          shop: defaults.low_shop !== "" ? defaults.low_shop : v.lowStockThreshold?.shop ?? "",
-        },
+        stock: defaults.stock !== "" ? defaults.stock : v.stock ?? "",
+        lowStockThreshold: defaults.low !== "" ? defaults.low : v.lowStockThreshold ?? "",
       })),
     )
 
@@ -540,10 +498,8 @@ export default function VariantMatrixEditor({
           {[
             ["price", "Default price"],
             ["mrp", "Default MRP"],
-            ...activeChannels.flatMap((c) => [
-              [`stock_${c}`, `Default ${CHANNEL_LABEL[c]} stock`],
-              [`low_${c}`, `Default ${CHANNEL_LABEL[c]} low alert`],
-            ]),
+            ["stock", "Default stock"],
+            ["low", "Default low alert"],
           ].map(([key, label]) => (
             <div key={key}>
               <label className="mb-1 block text-[11px] font-medium text-slate-600">{label}</label>
@@ -628,15 +584,9 @@ export default function VariantMatrixEditor({
                     <input className={inputCls} value={v.sku} onChange={(e) => update(v.id, "sku", e.target.value)} />
                   </div>
                 </div>
-                {activeChannels.length > 0 && (
-                  <div className="grid grid-cols-1 gap-2 min-[400px]:grid-cols-2">
-                    {activeChannels.map((c) => (
-                      <div key={c} className="rounded-md border border-slate-200 p-2">
-                        <ChannelCell variant={v} channel={c} labelled onChannel={(field, ch, value) => updateChannel(v.id, field, ch, value)} />
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <div className="rounded-md border border-slate-200 p-2">
+                  <StockCell variant={v} labelled onField={(field, value) => update(v.id, field, value)} />
+                </div>
                 <div>
                   <p className="mb-1 text-[11px] font-medium text-slate-600">Photos of this variant</p>
                   {imagesCell(v, true)}
@@ -659,9 +609,7 @@ export default function VariantMatrixEditor({
                   <th className="px-2 py-2 text-left">Price *</th>
                   <th className="px-2 py-2 text-left">MRP</th>
                   {showOtherPrice && <th className="px-2 py-2 text-left">Other price</th>}
-                  {activeChannels.map((c) => (
-                    <th key={c} className="px-2 py-2 text-left">{CHANNEL_LABEL[c]}: sell / stock / low</th>
-                  ))}
+                  <th className="px-2 py-2 text-left">Stock / low</th>
                   <th className="px-2 py-2 text-center">Active</th>
                   <th className="px-2 py-2 text-left">Images</th>
                   <th className="px-2 py-2" />
@@ -694,11 +642,9 @@ export default function VariantMatrixEditor({
                         <input type="number" min="0" step="0.01" className={inputCls} aria-label="Other platform price" value={v.otherPrice} onChange={(e) => update(v.id, "otherPrice", e.target.value)} />
                       </td>
                     )}
-                    {activeChannels.map((c) => (
-                      <td key={c} className="px-2 py-2 align-top w-40">
-                        <ChannelCell variant={v} channel={c} onChannel={(field, ch, value) => updateChannel(v.id, field, ch, value)} />
-                      </td>
-                    ))}
+                    <td className="px-2 py-2 align-top w-40">
+                      <StockCell variant={v} onField={(field, value) => update(v.id, field, value)} />
+                    </td>
                     <td className="px-2 py-2 align-top text-center">
                       <input type="checkbox" aria-label="Active" checked={v.isActive} onChange={(e) => update(v.id, "isActive", e.target.checked)} />
                     </td>
@@ -719,7 +665,7 @@ export default function VariantMatrixEditor({
             </table>
           </div>
           <p className="border-t border-slate-100 px-3 py-2 text-[11px] text-slate-500">
-            Each channel has its own stock. Empty stock means the variant draws on the product&apos;s stock for that channel. Empty MRP falls back to the product&apos;s MRP. Variant photos show first when a customer picks that variant.
+            Empty stock means the variant draws on the product&apos;s stock. Empty MRP falls back to the product&apos;s MRP. Variant photos show first when a customer picks that variant.
           </p>
         </div>
       ) : (

@@ -7,8 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@food/componen
 import { Popover, PopoverContent, PopoverTrigger } from "@food/components/ui/popover"
 import { getProductDisplayOtherPrice, getProductDisplayPrice, getProductVariants } from "@ecommerce/utils/productVariants"
 import { canCurrentAdminAction } from "@ecommerce/utils/adminRbac"
-import VariantMatrixEditor, { CHANNELS, CHANNEL_LABEL, createVariantDraft, perChannelDraft, perChannelPayload, toVariantPayload } from "@ecommerce/components/shared/products/VariantMatrixEditor"
-import { getApprovedChannels } from "@ecommerce/components/admin/sellers/SellerChannels"
+import VariantMatrixEditor, { createVariantDraft, stockFieldPayload, toVariantPayload } from "@ecommerce/components/shared/products/VariantMatrixEditor"
 import { useAdminPanel } from "@ecommerce/components/admin/useAdminPanel"
 const debugLog = (...args) => {}
 const debugWarn = (...args) => {}
@@ -41,10 +40,9 @@ const createProductForm = () => ({
   foodType: "",
   isAvailable: true,
   preparationTime: "",
-  // CHANNELS_CONTRACT.md: per-channel listing, stock (empty = not counted) and low-stock alert.
-  channels: { quick: true, shop: true },
-  stock: { quick: "", shop: "" },
-  lowStockThreshold: { quick: "", shop: "" },
+  // Stock (empty = not counted) and low-stock alert.
+  stock: "",
+  lowStockThreshold: "",
 })
 
 const stockLabel = (n) => (n === null || n === undefined || n === "" ? "Not counted" : String(n))
@@ -62,8 +60,6 @@ const PRODUCT_FALLBACK_IMAGE =
 
 export default function ProductsList() {
   const { channel } = useAdminPanel()
-  // sellerId -> seller.channels, used to limit the product channel toggles.
-  const [sellerChannelsById, setSellerChannelsById] = useState({})
   // Deep links (e.g. from Low Stock): ?sellerId=&search=&productId=&edit=1
   const [initialParams] = useState(() => new URLSearchParams(window.location.search))
   const [searchQuery, setSearchQuery] = useState(() => initialParams.get("search") || "")
@@ -166,10 +162,7 @@ export default function ProductsList() {
         []
 
       const sellersMap = new Map()
-      const channelsById = {}
       ;(Array.isArray(list) ? list : []).forEach((seller) => {
-        const id = getEntityId(seller)
-        if (id && seller?.channels) channelsById[id] = seller.channels
         const sellerId = getEntityId(seller)
         if (!sellerId || sellersMap.has(sellerId)) return
         sellersMap.set(sellerId, {
@@ -178,7 +171,6 @@ export default function ProductsList() {
         })
       })
 
-      setSellerChannelsById(channelsById)
       setSellersForFilter(
         Array.from(sellersMap.values()).sort((a, b) => a.name.localeCompare(b.name))
       )
@@ -228,10 +220,8 @@ export default function ProductsList() {
             description: f.description || "",
             preparationTime: f.preparationTime || "",
             isAvailable: f.isAvailable !== false,
-            channels: { quick: f.channels?.quick !== false, shop: f.channels?.shop !== false },
-            stock: { quick: f.stock?.quick ?? null, shop: f.stock?.shop ?? null },
-            lowStockThreshold: { quick: f.lowStockThreshold?.quick ?? null, shop: f.lowStockThreshold?.shop ?? null },
-            availableIn: f.availableIn || null,
+            stock: f.stock ?? null,
+            lowStockThreshold: f.lowStockThreshold ?? null,
             createdAt: f.createdAt,
             updatedAt: f.updatedAt,
           }))
@@ -370,16 +360,6 @@ export default function ProductsList() {
     setSelectedProductIds(new Set())
   }, [currentPage, selectAllForSeller])
 
-  /** Channels the seller is approved for. Unknown (no channels in the list response) = let the server decide. */
-  const allowedChannelsFor = (sellerId) => {
-    const ch = sellerChannelsById[String(sellerId || "")]
-    return ch ? getApprovedChannels({ channels: ch }) : CHANNELS
-  }
-  const clampChannels = (channels, sellerId) => {
-    const allowed = allowedChannelsFor(sellerId)
-    return { quick: !!channels?.quick && allowed.includes("quick"), shop: !!channels?.shop && allowed.includes("shop") }
-  }
-
   /** Variant photos go to the same folder as product photos. */
   const uploadAdminVariantImage = async (file) => {
     const res = await uploadAPI.uploadMedia(file, { folder: "products" })
@@ -419,9 +399,8 @@ export default function ProductsList() {
       foodType: food.foodType === "Veg" || food.foodType === "Non-Veg" ? food.foodType : "",
       isAvailable: food.isAvailable !== false,
       preparationTime: String(food.preparationTime || ""),
-      channels: { quick: food.channels?.quick !== false, shop: food.channels?.shop !== false },
-      stock: perChannelDraft(food.stock),
-      lowStockThreshold: perChannelDraft(food.lowStockThreshold),
+      stock: food.stock === null || food.stock === undefined ? "" : String(food.stock),
+      lowStockThreshold: food.lowStockThreshold === null || food.lowStockThreshold === undefined ? "" : String(food.lowStockThreshold),
     })
     setSelectedImageFile(null)
     setImagePreviewUrl(String(food.image || ""))
@@ -494,18 +473,12 @@ export default function ProductsList() {
       return
     }
 
-    const allowed = allowedChannelsFor(productForm.sellerId)
-    const productChannels = { quick: !!productForm.channels?.quick && allowed.includes("quick"), shop: !!productForm.channels?.shop && allowed.includes("shop") }
-    if (!productChannels.quick && !productChannels.shop) {
-      toast.error(allowed.length ? "Enable at least one channel" : "This seller is not approved for any channel yet")
-      return
-    }
-    const [stockError, stockPayload] = perChannelPayload(productForm.stock, "stock")
+    const [stockError, stockPayload] = stockFieldPayload(productForm.stock, "Stock")
     if (stockError) {
       toast.error(stockError)
       return
     }
-    const [lowError, lowPayload] = perChannelPayload(productForm.lowStockThreshold, "low-stock alert")
+    const [lowError, lowPayload] = stockFieldPayload(productForm.lowStockThreshold, "Low-stock alert")
     if (lowError) {
       toast.error(lowError)
       return
@@ -576,7 +549,6 @@ export default function ProductsList() {
         foodType: productForm.foodType === "Veg" || productForm.foodType === "Non-Veg" ? productForm.foodType : null,
         isAvailable: productForm.isAvailable !== false,
         preparationTime: String(productForm.preparationTime || "").trim(),
-        channels: productChannels,
         stock: stockPayload,
         lowStockThreshold: lowPayload,
       }
@@ -924,13 +896,8 @@ export default function ProductsList() {
                   Category
                 </th>
                 <th className="px-6 py-4 text-left text-[10px] font-bold text-slate-700 uppercase tracking-wider">
-                  Channels
+                  Stock
                 </th>
-                {CHANNELS.map((c) => (
-                  <th key={c} className={`px-6 py-4 text-left text-[10px] font-bold uppercase tracking-wider ${c === channel ? "text-blue-700" : "text-slate-700"}`}>
-                    {CHANNEL_LABEL[c]} stock
-                  </th>
-                ))}
                 <th className="px-6 py-4 text-center text-[10px] font-bold text-slate-700 uppercase tracking-wider">
                   Action
                 </th>
@@ -939,7 +906,7 @@ export default function ProductsList() {
             <tbody className="bg-white divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={isSellerSelected ? 10 : 9} className="px-6 py-20 text-center">
+                  <td colSpan={isSellerSelected ? 8 : 7} className="px-6 py-20 text-center">
                     <div className="flex flex-col items-center justify-center">
                       <Loader2 className="w-8 h-8 animate-spin text-blue-600 mb-2" />
                       <p className="text-sm text-slate-500">Loading products...</p>
@@ -948,7 +915,7 @@ export default function ProductsList() {
                 </tr>
               ) : products.length === 0 ? (
                 <tr>
-                  <td colSpan={isSellerSelected ? 10 : 9} className="px-6 py-20 text-center">
+                  <td colSpan={isSellerSelected ? 8 : 7} className="px-6 py-20 text-center">
                     <div className="flex flex-col items-center justify-center">
                       <p className="text-lg font-semibold text-slate-700 mb-1">No Data Found</p>
                       <p className="text-sm text-slate-500">No products match your search or seller filter</p>
@@ -1005,34 +972,13 @@ export default function ProductsList() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex flex-wrap gap-1">
-                        {CHANNELS.filter((c) => food.channels?.[c]).map((c) => (
-                          <span
-                            key={c}
-                            title={food.availableIn && !food.availableIn[c] ? `Not available in ${CHANNEL_LABEL[c]} right now` : undefined}
-                            className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                              food.availableIn && !food.availableIn[c] ? "bg-slate-100 text-slate-500 line-through" : c === "quick" ? "bg-violet-100 text-violet-700" : "bg-sky-100 text-sky-700"
-                            }`}
-                          >
-                            {CHANNEL_LABEL[c]}
-                          </span>
-                        ))}
-                      </div>
+                      {(() => {
+                        const qty = food.stock
+                        const low = food.lowStockThreshold
+                        const isLow = qty !== null && qty !== undefined && low !== null && low !== undefined && Number(qty) <= Number(low)
+                        return <span className={`text-sm ${isLow ? "font-semibold text-rose-600" : "text-slate-800"}`}>{stockLabel(qty)}</span>
+                      })()}
                     </td>
-                    {CHANNELS.map((c) => {
-                      const qty = food.stock?.[c]
-                      const low = food.lowStockThreshold?.[c]
-                      const isLow = qty !== null && qty !== undefined && low !== null && low !== undefined && Number(qty) <= Number(low)
-                      return (
-                        <td key={c} className="px-6 py-4 whitespace-nowrap">
-                          {food.channels?.[c] ? (
-                            <span className={`text-sm ${isLow ? "font-semibold text-rose-600" : "text-slate-800"}`}>{stockLabel(qty)}</span>
-                          ) : (
-                            <span className="text-sm text-slate-400">-</span>
-                          )}
-                        </td>
-                      )
-                    })}
                     <td className="px-6 py-4 whitespace-nowrap text-center">
                       <div className="flex items-center justify-center gap-2">
                         <button
@@ -1200,7 +1146,7 @@ export default function ProductsList() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">Seller</label>
                 <select
                   value={productForm.sellerId}
-                  onChange={(e) => setProductForm((prev) => ({ ...prev, sellerId: e.target.value, categoryId: "", categoryName: "", channels: clampChannels({ quick: true, shop: true }, e.target.value) }))}
+                  onChange={(e) => setProductForm((prev) => ({ ...prev, sellerId: e.target.value, categoryId: "", categoryName: "" }))}
                   disabled={productFormMode === "edit"}
                   className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm bg-white disabled:bg-slate-100"
                 >
@@ -1391,57 +1337,33 @@ export default function ProductsList() {
             </div>
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
               <div>
-                <p className="text-sm font-semibold text-slate-900">Channels and stock</p>
-                <p className="text-xs text-slate-500">
-                  Only channels the seller is approved for can be enabled. Empty stock means not counted (always in stock).
-                </p>
+                <p className="text-sm font-semibold text-slate-900">Stock</p>
+                <p className="text-xs text-slate-500">Empty stock means not counted (always in stock).</p>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {CHANNELS.map((c) => {
-                  const allowed = allowedChannelsFor(productForm.sellerId).includes(c)
-                  const on = !!productForm.channels?.[c] && allowed
-                  return (
-                    <div key={c} className={`rounded-lg border p-3 bg-white ${allowed ? "border-slate-200" : "border-dashed border-slate-300 opacity-60"}`}>
-                      <label className="flex items-center gap-2 text-sm font-medium text-slate-800">
-                        <input
-                          type="checkbox"
-                          checked={on}
-                          disabled={!allowed}
-                          onChange={(e) => setProductForm((prev) => ({ ...prev, channels: { ...(prev.channels || {}), [c]: e.target.checked } }))}
-                        />
-                        Sell in {CHANNEL_LABEL[c]}
-                        {!allowed && <span className="text-[11px] font-normal text-slate-500">(seller not approved)</span>}
-                      </label>
-                      {on && (
-                        <div className="mt-2 grid grid-cols-2 gap-2">
-                          <div>
-                            <label className="block text-[11px] font-medium text-slate-600 mb-1">{CHANNEL_LABEL[c]} stock</label>
-                            <input
-                              type="number"
-                              min="0"
-                              step="1"
-                              placeholder="Not counted"
-                              value={productForm.stock?.[c] ?? ""}
-                              onChange={(e) => setProductForm((prev) => ({ ...prev, stock: { ...(prev.stock || {}), [c]: e.target.value } }))}
-                              className="w-full px-2 py-1.5 border border-slate-300 rounded-md text-sm bg-white"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[11px] font-medium text-slate-600 mb-1">Low-stock alert</label>
-                            <input
-                              type="number"
-                              min="0"
-                              step="1"
-                              value={productForm.lowStockThreshold?.[c] ?? ""}
-                              onChange={(e) => setProductForm((prev) => ({ ...prev, lowStockThreshold: { ...(prev.lowStockThreshold || {}), [c]: e.target.value } }))}
-                              className="w-full px-2 py-1.5 border border-slate-300 rounded-md text-sm bg-white"
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-600 mb-1">Stock</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    placeholder="Not counted"
+                    value={productForm.stock ?? ""}
+                    onChange={(e) => setProductForm((prev) => ({ ...prev, stock: e.target.value }))}
+                    className="w-full px-2 py-1.5 border border-slate-300 rounded-md text-sm bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-600 mb-1">Low-stock alert</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={productForm.lowStockThreshold ?? ""}
+                    onChange={(e) => setProductForm((prev) => ({ ...prev, lowStockThreshold: e.target.value }))}
+                    className="w-full px-2 py-1.5 border border-slate-300 rounded-md text-sm bg-white"
+                  />
+                </div>
               </div>
             </div>
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
@@ -1449,8 +1371,6 @@ export default function ProductsList() {
                 categoryId={productForm.categoryId}
                 variants={productForm.variants || []}
                 onChange={handleVariantsChange}
-                productChannels={clampChannels(productForm.channels, productForm.sellerId)}
-                approvedChannels={allowedChannelsFor(productForm.sellerId)}
                 uploadImage={uploadAdminVariantImage}
               />
             </div>
@@ -1487,7 +1407,7 @@ export default function ProductsList() {
                     <p className="text-sm font-semibold text-slate-900">Step 1: Download Template</p>
                     <p className="text-xs text-slate-600 mt-1">Use the Excel template to add products in bulk.</p>
                     <p className="text-xs text-slate-500 mt-1">
-                      Optional columns: Sell in Quick / Sell in Shop (Yes/No) and Quick / Shop stock. Blank keeps the current value; Yes only works for channels the seller is approved for.
+                      Optional columns: Sell (Yes/No) and Stock. Blank keeps the current value.
                     </p>
                     <button
                       type="button"

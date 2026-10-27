@@ -25,7 +25,6 @@ import { sellerAPI, uploadAPI } from "@ecommerce/services/api"
 import { toast } from "sonner"
 import { ImageSourcePicker } from "@ecommerce/components/ImageSourcePicker"
 import { isFlutterBridgeAvailable } from "@ecommerce/utils/imageUploadUtils"
-import { CHANNELS, isChannelApproved } from "@ecommerce/components/seller/channels"
 import {
   ProductChannelFields,
   emptyChannelDraft,
@@ -104,10 +103,8 @@ export default function ItemDetailsPage() {
   const [gst, setGst] = useState("5.0")
   const [isRecommended, setIsRecommended] = useState(false)
   const [isInStock, setIsInStock] = useState(true)
-  const [sellerProfile, setSellerProfile] = useState(null)
-  const [prodChannels, setProdChannels] = useState(null) // null until known (new item: approved channels)
-  const [prodStock, setProdStock] = useState(emptyChannelDraft)
-  const [prodThreshold, setProdThreshold] = useState(emptyChannelDraft)
+  const [prodStock, setProdStock] = useState("")
+  const [prodThreshold, setProdThreshold] = useState("")
   const [weightPerServing, setWeightPerServing] = useState("")
   const [calorieCount, setCalorieCount] = useState("")
   const [proteinCount, setProteinCount] = useState("")
@@ -148,33 +145,6 @@ export default function ItemDetailsPage() {
   const currentApprovalStatus = String(itemData?.approvalStatus || "").toLowerCase()
   const currentRejectionReason = String(itemData?.rejectionReason || "").trim()
 
-  useEffect(() => {
-    let alive = true
-    sellerAPI
-      .getCurrentSeller()
-      .then((res) => {
-        const d = res?.data?.data
-        const seller = d?.seller || d?.user || d
-        if (!alive) return
-        setSellerProfile(seller || null)
-        // New item: default to the channels the seller is approved for.
-        setProdChannels((prev) =>
-          prev ?? {
-            quick: seller?.channels?.quick?.status === "approved",
-            shop: seller?.channels?.shop?.status === "approved",
-          },
-        )
-      })
-      .catch(() => {})
-    return () => {
-      alive = false
-    }
-  }, [])
-
-  const effectiveProdChannels = prodChannels || { quick: false, shop: false }
-  // Variants can only be switched on / stocked in channels the seller is approved for.
-  const approvedChannels = CHANNELS.filter((c) => isChannelApproved(sellerProfile, c))
-
   const populateFormFromItem = (item = {}) => {
     setItemData(item)
 
@@ -195,7 +165,6 @@ export default function ItemDetailsPage() {
     setGst(item.gst?.toString() || "5.0")
     setIsRecommended(item.isRecommended || false)
     setIsInStock(item.isAvailable !== false)
-    setProdChannels({ quick: item?.channels?.quick !== false, shop: item?.channels?.shop !== false })
     setProdStock(channelDraftFrom(item?.stock))
     setProdThreshold(channelDraftFrom(item?.lowStockThreshold))
     setSelectedTags(item.tags || [])
@@ -673,11 +642,6 @@ export default function ItemDetailsPage() {
         return
       }
 
-      if (!CHANNELS.some((c) => effectiveProdChannels[c])) {
-        toast.error("Turn on at least one sales channel (Quick or Shop)")
-        setUploadingImages(false)
-        return
-      }
 
       const hasVariants = variantPayload.length > 0
       const parsedBasePrice = Number(basePrice)
@@ -708,7 +672,6 @@ export default function ItemDetailsPage() {
           price: hasVariants ? undefined : parsedBasePrice,
           otherPrice: hasVariants ? 0 : parsedOtherPrice,
           variants: variantPayload,
-          channels: { quick: effectiveProdChannels.quick, shop: effectiveProdChannels.shop },
           stock: channelDraftToPayload(prodStock),
           lowStockThreshold: channelDraftToPayload(prodThreshold),
           image: allImageUrls.length > 0 ? allImageUrls[0] : "",
@@ -738,7 +701,6 @@ export default function ItemDetailsPage() {
           price: hasVariants ? undefined : parsedBasePrice,
           otherPrice: hasVariants ? 0 : parsedOtherPrice,
           variants: variantPayload,
-          channels: { quick: effectiveProdChannels.quick, shop: effectiveProdChannels.shop },
           stock: channelDraftToPayload(prodStock),
           lowStockThreshold: channelDraftToPayload(prodThreshold),
           image: allImageUrls.length > 0 ? allImageUrls[0] : "",
@@ -1111,9 +1073,6 @@ export default function ItemDetailsPage() {
               )}
 
               <ProductChannelFields
-                seller={sellerProfile}
-                channels={effectiveProdChannels}
-                onChannels={setProdChannels}
                 stock={prodStock}
                 onStock={setProdStock}
                 threshold={prodThreshold}
@@ -1121,14 +1080,12 @@ export default function ItemDetailsPage() {
               />
 
               {/* Variants: options from the category's attribute set, one row per
-                  combination with its own price, stock per channel and photos. */}
+                  combination with its own price, stock and photos. */}
               <div className="rounded-xl border border-gray-200 bg-white p-3 md:p-4">
                 <VariantMatrixEditor
                   categoryId={selectedCategoryId}
                   variants={variants}
                   onChange={setVariants}
-                  productChannels={effectiveProdChannels}
-                  approvedChannels={approvedChannels}
                   uploadImage={uploadSellerImage}
                   showOtherPrice
                 />
