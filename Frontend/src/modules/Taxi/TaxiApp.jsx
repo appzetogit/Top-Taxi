@@ -45,6 +45,12 @@ const Activity = lazy(() => import('./modules/user/pages/Activity'));
 const Profile = lazy(() => import('./modules/user/pages/Profile'));
 const Wallet = lazy(() => import('./modules/user/pages/Wallet'));
 
+// Tour Packages
+const TourHome = lazy(() => import('./modules/user/pages/tours/TourHome'));
+const TourDetail = lazy(() => import('./modules/user/pages/tours/TourDetail'));
+const TourBooking = lazy(() => import('./modules/user/pages/tours/TourBooking'));
+const TourConfirm = lazy(() => import('./modules/user/pages/tours/TourConfirm'));
+
 // Coming Soon placeholder (for /tours and any unbuilt routes)
 const ComingSoon = lazy(() => import('./modules/shared/pages/ComingSoon'));
 const LegalPage = lazy(() => import('./modules/shared/pages/LegalPage'));
@@ -241,6 +247,8 @@ const AdminVehicleType = lazy(() => import('./modules/admin/pages/price-manageme
 // const AdminRentalQuoteRequests = lazy(() => import('./modules/admin/pages/price-management/RentalQuoteRequests'));
 // const AdminRentalPackageTypes = lazy(() => import('./modules/admin/pages/price-management/RentalPackageTypes'));
 const AdminGoodsTypes = lazy(() => import('./modules/admin/pages/price-management/GoodsTypes'));
+const AdminTourPackages = lazy(() => import('./modules/admin/pages/tour-packages/TourPackages'));
+const AdminTourBookings = lazy(() => import('./modules/admin/pages/tour-packages/TourBookings'));
 const AdminPoolingManager = lazy(() => import('./modules/admin/pages/pooling/PoolingManager'));
 const AdminPoolingVehicles = lazy(() => import('./modules/admin/pages/pooling/PoolingVehicles'));
 const AdminPoolingVehicleForm = lazy(() => import('./modules/admin/pages/pooling/PoolingVehicleForm'));
@@ -772,7 +780,10 @@ function TaxiApp() {
               <Route path="bus/seats" element={<BusSeats />} />
               <Route path="bus/details" element={<BusDetails />} />
               <Route path="bus/confirm" element={<BusConfirm />} />
-              <Route path="tours" element={<ComingSoon />} />
+              <Route path="tours" element={<TourHome />} />
+              <Route path="tours/:id" element={<TourDetail />} />
+              <Route path="tours/:id/book" element={<TourBooking />} />
+              <Route path="tours/confirm" element={<TourConfirm />} />
 
               <Route path="activity" element={<Activity />} />
               <Route path="profile" element={<Profile />} />
@@ -939,7 +950,10 @@ function TaxiApp() {
               <Route path="user/bus/details" element={<BusPreview />} />
               <Route path="user/bus/checkout" element={<BusDetails />} />
               <Route path="user/bus/confirm" element={<BusConfirm />} />
-              <Route path="user/tours" element={<ComingSoon />} />
+              <Route path="user/tours" element={<TourHome />} />
+              <Route path="user/tours/:id" element={<TourDetail />} />
+              <Route path="user/tours/:id/book" element={<TourBooking />} />
+              <Route path="user/tours/confirm" element={<TourConfirm />} />
 
               <Route path="user/activity" element={<Activity />} />
               <Route path="user/profile" element={<Profile />} />
@@ -1530,6 +1544,16 @@ function TaxiApp() {
                   path="goods-types/edit/:id"
                   element={<AdminGoodsTypes mode="edit" />}
                 />
+                <Route path="tour-packages" element={<AdminTourPackages />} />
+                <Route
+                  path="tour-packages/create"
+                  element={<AdminTourPackages mode="create" />}
+                />
+                <Route
+                  path="tour-packages/edit/:id"
+                  element={<AdminTourPackages mode="edit" />}
+                />
+                <Route path="tour-bookings" element={<AdminTourBookings />} />
               </Route>
               {/* Safety */}
               <Route path="safety/sos" element={<AdminSafetyCenter />} />

@@ -274,6 +274,15 @@ export const adminService = {
   uploadImage: (image) => api.post('/admin/upload-image', { image }),
 
   /**
+   * Tour Packages
+   */
+  getTourPackages: () => api.get('/admin/types/tour-packages'),
+  createTourPackage: (data) => api.post('/admin/types/tour-packages', data),
+  updateTourPackage: (id, data) => api.patch(`/admin/types/tour-packages/${id}`, data),
+  deleteTourPackage: (id) => api.delete(`/admin/types/tour-packages/${id}`),
+  getTourBookings: (params = {}) => api.get('/admin/types/tour-bookings', { params }),
+
+  /**
    * Languages Management (Master)
    */
   getLanguages: (params) => api.get('/admin/languages', { params }),

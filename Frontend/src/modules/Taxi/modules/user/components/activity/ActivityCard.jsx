@@ -2,18 +2,93 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Calendar, ChevronRight, Clock } from 'lucide-react';
 import { buildAvatarFallback } from './activityHelpers';
+import tourService from '../../services/tourService';
 
-const ActivityCard = ({ type, title, address, date, time, status, statusTone, price, onClick, driverName, driverImage, vehicleImage, eyebrow }) => {
+const loadRazorpayScript = () =>
+  new Promise((resolve) => {
+    if (window.Razorpay) {
+      resolve(true);
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+
+const ActivityCard = ({ id, type, title, address, date, time, status, statusTone, price, onClick, driverName, driverImage, vehicleImage, eyebrow, paymentStatus, balanceAmount, onBalancePaid }) => {
   const [vehicleBroken, setVehicleBroken] = useState(false);
   const [driverBroken, setDriverBroken] = useState(false);
+  const [payingBalance, setPayingBalance] = useState(false);
+  const [balanceError, setBalanceError] = useState('');
   const resolvedDriverImage = driverBroken ? buildAvatarFallback(driverName) : driverImage;
-  const vehicleAlt = type === 'parcel' ? 'Parcel' : type === 'bus' ? 'Bus' : type === 'pooling' ? 'Pooling vehicle' : 'Vehicle';
+  const vehicleAlt = type === 'parcel' ? 'Parcel' : type === 'bus' ? 'Bus' : type === 'pooling' ? 'Pooling vehicle' : type === 'tour' ? 'Tour' : 'Vehicle';
+  const showPayBalance = type === 'tour' && paymentStatus === 'partial' && Number(balanceAmount) > 0;
+
+  const handlePayBalance = async (event) => {
+    event.stopPropagation();
+    if (payingBalance) return;
+    setBalanceError('');
+    setPayingBalance(true);
+
+    try {
+      const orderResponse = await tourService.createBalancePaymentOrder(id);
+      const order = orderResponse?.data || orderResponse || {};
+      if (!order.keyId || !order.orderId) {
+        throw new Error('Unable to start payment');
+      }
+
+      const scriptLoaded = await loadRazorpayScript();
+      if (!scriptLoaded) {
+        throw new Error('Razorpay SDK failed to load');
+      }
+
+      const rzp = new window.Razorpay({
+        key: order.keyId,
+        amount: order.amount,
+        currency: order.currency || 'INR',
+        name: title || 'Tour Balance Payment',
+        description: 'Tour booking - balance payment',
+        order_id: order.orderId,
+        modal: {
+          ondismiss: () => setPayingBalance(false),
+        },
+        theme: { color: '#0F172A' },
+        handler: async (response) => {
+          try {
+            await tourService.verifyBalancePayment(id, response);
+            onBalancePaid?.();
+          } catch (verifyError) {
+            setBalanceError(verifyError?.message || 'Payment completed but could not be verified');
+          } finally {
+            setPayingBalance(false);
+          }
+        },
+      });
+
+      rzp.on('payment.failed', (paymentFailedEvent) => {
+        setBalanceError(paymentFailedEvent?.error?.description || 'Payment failed');
+        setPayingBalance(false);
+      });
+
+      rzp.open();
+    } catch (err) {
+      setBalanceError(err?.message || 'Unable to start balance payment');
+      setPayingBalance(false);
+    }
+  };
 
   return (
-    <motion.button
-      type="button"
+    <motion.div
+      role="button"
+      tabIndex={0}
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') onClick?.();
+      }}
       className="w-full cursor-pointer rounded-2xl border border-slate-200 bg-white p-3.5 text-left shadow-sm transition-colors hover:border-slate-300 active:translate-y-0 sm:p-4"
     >
       <div className="flex items-start gap-3 sm:gap-4">
@@ -71,13 +146,27 @@ const ActivityCard = ({ type, title, address, date, time, status, statusTone, pr
               {status.toUpperCase()}
             </span>
           </div>
+
+          {showPayBalance ? (
+            <div className="mt-3 border-t border-slate-100 pt-3">
+              <button
+                type="button"
+                onClick={handlePayBalance}
+                disabled={payingBalance}
+                className="w-full rounded-xl bg-amber-500 py-2 text-[12px] font-bold text-white transition hover:bg-amber-600 disabled:opacity-60"
+              >
+                {payingBalance ? 'Processing...' : `Pay remaining balance ₹${balanceAmount}`}
+              </button>
+              {balanceError ? <p className="mt-1.5 text-[11px] font-semibold text-rose-600">{balanceError}</p> : null}
+            </div>
+          ) : null}
         </div>
 
         <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-300">
           <ChevronRight size={16} strokeWidth={2.4} />
         </div>
       </div>
-    </motion.button>
+    </motion.div>
   );
 };
 

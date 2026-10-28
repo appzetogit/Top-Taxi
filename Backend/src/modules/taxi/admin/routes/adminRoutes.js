@@ -29,6 +29,7 @@ import {
   createSetPrice,
   createSubscriptionPlan,
   createCustomerSubscriptionPlan,
+  createTourPackage,
   createUser,
   createZone,
   bulkImportUsers,
@@ -52,6 +53,7 @@ import {
   deletePaymentMethod,
   deletePoolingRoute,
   deleteRentalVehicleType,
+  deleteTourPackage,
   deleteSetPrice,
   getSurgeSlots,
   getInsurancePlans,
@@ -132,6 +134,8 @@ import {
   getRentalVehicleTypes,
   getRideModules,
   getRoles,
+  getTourPackages,
+  getTourBookings,
   getReferralSettings,
   updateReferralSettings,
   getReferralDashboard,
@@ -202,6 +206,7 @@ import {
   updatePreferenceStatus,
   updateReferralTranslation,
   updateRentalVehicleType,
+  updateTourPackage,
   updateSetPrice,
   updateServiceLocation,
   updateServiceStore,
@@ -389,6 +394,15 @@ adminRouter.get('/admin/types/rental-vehicles', getRentalVehicleTypes);
 adminRouter.post('/admin/types/rental-vehicles', createRentalVehicleType);
 adminRouter.patch('/admin/types/rental-vehicles/:id', updateRentalVehicleType);
 adminRouter.delete('/admin/types/rental-vehicles/:id', deleteRentalVehicleType);
+
+// Tour Packages: mounted under /admin/types/... so it falls inside the existing
+// TAXI_ADMIN_RULES '/admin/(...|types|...)' -> 'fleet' path-prefix rule
+// (see Backend/src/core/admin/adminAccessPolicy.js) with no extra wiring there.
+adminRouter.get('/admin/types/tour-packages', getTourPackages);
+adminRouter.post('/admin/types/tour-packages', createTourPackage);
+adminRouter.patch('/admin/types/tour-packages/:id', updateTourPackage);
+adminRouter.delete('/admin/types/tour-packages/:id', deleteTourPackage);
+adminRouter.get('/admin/types/tour-bookings', getTourBookings);
 adminRouter.get('/admin/pooling-routes', getPoolingRoutes);
 adminRouter.post('/admin/pooling-routes', createPoolingRoute);
 adminRouter.patch('/admin/pooling-routes/:id', updatePoolingRoute);

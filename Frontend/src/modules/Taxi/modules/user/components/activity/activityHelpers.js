@@ -1,7 +1,7 @@
 // No static icons
 
 export const PAGE_SIZE = 4;
-export const TABS = ['All', 'Rides', 'Parcels', 'Rental', 'Bus', 'Pooling', 'Outstation', 'Scheduled', 'Support'];
+export const TABS = ['All', 'Rides', 'Parcels', 'Rental', 'Bus', 'Tours', 'Pooling', 'Outstation', 'Scheduled', 'Support'];
 
 export const pickFirstString = (...values) => {
   for (const value of values) {
@@ -238,6 +238,31 @@ export const normalizePoolingBooking = (booking) => {
     vehicleImage: getVehicleVisual(null, 'pooling'),
     booking,
     sortTimestamp: toTimestamp(booking?.createdAt || booking?.travelDate),
+  };
+};
+
+export const normalizeTourBooking = (booking) => {
+  const destination = pickFirstString(booking?.packageSnapshot?.destination, 'Tour');
+  const status = formatStatus(booking?.status || 'pending_payment');
+
+  return {
+    id: booking?.id,
+    type: 'tour',
+    title: destination,
+    address: pickFirstString(booking?.packageSnapshot?.durationLabel, 'Tour package'),
+    date: formatRideDate(booking?.departureSnapshot?.startDate),
+    time: formatRideDate(booking?.departureSnapshot?.endDate),
+    status,
+    statusTone: getStatusTone(status),
+    price: Number(booking?.totalAmount || 0).toFixed(0),
+    driverName: destination,
+    eyebrow: pickFirstString(booking?.bookingCode, 'Tour booking'),
+    driverImage: buildAvatarFallback(destination),
+    vehicleImage: pickFirstString(booking?.packageSnapshot?.coverImage, null),
+    booking,
+    paymentStatus: booking?.paymentStatus,
+    balanceAmount: Number(booking?.balanceAmount || 0),
+    sortTimestamp: toTimestamp(booking?.createdAt),
   };
 };
 

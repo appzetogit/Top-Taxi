@@ -28,6 +28,8 @@ import { RentalBookingRequest } from '../models/RentalBookingRequest.js';
 import { PoolingRoute } from '../models/PoolingRoute.js';
 import { PoolingVehicle } from '../models/PoolingVehicle.js';
 import { RentalVehicleType } from '../models/RentalVehicleType.js';
+import { TourPackage } from '../models/TourPackage.js';
+import { TourBooking } from '../../user/models/TourBooking.js';
 import { RentalQuoteRequest } from '../models/RentalQuoteRequest.js';
 import { SetPrice } from '../models/SetPrice.js';
 import { SurgeSlot } from '../models/SurgeSlot.js';
@@ -8615,6 +8617,199 @@ export const updateBusService = async (id, payload = {}, options = {}) => {
     const item = await RentalVehicleType.findByIdAndDelete(id);
     if (!item) throw new ApiError(404, 'Rental vehicle type not found');
     return true;
+  };
+
+  // ---------------------------------------------------------------- Tour Packages
+
+  const normalizeStringList = (value) => {
+    if (Array.isArray(value)) {
+      return value.map((v) => String(v || '').trim()).filter(Boolean);
+    }
+    if (typeof value === 'string') {
+      return value.split('\n').map((v) => v.trim()).filter(Boolean);
+    }
+    return [];
+  };
+
+  const normalizeTourItinerary = (value) => {
+    if (!Array.isArray(value)) return [];
+    return value
+      .map((row, index) => ({
+        day: Number(row?.day) || index + 1,
+        title: String(row?.title || '').trim(),
+        description: String(row?.description || '').trim(),
+      }))
+      .filter((row) => row.title || row.description);
+  };
+
+  const normalizeTourDepartures = (value, existingDepartures = []) => {
+    if (!Array.isArray(value)) return existingDepartures;
+    const existingById = new Map(existingDepartures.map((d) => [String(d._id), d]));
+    return value
+      .map((row) => {
+        const startDate = row?.startDate ? new Date(row.startDate) : null;
+        const endDate = row?.endDate ? new Date(row.endDate) : null;
+        const totalSeats = Number(row?.totalSeats);
+        if (!startDate || Number.isNaN(startDate.getTime())) return null;
+        if (!endDate || Number.isNaN(endDate.getTime())) return null;
+        if (!Number.isFinite(totalSeats) || totalSeats < 1) return null;
+
+        const existing = row?._id ? existingById.get(String(row._id)) : null;
+        return {
+          ...(existing ? { _id: existing._id } : {}),
+          startDate,
+          endDate,
+          totalSeats,
+          // seatsBooked is never admin-editable; keep whatever it already was.
+          seatsBooked: existing ? existing.seatsBooked : 0,
+          active: row?.active !== false,
+        };
+      })
+      .filter(Boolean);
+  };
+
+  const normalizeTourPackagePayload = (payload = {}, existing = {}) => ({
+    destination: String(payload.destination ?? existing.destination ?? '').trim(),
+    location: String(payload.location ?? existing.location ?? '').trim(),
+    coverImage: String(payload.coverImage ?? existing.coverImage ?? '').trim(),
+    galleryImages: Array.isArray(payload.galleryImages)
+      ? payload.galleryImages.map((v) => String(v || '').trim()).filter(Boolean)
+      : (existing.galleryImages || []),
+    pricePerPerson: Math.max(0, Number(payload.pricePerPerson ?? existing.pricePerPerson ?? 0) || 0),
+    durationLabel: String(payload.durationLabel ?? existing.durationLabel ?? '').trim(),
+    ageRangeLabel: String(payload.ageRangeLabel ?? existing.ageRangeLabel ?? '').trim(),
+    happyTravellersCount: Math.max(0, Number(payload.happyTravellersCount ?? existing.happyTravellersCount ?? 0) || 0),
+    overview: String(payload.overview ?? existing.overview ?? '').trim(),
+    highlights: payload.highlights !== undefined ? normalizeStringList(payload.highlights) : (existing.highlights || []),
+    itinerary: payload.itinerary !== undefined ? normalizeTourItinerary(payload.itinerary) : (existing.itinerary || []),
+    inclusions: payload.inclusions !== undefined ? normalizeStringList(payload.inclusions) : (existing.inclusions || []),
+    exclusions: payload.exclusions !== undefined ? normalizeStringList(payload.exclusions) : (existing.exclusions || []),
+    upcomingDates: payload.upcomingDates !== undefined
+      ? normalizeTourDepartures(payload.upcomingDates, existing.upcomingDates || [])
+      : (existing.upcomingDates || []),
+    upfrontPayment: {
+      paymentMode: ['full', 'percentage'].includes(payload.upfrontPayment?.paymentMode)
+        ? payload.upfrontPayment.paymentMode
+        : (existing.upfrontPayment?.paymentMode || 'percentage'),
+      percentage: Math.min(100, Math.max(1, Number(
+        payload.upfrontPayment?.percentage ?? existing.upfrontPayment?.percentage ?? 20,
+      ) || 20)),
+    },
+    status: ['active', 'inactive'].includes(payload.status) ? payload.status : (existing.status || 'active'),
+  });
+
+  const serializeTourPackage = (item = {}) => {
+    const upcomingDates = (item.upcomingDates || []).map((d) => ({
+      id: String(d._id),
+      startDate: d.startDate,
+      endDate: d.endDate,
+      totalSeats: d.totalSeats,
+      seatsBooked: d.seatsBooked || 0,
+      seatsLeft: Math.max(0, (d.totalSeats || 0) - (d.seatsBooked || 0)),
+      active: d.active !== false,
+    }));
+    return {
+      id: String(item._id),
+      destination: item.destination || '',
+      location: item.location || '',
+      coverImage: item.coverImage || '',
+      galleryImages: item.galleryImages || [],
+      pricePerPerson: item.pricePerPerson || 0,
+      durationLabel: item.durationLabel || '',
+      ageRangeLabel: item.ageRangeLabel || '',
+      happyTravellersCount: item.happyTravellersCount || 0,
+      overview: item.overview || '',
+      highlights: item.highlights || [],
+      itinerary: item.itinerary || [],
+      inclusions: item.inclusions || [],
+      exclusions: item.exclusions || [],
+      upcomingDates,
+      upfrontPayment: item.upfrontPayment || { paymentMode: 'percentage', percentage: 20 },
+      status: item.status || 'active',
+      active: item.active !== false,
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt,
+    };
+  };
+
+  export const listTourPackages = async () => {
+    const items = await TourPackage.find().sort({ createdAt: -1 }).lean();
+    return items.map((item) => serializeTourPackage(item));
+  };
+
+  export const createTourPackage = async (payload = {}) => {
+    const normalizedPayload = normalizeTourPackagePayload(payload);
+    if (!normalizedPayload.destination) throw new ApiError(400, 'Destination is required');
+    if (!normalizedPayload.pricePerPerson) throw new ApiError(400, 'Price per person is required');
+
+    const item = await TourPackage.create({
+      ...normalizedPayload,
+      active: normalizedPayload.status === 'active',
+    });
+    return serializeTourPackage(item.toObject());
+  };
+
+  export const updateTourPackage = async (id, payload = {}) => {
+    const existingItem = await TourPackage.findById(id);
+    if (!existingItem) throw new ApiError(404, 'Tour package not found');
+
+    const normalizedPayload = normalizeTourPackagePayload(payload, existingItem.toObject());
+    if (!normalizedPayload.destination) throw new ApiError(400, 'Destination is required');
+    if (!normalizedPayload.pricePerPerson) throw new ApiError(400, 'Price per person is required');
+
+    Object.assign(existingItem, {
+      ...normalizedPayload,
+      active: normalizedPayload.status === 'active',
+    });
+    await existingItem.save();
+    return serializeTourPackage(existingItem.toObject());
+  };
+
+  export const deleteTourPackage = async (id) => {
+    const item = await TourPackage.findByIdAndDelete(id);
+    if (!item) throw new ApiError(404, 'Tour package not found');
+    return true;
+  };
+
+  const serializeTourBooking = (item = {}) => ({
+    id: String(item._id),
+    bookingCode: item.bookingCode || '',
+    packageId: item.packageId ? String(item.packageId) : '',
+    packageSnapshot: item.packageSnapshot || {},
+    departureSnapshot: item.departureSnapshot || {},
+    customerName: item.customerName || '',
+    customerPhone: item.customerPhone || '',
+    personCount: item.personCount || 0,
+    pricePerPerson: item.pricePerPerson || 0,
+    totalAmount: item.totalAmount || 0,
+    upfrontRequiredAmount: item.upfrontRequiredAmount || 0,
+    paymentStatus: item.paymentStatus || 'pending',
+    amountPaid: item.payment?.status === 'paid' ? (item.payment.amount || 0) : 0,
+    balanceAmount: item.balanceAmount || 0,
+    balancePaymentStatus: item.balancePaymentStatus || 'not_required',
+    status: item.status || 'pending_payment',
+    createdAt: item.createdAt,
+  });
+
+  export const listTourBookings = async ({ status, packageId } = {}) => {
+    const filter = {};
+    if (status) filter.paymentStatus = status;
+    if (packageId && mongoose.Types.ObjectId.isValid(packageId)) filter.packageId = toObjectId(packageId);
+
+    const items = await TourBooking.find(filter).sort({ createdAt: -1 }).limit(500).lean();
+    const serialized = items.map((item) => serializeTourBooking(item));
+
+    const summary = serialized.reduce(
+      (acc, b) => {
+        acc.totalBookings += 1;
+        acc.totalCollected += b.amountPaid + (b.balancePaymentStatus === 'paid' ? b.balanceAmount : 0);
+        acc.totalOutstanding += b.balancePaymentStatus === 'pending' ? b.balanceAmount : 0;
+        return acc;
+      },
+      { totalBookings: 0, totalCollected: 0, totalOutstanding: 0 },
+    );
+
+    return { bookings: serialized, summary };
   };
 
   export const listPoolingRoutes = async () => {

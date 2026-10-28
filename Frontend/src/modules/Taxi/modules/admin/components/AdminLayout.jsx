@@ -853,6 +853,8 @@ const AdminLayout = () => {
               { label: 'Surge Time Slots', path: '/taxi/admin/pricing/surge', permission: 'set_prices.view' },
               { label: 'Ride Insurance', path: '/taxi/admin/pricing/ride-insurance', permission: 'set_prices.view' },
               { label: 'Goods Types', path: '/taxi/admin/pricing/goods-types', permission: 'goods_types.view' },
+              { label: 'Tour Packages', path: '/taxi/admin/pricing/tour-packages', permission: 'tour_packages.view' },
+              { label: 'Tour Bookings', path: '/taxi/admin/pricing/tour-bookings', permission: 'tour_packages.view' },
             ],
           },
           // Bus Service is intentionally hidden from the admin sidebar (not removed).

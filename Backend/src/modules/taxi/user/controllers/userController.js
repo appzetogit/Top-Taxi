@@ -29,6 +29,8 @@ import {
 } from '../services/userOtpService.js';
 import { BusSeatHold } from '../models/BusSeatHold.js';
 import { BusBooking } from '../models/BusBooking.js';
+import { TourPackage } from '../../admin/models/TourPackage.js';
+import { TourBooking } from '../models/TourBooking.js';
 import { RentalBookingRequest } from '../../admin/models/RentalBookingRequest.js';
 import { RentalQuoteRequest } from '../../admin/models/RentalQuoteRequest.js';
 import { RentalVehicleType } from '../../admin/models/RentalVehicleType.js';
@@ -3082,6 +3084,416 @@ export const cancelMyBusBooking = async (req, res) => {
           ? 'Bus booking cancelled successfully.'
           : 'Selected seats cancelled successfully.'),
   });
+};
+
+// ---------------------------------------------------------------- Tour Packages
+
+const TOUR_HOLD_MINUTES = 15;
+
+const createTourBookingCode = () =>
+  `TOUR${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+
+const round2 = (value) => Math.round((Number(value) || 0) * 100) / 100;
+
+const serializeTourDeparture = (departure) => ({
+  id: String(departure._id),
+  startDate: departure.startDate,
+  endDate: departure.endDate,
+  totalSeats: departure.totalSeats,
+  seatsLeft: Math.max(0, (departure.totalSeats || 0) - (departure.seatsBooked || 0)),
+});
+
+const serializeTourPackageSummary = (item) => {
+  const now = new Date();
+  const upcoming = (item.upcomingDates || [])
+    .filter((d) => d.active !== false && new Date(d.startDate) >= now)
+    .sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+  return {
+    id: String(item._id),
+    destination: item.destination || '',
+    location: item.location || '',
+    coverImage: item.coverImage || '',
+    pricePerPerson: item.pricePerPerson || 0,
+    durationLabel: item.durationLabel || '',
+    nextDeparture: upcoming[0] ? serializeTourDeparture(upcoming[0]) : null,
+  };
+};
+
+const serializeTourPackageDetail = (item) => ({
+  id: String(item._id),
+  destination: item.destination || '',
+  location: item.location || '',
+  coverImage: item.coverImage || '',
+  galleryImages: item.galleryImages || [],
+  pricePerPerson: item.pricePerPerson || 0,
+  durationLabel: item.durationLabel || '',
+  ageRangeLabel: item.ageRangeLabel || '',
+  happyTravellersCount: item.happyTravellersCount || 0,
+  overview: item.overview || '',
+  highlights: item.highlights || [],
+  itinerary: (item.itinerary || []).slice().sort((a, b) => (a.day || 0) - (b.day || 0)),
+  inclusions: item.inclusions || [],
+  exclusions: item.exclusions || [],
+  upcomingDates: (item.upcomingDates || [])
+    .filter((d) => d.active !== false)
+    .map(serializeTourDeparture),
+  upfrontPayment: item.upfrontPayment || { paymentMode: 'percentage', percentage: 20 },
+});
+
+const serializeTourBooking = (booking) => ({
+  id: String(booking._id),
+  bookingCode: booking.bookingCode || '',
+  packageId: booking.packageId ? String(booking.packageId) : '',
+  packageSnapshot: booking.packageSnapshot || {},
+  departureSnapshot: booking.departureSnapshot || {},
+  customerName: booking.customerName || '',
+  customerPhone: booking.customerPhone || '',
+  personCount: booking.personCount || 0,
+  pricePerPerson: booking.pricePerPerson || 0,
+  totalAmount: booking.totalAmount || 0,
+  upfrontRequiredAmount: booking.upfrontRequiredAmount || 0,
+  paymentStatus: booking.paymentStatus || 'pending',
+  amountPaid: booking.payment?.status === 'paid' ? (booking.payment.amount || 0) : 0,
+  balanceAmount: booking.balanceAmount || 0,
+  balancePaymentStatus: booking.balancePaymentStatus || 'not_required',
+  status: booking.status || 'pending_payment',
+  createdAt: booking.createdAt,
+});
+
+export const listTourPackages = async (req, res) => {
+  const items = await TourPackage.find({ status: 'active', active: true })
+    .sort({ createdAt: -1 })
+    .lean();
+  res.status(200).json({
+    success: true,
+    data: { results: items.map(serializeTourPackageSummary) },
+  });
+};
+
+export const getTourPackageById = async (req, res) => {
+  const id = String(req.params?.id || '').trim();
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, 'Valid tour package id is required');
+  }
+  const item = await TourPackage.findOne({ _id: id, status: 'active', active: true }).lean();
+  if (!item) throw new ApiError(404, 'Tour package not found');
+  res.status(200).json({ success: true, data: serializeTourPackageDetail(item) });
+};
+
+export const createTourBookingOrder = async (req, res) => {
+  const userId = req.auth?.sub;
+  const packageId = String(req.body?.packageId || '').trim();
+  const departureId = String(req.body?.departureId || '').trim();
+  const customerName = toCleanString(req.body?.customerName);
+  const customerPhone = normalizePhone(req.body?.customerPhone);
+  const personCount = Number(req.body?.personCount);
+
+  if (!mongoose.Types.ObjectId.isValid(packageId) || !mongoose.Types.ObjectId.isValid(departureId)) {
+    throw new ApiError(400, 'Valid packageId and departureId are required');
+  }
+  validateName(customerName);
+  validatePhone(customerPhone);
+  if (!Number.isInteger(personCount) || personCount < 1) {
+    throw new ApiError(400, 'personCount must be a whole number of 1 or more');
+  }
+
+  const tourPackage = await TourPackage.findOne({ _id: packageId, status: 'active', active: true });
+  if (!tourPackage) throw new ApiError(404, 'Tour package not found');
+
+  const departure = tourPackage.upcomingDates.id(departureId);
+  if (!departure || departure.active === false) {
+    throw new ApiError(404, 'Departure date not found');
+  }
+
+  const seatsLeft = Math.max(0, (departure.totalSeats || 0) - (departure.seatsBooked || 0));
+  if (seatsLeft < personCount) {
+    throw new ApiError(409, `Only ${seatsLeft} seat(s) left for this departure`);
+  }
+
+  const totalAmount = round2(tourPackage.pricePerPerson * personCount);
+  if (totalAmount <= 0) throw new ApiError(400, 'Tour price is not configured');
+
+  const upfrontPayment = tourPackage.upfrontPayment || { paymentMode: 'percentage', percentage: 20 };
+  const upfrontRequiredAmount = upfrontPayment.paymentMode === 'full'
+    ? totalAmount
+    : round2(totalAmount * (upfrontPayment.percentage || 20) / 100);
+
+  const { keyId, keySecret } = await resolveRazorpayCredentials();
+  const amountPaise = Math.round(upfrontRequiredAmount * 100);
+  const compactUserId = String(userId || '').replace(/[^a-zA-Z0-9]/g, '').slice(-8) || 'usr';
+  const receipt = `utour_${compactUserId}_${Date.now().toString(36)}`;
+
+  let order;
+  try {
+    order = await razorpayRequest({
+      method: 'POST',
+      path: '/orders',
+      body: {
+        amount: amountPaise,
+        currency: 'INR',
+        receipt,
+        notes: { userId: String(userId || ''), packageId, departureId },
+      },
+      keyId,
+      keySecret,
+    });
+  } catch (error) {
+    const isAuthError =
+      error.statusCode === 401 ||
+      error.statusCode === 403 ||
+      String(error.message || '').toLowerCase().includes('authentication failed') ||
+      String(error.message || '').toLowerCase().includes('api key');
+    const isMockAllowed = process.env.NODE_ENV !== 'production';
+    if (isAuthError && isMockAllowed) {
+      console.warn('[Razorpay] Tour order creation failed with auth error, falling back to mock order:', error.message);
+      order = { id: `mock_order_${amountPaise}_${Date.now().toString(36)}`, amount: amountPaise, currency: 'INR' };
+    } else {
+      throw error;
+    }
+  }
+
+  const expiresAt = new Date(Date.now() + TOUR_HOLD_MINUTES * 60 * 1000);
+  const booking = await TourBooking.create({
+    userId,
+    packageId,
+    departureId,
+    bookingCode: createTourBookingCode(),
+    packageSnapshot: {
+      destination: tourPackage.destination,
+      coverImage: tourPackage.coverImage,
+      durationLabel: tourPackage.durationLabel,
+    },
+    departureSnapshot: { startDate: departure.startDate, endDate: departure.endDate },
+    customerName,
+    customerPhone,
+    personCount,
+    pricePerPerson: tourPackage.pricePerPerson,
+    totalAmount,
+    upfrontPaymentSnapshot: {
+      paymentMode: upfrontPayment.paymentMode,
+      percentage: upfrontPayment.percentage,
+    },
+    upfrontRequiredAmount,
+    status: 'pending_payment',
+    expiresAt,
+    payment: { provider: 'razorpay', orderId: order.id, amount: upfrontRequiredAmount, status: 'created' },
+  });
+
+  res.status(201).json({
+    success: true,
+    data: {
+      keyId,
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency || 'INR',
+      bookingId: String(booking._id),
+    },
+  });
+};
+
+export const verifyTourBookingPayment = async (req, res) => {
+  const orderId = String(req.body?.razorpay_order_id || '');
+  const paymentId = String(req.body?.razorpay_payment_id || '');
+  const signature = String(req.body?.razorpay_signature || '');
+  if (!orderId || !paymentId || !signature) {
+    throw new ApiError(400, 'Payment verification fields are required');
+  }
+
+  const isMockAllowed = process.env.NODE_ENV !== 'production';
+  const isMock = isMockAllowed && orderId.startsWith('mock_order_') && signature === 'mock_signature_bypass';
+
+  if (!isMock) {
+    const { keySecret } = await resolveRazorpayCredentials();
+    const expectedSignature = crypto
+      .createHmac('sha256', keySecret)
+      .update(`${orderId}|${paymentId}`)
+      .digest('hex');
+    if (!safeSignatureEqual(expectedSignature, signature)) {
+      throw new ApiError(400, 'Invalid payment signature');
+    }
+  }
+
+  const booking = await TourBooking.findOne({ userId: req.auth?.sub, 'payment.orderId': orderId });
+  if (!booking) throw new ApiError(404, 'Tour booking not found');
+
+  if (booking.status === 'confirmed') {
+    return res.status(200).json({ success: true, data: serializeTourBooking(booking) });
+  }
+  if (booking.status !== 'pending_payment') {
+    throw new ApiError(409, 'Tour booking is no longer payable');
+  }
+  if (booking.expiresAt && booking.expiresAt <= new Date()) {
+    booking.status = 'expired';
+    booking.payment.status = 'expired';
+    await booking.save();
+    throw new ApiError(409, 'Booking hold expired before payment verification');
+  }
+
+  // Second, authoritative seats-left check against the live package document --
+  // nothing was reserved at order-creation time (see plan: aggregate seat count,
+  // not individual seat identity, so no hold collection is needed).
+  //
+  // $expr is not allowed inside an array-filter/$elemMatch update condition
+  // (Mongo rejects it outright), so the "would this overbook" comparison is
+  // done in JS first against the live departure doc, then applied as a plain
+  // arrayFilters numeric bound. Model.updateOne() (Mongoose's query-builder
+  // wrapper) was also found, by direct test, to report modifiedCount:1 even
+  // when the arrayFilter matched nothing and the increment never happened --
+  // .collection.updateOne() (the raw driver handle) reports it correctly, so
+  // that is what decides success here, not matchedCount.
+  const livePackage = await TourPackage.findOne(
+    { _id: booking.packageId, 'upcomingDates._id': booking.departureId },
+    { 'upcomingDates.$': 1 },
+  ).lean();
+  const liveDeparture = livePackage?.upcomingDates?.[0];
+  const maxSeatsBookedAllowed = (liveDeparture?.totalSeats || 0) - booking.personCount;
+
+  const updateResult = liveDeparture
+    ? await TourPackage.collection.updateOne(
+      { _id: booking.packageId },
+      { $inc: { 'upcomingDates.$[elem].seatsBooked': booking.personCount } },
+      {
+        arrayFilters: [
+          { 'elem._id': booking.departureId, 'elem.seatsBooked': { $lte: maxSeatsBookedAllowed } },
+        ],
+      },
+    )
+    : { modifiedCount: 0 };
+
+  if (updateResult.modifiedCount === 0) {
+    booking.status = 'cancelled';
+    booking.payment.status = 'failed';
+    await booking.save();
+    throw new ApiError(409, 'Seats are no longer available for this departure. Payment was captured -- contact support for a refund.');
+  }
+
+  booking.payment.paymentId = paymentId;
+  booking.payment.signature = signature;
+  booking.payment.status = 'paid';
+  booking.payment.paidAt = new Date();
+  booking.paymentStatus = booking.upfrontRequiredAmount >= booking.totalAmount ? 'paid' : 'partial';
+  booking.status = 'confirmed';
+  booking.balanceAmount = round2(booking.totalAmount - booking.payment.amount);
+  booking.balancePaymentStatus = booking.balanceAmount > 0 ? 'pending' : 'not_required';
+  await booking.save();
+
+  res.status(201).json({ success: true, data: serializeTourBooking(booking) });
+};
+
+export const createTourBalancePaymentOrder = async (req, res) => {
+  const bookingId = String(req.params?.id || '').trim();
+  if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+    throw new ApiError(400, 'Valid booking id is required');
+  }
+
+  const booking = await TourBooking.findOne({ _id: bookingId, userId: req.auth?.sub });
+  if (!booking) throw new ApiError(404, 'Tour booking not found');
+  if (booking.paymentStatus !== 'partial' || booking.balancePaymentStatus !== 'pending') {
+    throw new ApiError(409, 'No balance payment is due for this booking');
+  }
+
+  const { keyId, keySecret } = await resolveRazorpayCredentials();
+  const amountPaise = Math.round(booking.balanceAmount * 100);
+  const receipt = `utourbal_${String(booking._id).slice(-10)}_${Date.now().toString(36)}`;
+
+  let order;
+  try {
+    order = await razorpayRequest({
+      method: 'POST',
+      path: '/orders',
+      body: { amount: amountPaise, currency: 'INR', receipt, notes: { bookingId: String(booking._id) } },
+      keyId,
+      keySecret,
+    });
+  } catch (error) {
+    const isAuthError =
+      error.statusCode === 401 ||
+      error.statusCode === 403 ||
+      String(error.message || '').toLowerCase().includes('authentication failed') ||
+      String(error.message || '').toLowerCase().includes('api key');
+    const isMockAllowed = process.env.NODE_ENV !== 'production';
+    if (isAuthError && isMockAllowed) {
+      console.warn('[Razorpay] Tour balance order creation failed with auth error, falling back to mock order:', error.message);
+      order = { id: `mock_order_${amountPaise}_${Date.now().toString(36)}`, amount: amountPaise, currency: 'INR' };
+    } else {
+      throw error;
+    }
+  }
+
+  booking.balancePayment = { provider: 'razorpay', orderId: order.id, amount: booking.balanceAmount, status: 'created' };
+  await booking.save();
+
+  res.status(201).json({
+    success: true,
+    data: { keyId, orderId: order.id, amount: order.amount, currency: order.currency || 'INR' },
+  });
+};
+
+export const verifyTourBalancePayment = async (req, res) => {
+  const bookingId = String(req.params?.id || '').trim();
+  const orderId = String(req.body?.razorpay_order_id || '');
+  const paymentId = String(req.body?.razorpay_payment_id || '');
+  const signature = String(req.body?.razorpay_signature || '');
+  if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+    throw new ApiError(400, 'Valid booking id is required');
+  }
+  if (!orderId || !paymentId || !signature) {
+    throw new ApiError(400, 'Payment verification fields are required');
+  }
+
+  const isMockAllowed = process.env.NODE_ENV !== 'production';
+  const isMock = isMockAllowed && orderId.startsWith('mock_order_') && signature === 'mock_signature_bypass';
+
+  if (!isMock) {
+    const { keySecret } = await resolveRazorpayCredentials();
+    const expectedSignature = crypto
+      .createHmac('sha256', keySecret)
+      .update(`${orderId}|${paymentId}`)
+      .digest('hex');
+    if (!safeSignatureEqual(expectedSignature, signature)) {
+      throw new ApiError(400, 'Invalid payment signature');
+    }
+  }
+
+  const booking = await TourBooking.findOne({
+    _id: bookingId,
+    userId: req.auth?.sub,
+    'balancePayment.orderId': orderId,
+  });
+  if (!booking) throw new ApiError(404, 'Tour booking not found');
+
+  if (booking.balancePaymentStatus === 'paid') {
+    return res.status(200).json({ success: true, data: serializeTourBooking(booking) });
+  }
+  if (booking.balancePaymentStatus !== 'pending') {
+    throw new ApiError(409, 'No balance payment is due for this booking');
+  }
+
+  booking.balancePayment.paymentId = paymentId;
+  booking.balancePayment.signature = signature;
+  booking.balancePayment.status = 'paid';
+  booking.balancePayment.paidAt = new Date();
+  booking.balancePaymentStatus = 'paid';
+  booking.paymentStatus = 'paid';
+  booking.balanceAmount = 0;
+  await booking.save();
+
+  res.status(201).json({ success: true, data: serializeTourBooking(booking) });
+};
+
+export const listMyTourBookings = async (req, res) => {
+  const items = await TourBooking.find({ userId: req.auth?.sub }).sort({ createdAt: -1 }).lean();
+  res.status(200).json({ success: true, data: { results: items.map(serializeTourBooking) } });
+};
+
+export const getMyTourBookingById = async (req, res) => {
+  const bookingId = String(req.params?.id || '').trim();
+  if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+    throw new ApiError(400, 'Valid tour booking id is required');
+  }
+  const booking = await TourBooking.findOne({ _id: bookingId, userId: req.auth?.sub }).lean();
+  if (!booking) throw new ApiError(404, 'Tour booking not found');
+  res.status(200).json({ success: true, data: serializeTourBooking(booking) });
 };
 
 export const createRentalQuoteRequest = async (req, res) => {

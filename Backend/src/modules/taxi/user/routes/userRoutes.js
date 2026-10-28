@@ -14,6 +14,14 @@ import {
   getBusRouteSuggestions,
   getMyBusBookingById,
   listMyBusBookings,
+  listTourPackages,
+  getTourPackageById,
+  createTourBookingOrder,
+  verifyTourBookingPayment,
+  createTourBalancePaymentOrder,
+  verifyTourBalancePayment,
+  listMyTourBookings,
+  getMyTourBookingById,
   getUserWallet,
   getCurrentUser,
   getUserNotifications,
@@ -142,6 +150,15 @@ userRouter.post('/bus-bookings/:id/review', authenticateOrResolveUser(['user']),
 userRouter.post('/bus-bookings/order', authenticateOrResolveUser(['user']), asyncHandler(createBusBookingOrder));
 userRouter.post('/bus-bookings/verify', authenticateOrResolveUser(['user']), asyncHandler(verifyBusBookingPayment));
 userRouter.post('/bus-bookings/:id/cancel', authenticateOrResolveUser(['user']), asyncHandler(cancelMyBusBooking));
+
+userRouter.get('/tour-packages', asyncHandler(listTourPackages));
+userRouter.get('/tour-packages/:id', asyncHandler(getTourPackageById));
+userRouter.post('/tour-bookings/order', authenticateOrResolveUser(['user']), asyncHandler(createTourBookingOrder));
+userRouter.post('/tour-bookings/verify', authenticateOrResolveUser(['user']), asyncHandler(verifyTourBookingPayment));
+userRouter.post('/tour-bookings/:id/balance/order', authenticateOrResolveUser(['user']), asyncHandler(createTourBalancePaymentOrder));
+userRouter.post('/tour-bookings/:id/balance/verify', authenticateOrResolveUser(['user']), asyncHandler(verifyTourBalancePayment));
+userRouter.get('/tour-bookings', authenticateOrResolveUser(['user']), asyncHandler(listMyTourBookings));
+userRouter.get('/tour-bookings/:id', authenticateOrResolveUser(['user']), asyncHandler(getMyTourBookingById));
 
 userRouter.get('/pooling/search', authenticateOrResolveUser(['user']), asyncHandler(searchPoolingRoutes));
 userRouter.get('/pooling/routes/:id', authenticateOrResolveUser(['user']), asyncHandler(getPoolingRouteDetails));

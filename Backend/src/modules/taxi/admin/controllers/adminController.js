@@ -1377,6 +1377,23 @@ export const deleteRentalVehicleType = asyncHandler(async (req, res) => {
   ok(res, { deleted: true });
 });
 
+export const getTourPackages = asyncHandler(async (_req, res) =>
+  ok(res, { results: await adminService.listTourPackages() }),
+);
+export const createTourPackage = asyncHandler(async (req, res) =>
+  ok(res, await adminService.createTourPackage(req.body)),
+);
+export const updateTourPackage = asyncHandler(async (req, res) =>
+  ok(res, await adminService.updateTourPackage(req.params.id, req.body)),
+);
+export const deleteTourPackage = asyncHandler(async (req, res) => {
+  await adminService.deleteTourPackage(req.params.id);
+  ok(res, { deleted: true });
+});
+export const getTourBookings = asyncHandler(async (req, res) =>
+  ok(res, await adminService.listTourBookings(req.query || {})),
+);
+
 export const getPoolingRoutes = asyncHandler(async (_req, res) =>
   ok(res, { results: await adminService.listPoolingRoutes() }),
 );
