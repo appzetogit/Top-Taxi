@@ -53,7 +53,7 @@ import {
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import quickSpicyLogo from "@food/assets/k9-logo.jpg";
-import { getCachedSettings, loadBusinessSettings, normalizeCompanyName } from "@food/utils/businessSettings";
+import { getCachedSettings, getDynamicLogo, loadBusinessSettings, normalizeCompanyName } from "@food/utils/businessSettings";
 import { refreshAdminAccess, useAdminAccess, hasPanel, isRestricted, canOpenPath } from "@food/utils/adminAccess";
 
 function cn(...inputs) {
@@ -605,7 +605,10 @@ const AdminLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { settings, activeLogo } = useSettings();
-  const cachedLogo = useCachedLogo(activeLogo);
+  // Taxi's own settings carry no logo unless one was uploaded under Taxi's Logo
+  // Management; fall back to the platform brand logo every other panel shows.
+  const [businessLogo, setBusinessLogo] = useState(() => getDynamicLogo());
+  const cachedLogo = useCachedLogo(activeLogo || businessLogo);
   const role = readAdminProfile()?.role || 'superadmin';
   const adminThemeColor = normalizeHexColor(settings.customization?.admin_theme_color, '#405189');
   const sidebarTextColor = normalizeHexColor(settings.customization?.sidebar_text_color, '#CBD5E1');
@@ -656,12 +659,16 @@ const AdminLayout = () => {
       if (cached?.companyName) {
         setBusinessCompanyName(normalizeCompanyName(cached.companyName));
       }
+      const logo = getDynamicLogo();
+      if (logo) setBusinessLogo(logo);
     };
     syncName();
     loadBusinessSettings().then((s) => {
       if (s?.companyName) {
         setBusinessCompanyName(normalizeCompanyName(s.companyName));
       }
+      const logo = getDynamicLogo();
+      if (logo) setBusinessLogo(logo);
     }).catch(() => {});
     window.addEventListener('businessSettingsUpdated', syncName);
     return () => window.removeEventListener('businessSettingsUpdated', syncName);
