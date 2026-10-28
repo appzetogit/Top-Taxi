@@ -1,17 +1,20 @@
 import api from '../../../shared/api/axiosInstance';
 
+// Paths carry the /users prefix because the taxi user router is mounted at
+// /users inside the taxi module (see Backend taxi/user/routes/index.js) --
+// same as busService's /users/bus-bookings paths.
 export const tourService = {
-  listPackages: () => api.get('/tour-packages'),
-  getPackage: (id) => api.get(`/tour-packages/${id}`),
+  listPackages: () => api.get('/users/tour-packages'),
+  getPackage: (id) => api.get(`/users/tour-packages/${id}`),
 
-  createBookingOrder: (payload) => api.post('/tour-bookings/order', payload),
-  verifyBookingPayment: (payload) => api.post('/tour-bookings/verify', payload),
+  createBookingOrder: (payload) => api.post('/users/tour-bookings/order', payload),
+  verifyBookingPayment: (payload) => api.post('/users/tour-bookings/verify', payload),
 
-  createBalancePaymentOrder: (bookingId) => api.post(`/tour-bookings/${bookingId}/balance/order`, {}),
-  verifyBalancePayment: (bookingId, payload) => api.post(`/tour-bookings/${bookingId}/balance/verify`, payload),
+  createBalancePaymentOrder: (bookingId) => api.post(`/users/tour-bookings/${bookingId}/balance/order`, {}),
+  verifyBalancePayment: (bookingId, payload) => api.post(`/users/tour-bookings/${bookingId}/balance/verify`, payload),
 
-  listMyBookings: () => api.get('/tour-bookings'),
-  getMyBooking: (id) => api.get(`/tour-bookings/${id}`),
+  listMyBookings: () => api.get('/users/tour-bookings'),
+  getMyBooking: (id) => api.get(`/users/tour-bookings/${id}`),
 };
 
 export default tourService;
