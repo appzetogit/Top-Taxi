@@ -136,6 +136,9 @@ import {
   getRoles,
   getTourPackages,
   getTourBookings,
+  createAdminTourBooking,
+  addTourBookingPayment,
+  completeTourBooking,
   getReferralSettings,
   updateReferralSettings,
   getReferralDashboard,
@@ -403,6 +406,9 @@ adminRouter.post('/admin/types/tour-packages', createTourPackage);
 adminRouter.patch('/admin/types/tour-packages/:id', updateTourPackage);
 adminRouter.delete('/admin/types/tour-packages/:id', deleteTourPackage);
 adminRouter.get('/admin/types/tour-bookings', getTourBookings);
+adminRouter.post('/admin/types/tour-bookings', createAdminTourBooking);
+adminRouter.post('/admin/types/tour-bookings/:id/payments', addTourBookingPayment);
+adminRouter.post('/admin/types/tour-bookings/:id/complete', completeTourBooking);
 adminRouter.get('/admin/pooling-routes', getPoolingRoutes);
 adminRouter.post('/admin/pooling-routes', createPoolingRoute);
 adminRouter.patch('/admin/pooling-routes/:id', updatePoolingRoute);

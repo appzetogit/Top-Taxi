@@ -30,6 +30,13 @@ import { PoolingVehicle } from '../models/PoolingVehicle.js';
 import { RentalVehicleType } from '../models/RentalVehicleType.js';
 import { TourPackage } from '../models/TourPackage.js';
 import { TourBooking } from '../../user/models/TourBooking.js';
+import {
+  TOUR_MANUAL_PAYMENT_MODES,
+  deriveTourPaymentState,
+  getTourAmountPaid,
+  getTourBalanceDue,
+  round2,
+} from '../../common/tourBookingPayments.js';
 import { RentalQuoteRequest } from '../models/RentalQuoteRequest.js';
 import { SetPrice } from '../models/SetPrice.js';
 import { SurgeSlot } from '../models/SurgeSlot.js';
@@ -8771,25 +8778,77 @@ export const updateBusService = async (id, payload = {}, options = {}) => {
     return true;
   };
 
-  const serializeTourBooking = (item = {}) => ({
-    id: String(item._id),
-    bookingCode: item.bookingCode || '',
-    packageId: item.packageId ? String(item.packageId) : '',
-    packageSnapshot: item.packageSnapshot || {},
-    departureSnapshot: item.departureSnapshot || {},
-    customerName: item.customerName || '',
-    customerPhone: item.customerPhone || '',
-    personCount: item.personCount || 0,
-    pricePerPerson: item.pricePerPerson || 0,
-    totalAmount: item.totalAmount || 0,
-    upfrontRequiredAmount: item.upfrontRequiredAmount || 0,
-    paymentStatus: item.paymentStatus || 'pending',
-    amountPaid: item.payment?.status === 'paid' ? (item.payment.amount || 0) : 0,
-    balanceAmount: item.balanceAmount || 0,
-    balancePaymentStatus: item.balancePaymentStatus || 'not_required',
-    status: item.status || 'pending_payment',
-    createdAt: item.createdAt,
-  });
+  const serializeTourBooking = (item = {}) => {
+    const amountPaid = getTourAmountPaid(item);
+    const isLive = ['confirmed', 'completed'].includes(item.status);
+    // A booking nobody has confirmed yet (abandoned online checkout, expired,
+    // cancelled) owes nothing, so its balance is not reported as outstanding.
+    const balanceAmount = isLive ? getTourBalanceDue(item) : 0;
+
+    const payments = [];
+    if (item.payment?.status === 'paid') {
+      payments.push({
+        id: 'online-upfront',
+        source: 'online',
+        mode: 'online',
+        amount: item.payment.amount || 0,
+        reference: item.payment.paymentId || '',
+        note: '',
+        receivedAt: item.payment.paidAt || null,
+        recordedBy: '',
+      });
+    }
+    if (item.balancePayment?.status === 'paid') {
+      payments.push({
+        id: 'online-balance',
+        source: 'online',
+        mode: 'online',
+        amount: item.balancePayment.amount || 0,
+        reference: item.balancePayment.paymentId || '',
+        note: '',
+        receivedAt: item.balancePayment.paidAt || null,
+        recordedBy: '',
+      });
+    }
+    (item.manualPayments || []).forEach((p) => {
+      payments.push({
+        id: String(p._id),
+        source: 'manual',
+        mode: p.mode || 'cash',
+        amount: p.amount || 0,
+        reference: p.reference || '',
+        note: p.note || '',
+        receivedAt: p.receivedAt || null,
+        recordedBy: p.recordedByName || '',
+      });
+    });
+    payments.sort((a, b) => new Date(a.receivedAt || 0) - new Date(b.receivedAt || 0));
+
+    return {
+      id: String(item._id),
+      bookingCode: item.bookingCode || '',
+      bookingSource: item.bookingSource || 'user',
+      packageId: item.packageId ? String(item.packageId) : '',
+      packageSnapshot: item.packageSnapshot || {},
+      departureSnapshot: item.departureSnapshot || {},
+      customerName: item.customerName || '',
+      customerPhone: item.customerPhone || '',
+      personCount: item.personCount || 0,
+      pricePerPerson: item.pricePerPerson || 0,
+      totalAmount: item.totalAmount || 0,
+      upfrontRequiredAmount: item.upfrontRequiredAmount || 0,
+      paymentStatus: item.paymentStatus || 'pending',
+      amountPaid,
+      balanceAmount,
+      balancePaymentStatus: item.balancePaymentStatus || 'not_required',
+      payments,
+      status: item.status || 'pending_payment',
+      canAddPayment: item.status === 'confirmed' && balanceAmount > 0,
+      canComplete: item.status === 'confirmed' && balanceAmount <= 0,
+      completedAt: item.completedAt || null,
+      createdAt: item.createdAt,
+    };
+  };
 
   export const listTourBookings = async ({ status, packageId } = {}) => {
     const filter = {};
@@ -8802,14 +8861,225 @@ export const updateBusService = async (id, payload = {}, options = {}) => {
     const summary = serialized.reduce(
       (acc, b) => {
         acc.totalBookings += 1;
-        acc.totalCollected += b.amountPaid + (b.balancePaymentStatus === 'paid' ? b.balanceAmount : 0);
-        acc.totalOutstanding += b.balancePaymentStatus === 'pending' ? b.balanceAmount : 0;
+        acc.totalCollected = round2(acc.totalCollected + b.amountPaid);
+        acc.totalOutstanding = round2(acc.totalOutstanding + b.balanceAmount);
         return acc;
       },
       { totalBookings: 0, totalCollected: 0, totalOutstanding: 0 },
     );
 
     return { bookings: serialized, summary };
+  };
+
+  // Bookings the admin makes on a customer's behalf. The customer pays the admin
+  // directly (cash / UPI / bank transfer), so there is no Razorpay order: the
+  // booking is confirmed straight away, seats are taken now, and whatever was
+  // collected is recorded as a manual payment. Later payments are added with
+  // recordTourBookingPayment until the balance is cleared.
+  const normalizeTourCustomerPhone = (value) => {
+    const digits = String(value || '').replace(/\D/g, '');
+    return digits.length === 12 && digits.startsWith('91') ? digits.slice(2) : digits;
+  };
+
+  const normalizeManualPaymentInput = (input = {}) => {
+    const amount = round2(input.amount);
+    const mode = String(input.mode || 'cash').trim().toLowerCase();
+    if (!TOUR_MANUAL_PAYMENT_MODES.includes(mode)) {
+      throw new ApiError(400, `Payment mode must be one of: ${TOUR_MANUAL_PAYMENT_MODES.join(', ')}`);
+    }
+    return {
+      amount,
+      mode,
+      reference: String(input.reference || '').trim().slice(0, 120),
+      note: String(input.note || '').trim().slice(0, 300),
+    };
+  };
+
+  // Atomically takes `personCount` seats on one departure, only if that many are
+  // still free. Uses the raw collection handle on purpose: Mongoose's own
+  // Model.updateOne() reports modifiedCount 1 even when an arrayFilters match
+  // changed nothing (found by direct test while building the user booking flow),
+  // so it cannot be trusted to say whether the seats were really taken.
+  const adjustTourSeats = async (packageId, departureId, delta, { onlyIfFits = null } = {}) => {
+    const elemFilter = { 'elem._id': toObjectId(departureId) };
+    if (onlyIfFits !== null) elemFilter['elem.seatsBooked'] = { $lte: onlyIfFits };
+    const result = await TourPackage.collection.updateOne(
+      { _id: toObjectId(packageId) },
+      { $inc: { 'upcomingDates.$[elem].seatsBooked': delta } },
+      { arrayFilters: [elemFilter] },
+    );
+    return result.modifiedCount === 1;
+  };
+
+  export const createAdminTourBooking = async (payload = {}, currentAdmin = null) => {
+    const packageId = String(payload.packageId || '').trim();
+    const departureId = String(payload.departureId || '').trim();
+    const customerName = String(payload.customerName || '').trim();
+    const customerPhone = normalizeTourCustomerPhone(payload.customerPhone);
+    const personCount = Number(payload.personCount);
+
+    if (!mongoose.Types.ObjectId.isValid(packageId) || !mongoose.Types.ObjectId.isValid(departureId)) {
+      throw new ApiError(400, 'Select a package and a departure date');
+    }
+    if (customerName.length < 2) throw new ApiError(400, 'Customer name is required');
+    if (!/^\d{10}$/.test(customerPhone)) throw new ApiError(400, 'Enter a valid 10-digit mobile number');
+    if (!Number.isInteger(personCount) || personCount < 1) {
+      throw new ApiError(400, 'Number of persons must be a whole number of 1 or more');
+    }
+
+    const tourPackage = await TourPackage.findOne({ _id: packageId, status: 'active', active: true });
+    if (!tourPackage) throw new ApiError(404, 'Tour package not found');
+    const departure = tourPackage.upcomingDates.id(departureId);
+    if (!departure || departure.active === false) throw new ApiError(404, 'Departure date not found');
+
+    const seatsLeft = Math.max(0, (departure.totalSeats || 0) - (departure.seatsBooked || 0));
+    if (seatsLeft < personCount) throw new ApiError(409, `Only ${seatsLeft} seat(s) left for this departure`);
+
+    const totalAmount = round2(tourPackage.pricePerPerson * personCount);
+    if (totalAmount <= 0) throw new ApiError(400, 'Tour price is not configured');
+
+    const initial = payload.initialPayment && Number(payload.initialPayment.amount) > 0
+      ? normalizeManualPaymentInput(payload.initialPayment)
+      : null;
+    if (initial && initial.amount > totalAmount) {
+      throw new ApiError(400, `Amount received cannot be more than the total of ₹${totalAmount}`);
+    }
+
+    const upfront = tourPackage.upfrontPayment || { paymentMode: 'percentage', percentage: 20 };
+    const upfrontRequiredAmount = upfront.paymentMode === 'full'
+      ? totalAmount
+      : round2((totalAmount * (upfront.percentage || 20)) / 100);
+
+    const adminId = currentAdmin?.id && mongoose.Types.ObjectId.isValid(currentAdmin.id)
+      ? toObjectId(currentAdmin.id)
+      : null;
+    const manualPayments = initial
+      ? [{ ...initial, receivedAt: new Date(), recordedByAdminId: adminId, recordedByName: currentAdmin?.name || '' }]
+      : [];
+    const state = deriveTourPaymentState({
+      totalAmount,
+      amountPaid: initial ? initial.amount : 0,
+      previousBalanceStatus: 'not_required',
+    });
+
+    const linkedUser = await User.findOne({
+      phone: { $in: [customerPhone, `91${customerPhone}`, `+91${customerPhone}`] },
+    }).select('_id').lean();
+
+    const seatsTaken = await adjustTourSeats(packageId, departureId, personCount, {
+      onlyIfFits: (departure.totalSeats || 0) - personCount,
+    });
+    if (!seatsTaken) throw new ApiError(409, 'Those seats were just taken. Refresh and try again.');
+
+    try {
+      const booking = await TourBooking.create({
+        userId: linkedUser?._id || null,
+        bookingSource: 'admin',
+        createdByAdminId: adminId,
+        packageId,
+        departureId,
+        bookingCode: `TOUR${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 6).toUpperCase()}`,
+        packageSnapshot: {
+          destination: tourPackage.destination,
+          coverImage: tourPackage.coverImage,
+          durationLabel: tourPackage.durationLabel,
+        },
+        departureSnapshot: { startDate: departure.startDate, endDate: departure.endDate },
+        customerName,
+        customerPhone,
+        personCount,
+        pricePerPerson: tourPackage.pricePerPerson,
+        totalAmount,
+        upfrontPaymentSnapshot: { paymentMode: upfront.paymentMode, percentage: upfront.percentage },
+        upfrontRequiredAmount,
+        status: 'confirmed',
+        payment: { provider: 'manual', amount: 0, status: 'created' },
+        manualPayments,
+        ...state,
+      });
+      return serializeTourBooking(booking.toObject());
+    } catch (error) {
+      // The seats were taken before the booking existed; give them back so a
+      // failed save does not quietly shrink the departure.
+      await adjustTourSeats(packageId, departureId, -personCount).catch(() => {});
+      throw error;
+    }
+  };
+
+  export const recordTourBookingPayment = async (id, payload = {}, currentAdmin = null) => {
+    if (!mongoose.Types.ObjectId.isValid(String(id || ''))) throw new ApiError(400, 'Valid booking id is required');
+    const booking = await TourBooking.findById(id).lean();
+    if (!booking) throw new ApiError(404, 'Tour booking not found');
+    if (booking.status !== 'confirmed') {
+      throw new ApiError(409, booking.status === 'completed'
+        ? 'This booking is already completed'
+        : 'Payments can only be recorded on a confirmed booking');
+    }
+
+    const entry = normalizeManualPaymentInput(payload);
+    if (!(entry.amount > 0)) throw new ApiError(400, 'Enter the amount received');
+
+    const balanceDue = getTourBalanceDue(booking);
+    if (entry.amount > balanceDue) {
+      throw new ApiError(400, `Amount is more than the balance due (₹${balanceDue})`);
+    }
+
+    const amountPaidAfter = round2(getTourAmountPaid(booking) + entry.amount);
+    const state = deriveTourPaymentState({
+      totalAmount: booking.totalAmount,
+      amountPaid: amountPaidAfter,
+      previousBalanceStatus: booking.balancePaymentStatus,
+    });
+
+    const adminId = currentAdmin?.id && mongoose.Types.ObjectId.isValid(currentAdmin.id)
+      ? toObjectId(currentAdmin.id)
+      : null;
+    const known = (booking.manualPayments || []).length;
+
+    // Only applies if no other payment was recorded since this booking was read,
+    // so two admins adding a payment at the same moment cannot overpay it. A
+    // booking made before manual payments existed has no such field yet.
+    const result = await TourBooking.updateOne(
+      {
+        _id: id,
+        status: 'confirmed',
+        ...(known === 0
+          ? { $or: [{ manualPayments: { $exists: false } }, { manualPayments: { $size: 0 } }] }
+          : { manualPayments: { $size: known } }),
+      },
+      {
+        $push: {
+          manualPayments: { ...entry, receivedAt: new Date(), recordedByAdminId: adminId, recordedByName: currentAdmin?.name || '' },
+        },
+        $set: state,
+      },
+    );
+    if (result.matchedCount !== 1) {
+      throw new ApiError(409, 'This booking was just updated by someone else. Refresh and try again.');
+    }
+
+    const fresh = await TourBooking.findById(id).lean();
+    return serializeTourBooking(fresh);
+  };
+
+  export const completeTourBooking = async (id) => {
+    if (!mongoose.Types.ObjectId.isValid(String(id || ''))) throw new ApiError(400, 'Valid booking id is required');
+    const booking = await TourBooking.findById(id).lean();
+    if (!booking) throw new ApiError(404, 'Tour booking not found');
+    if (booking.status === 'completed') return serializeTourBooking(booking);
+    if (booking.status !== 'confirmed') throw new ApiError(409, 'Only a confirmed booking can be marked done');
+
+    const balanceDue = getTourBalanceDue(booking);
+    if (balanceDue > 0) {
+      throw new ApiError(409, `₹${balanceDue} is still due. Record the remaining payment first.`);
+    }
+
+    await TourBooking.updateOne(
+      { _id: id, status: 'confirmed' },
+      { $set: { status: 'completed', completedAt: new Date(), paymentStatus: 'paid', balanceAmount: 0 } },
+    );
+    const fresh = await TourBooking.findById(id).lean();
+    return serializeTourBooking(fresh);
   };
 
   export const listPoolingRoutes = async () => {

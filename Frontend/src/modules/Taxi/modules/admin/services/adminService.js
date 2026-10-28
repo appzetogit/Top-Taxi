@@ -281,6 +281,9 @@ export const adminService = {
   updateTourPackage: (id, data) => api.patch(`/admin/types/tour-packages/${id}`, data),
   deleteTourPackage: (id) => api.delete(`/admin/types/tour-packages/${id}`),
   getTourBookings: (params = {}) => api.get('/admin/types/tour-bookings', { params }),
+  createTourBooking: (data) => api.post('/admin/types/tour-bookings', data),
+  addTourBookingPayment: (id, data) => api.post(`/admin/types/tour-bookings/${id}/payments`, data),
+  completeTourBooking: (id) => api.post(`/admin/types/tour-bookings/${id}/complete`),
 
   /**
    * Languages Management (Master)

@@ -1393,6 +1393,15 @@ export const deleteTourPackage = asyncHandler(async (req, res) => {
 export const getTourBookings = asyncHandler(async (req, res) =>
   ok(res, await adminService.listTourBookings(req.query || {})),
 );
+export const createAdminTourBooking = asyncHandler(async (req, res) =>
+  ok(res, await adminService.createAdminTourBooking(req.body, req.auth?.admin)),
+);
+export const addTourBookingPayment = asyncHandler(async (req, res) =>
+  ok(res, await adminService.recordTourBookingPayment(req.params.id, req.body, req.auth?.admin)),
+);
+export const completeTourBooking = asyncHandler(async (req, res) =>
+  ok(res, await adminService.completeTourBooking(req.params.id)),
+);
 
 export const getPoolingRoutes = asyncHandler(async (_req, res) =>
   ok(res, { results: await adminService.listPoolingRoutes() }),

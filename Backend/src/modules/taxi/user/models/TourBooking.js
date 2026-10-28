@@ -18,13 +18,47 @@ const tourPaymentSnapshotSchema = new mongoose.Schema(
   { _id: false },
 );
 
+// A payment an admin collected outside the app and recorded by hand.
+const tourManualPaymentSchema = new mongoose.Schema(
+  {
+    amount: { type: Number, required: true, min: 0.01 },
+    mode: {
+      type: String,
+      enum: ['cash', 'upi', 'bank_transfer', 'card', 'cheque', 'other'],
+      default: 'cash',
+    },
+    reference: { type: String, default: '', trim: true },
+    note: { type: String, default: '', trim: true },
+    receivedAt: { type: Date, default: Date.now },
+    recordedByAdminId: { type: mongoose.Schema.Types.ObjectId, default: null },
+    recordedByName: { type: String, default: '', trim: true },
+  },
+  { _id: true },
+);
+
 const tourBookingSchema = new mongoose.Schema(
   {
+    // Optional for admin-created bookings: the customer may not have an app
+    // account. When the phone matches one, the booking is linked to it so it
+    // also shows in that user's own bookings list.
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'TaxiUser',
-      required: true,
+      required() {
+        return this.bookingSource !== 'admin';
+      },
+      default: null,
       index: true,
+    },
+    bookingSource: {
+      type: String,
+      enum: ['user', 'admin'],
+      default: 'user',
+      index: true,
+    },
+    createdByAdminId: {
+      type: mongoose.Schema.Types.ObjectId,
+      default: null,
     },
     packageId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -119,11 +153,20 @@ const tourBookingSchema = new mongoose.Schema(
       default: () => ({}),
     },
 
+    manualPayments: {
+      type: [tourManualPaymentSchema],
+      default: [],
+    },
+
     status: {
       type: String,
-      enum: ['pending_payment', 'confirmed', 'cancelled', 'expired'],
+      enum: ['pending_payment', 'confirmed', 'completed', 'cancelled', 'expired'],
       default: 'pending_payment',
       index: true,
+    },
+    completedAt: {
+      type: Date,
+      default: null,
     },
     expiresAt: {
       type: Date,

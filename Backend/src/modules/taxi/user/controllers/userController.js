@@ -31,6 +31,7 @@ import { BusSeatHold } from '../models/BusSeatHold.js';
 import { BusBooking } from '../models/BusBooking.js';
 import { TourPackage } from '../../admin/models/TourPackage.js';
 import { TourBooking } from '../models/TourBooking.js';
+import { getTourAmountPaid } from '../../common/tourBookingPayments.js';
 import { RentalBookingRequest } from '../../admin/models/RentalBookingRequest.js';
 import { RentalQuoteRequest } from '../../admin/models/RentalQuoteRequest.js';
 import { RentalVehicleType } from '../../admin/models/RentalVehicleType.js';
@@ -3153,7 +3154,7 @@ const serializeTourBooking = (booking) => ({
   totalAmount: booking.totalAmount || 0,
   upfrontRequiredAmount: booking.upfrontRequiredAmount || 0,
   paymentStatus: booking.paymentStatus || 'pending',
-  amountPaid: booking.payment?.status === 'paid' ? (booking.payment.amount || 0) : 0,
+  amountPaid: getTourAmountPaid(booking),
   balanceAmount: booking.balanceAmount || 0,
   balancePaymentStatus: booking.balancePaymentStatus || 'not_required',
   status: booking.status || 'pending_payment',
