@@ -326,7 +326,7 @@ async function seed() {
         durationHours: 8,
         price: vData.local8h80kPrice,
         includedKm: 80,
-        extraHourPrice: vData.extraHourPrice,
+        extraHourPrice: vData.extraHourPrice || vData.extraHour,
         extraKmPrice: vData.extraKm,
         active: true,
       };
