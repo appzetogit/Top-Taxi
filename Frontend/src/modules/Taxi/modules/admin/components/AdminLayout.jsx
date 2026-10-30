@@ -844,18 +844,16 @@ const AdminLayout = () => {
               { label: 'Vehicle Type', path: '/taxi/admin/pricing/vehicle-type', permission: 'vehicle_types.view' },
               // Rental is intentionally hidden from the admin sidebar (not removed).
               // The routes/pages still exist and stay reachable by URL - uncomment to restore.
-              /*{
-                label: 'Rental',
+              {
+                label: 'Rental & Packages',
                 subItems: [
-                  { label: 'Service Stores', path: '/taxi/admin/pricing/service-stores', permission: 'service_stores.view' },
-                  { label: 'Rental Vehicles', path: '/taxi/admin/pricing/rental-vehicles', permission: 'rental.view' },
-                  { label: 'Track Vehicles', path: '/taxi/admin/pricing/rental-tracking', permission: 'rental.view' },
-                  { label: 'Rental Requests', path: '/taxi/admin/pricing/rental-requests', permission: 'rental.view' },
-                  { label: 'Rental Quote Requests', path: '/taxi/admin/pricing/rental-quotes', permission: 'rental.view' },
+                  { label: 'Rental Vehicles (Local)', path: '/taxi/admin/pricing/rental-vehicles', permission: 'rental.view' },
                   { label: 'Rental Package Types', path: '/taxi/admin/pricing/rental-packages', permission: 'rental.view' },
                   { label: 'Package Pricing', path: '/taxi/admin/pricing/package-pricing', permission: 'rental.view' },
+                  { label: 'Rental Requests', path: '/taxi/admin/pricing/rental-requests', permission: 'rental.view' },
+                  { label: 'Service Stores', path: '/taxi/admin/pricing/service-stores', permission: 'service_stores.view' },
                 ],
-              },*/
+              },
               { label: 'Set Price', path: '/taxi/admin/pricing/set-price', permission: 'set_prices.view' },
               { label: 'Surge Time Slots', path: '/taxi/admin/pricing/surge', permission: 'set_prices.view' },
               { label: 'Ride Insurance', path: '/taxi/admin/pricing/ride-insurance', permission: 'set_prices.view' },

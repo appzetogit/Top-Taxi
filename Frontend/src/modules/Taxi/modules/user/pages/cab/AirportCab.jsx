@@ -4,9 +4,15 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, MapPin, Calendar, Clock, ChevronRight, AlertCircle, Plane } from 'lucide-react';
 
 const VEHICLES = [
-  { id: 'mini',  name: 'Mini Cab', icon: '🚕', fare: 499,  desc: 'Swift, Alto, WagonR',    seats: 4 },
-  { id: 'sedan', name: 'Sedan',    icon: '🚗', fare: 699,  desc: 'Dzire, Amaze, Aspire',   seats: 4 },
-  { id: 'suv',   name: 'SUV',      icon: '🚙', fare: 999,  desc: 'Ertiga, Innova, Crysta', seats: 6 },
+  { id: 'sedan', name: 'SEDAN', icon: '🚗', fare: 999, toll: 120, desc: 'Dzire, Etios or equivalent', seats: '4+1' },
+  { id: 'ertiga', name: 'MARUTI ERTIGA', icon: '🚙', fare: 1699, toll: 120, desc: 'Comfortable 6 seater', seats: '6+1' },
+  { id: 'innova', name: 'TOYOTA INNOVA', icon: '🚙', fare: 1899, toll: 120, desc: 'Reliable 7 seater MPV', seats: '7+1' },
+  { id: 'crysta', name: 'INNOVA CRYSTA', icon: '🚙', fare: 1999, toll: 120, desc: 'Premium 7 seater comfort', seats: '7+1' },
+  { id: 'hycross', name: 'TOYOTA HYCROSS', icon: '🚙', fare: 2500, toll: 120, desc: 'Luxury Hybrid 7 seater', seats: '7+1' },
+  { id: 'tt_non_ac', name: 'TEMPO TRAVELLER - NON AC', icon: '🚐', fare: 4000, toll: 120, desc: 'Spacious 12 seater group ride', seats: '12+1' },
+  { id: 'tt_ac', name: 'TEMPO TRAVELLER - AC', icon: '🚐', fare: 4500, toll: 120, desc: 'Air-conditioned 12 seater', seats: '12+1' },
+  { id: 'minibus_non_ac', name: 'MINI BUS - NON -AC', icon: '🚌', fare: 6500, toll: 500, desc: '21 seater group carrier', seats: '21+1' },
+  { id: 'minibus_ac', name: 'MINI BUS - -AC', icon: '🚌', fare: 7500, toll: 500, desc: '21 seater AC group carrier', seats: '21+1' },
 ];
 
 const TERMINALS = ['T1', 'T2', 'T3'];
@@ -17,7 +23,7 @@ const AirportCab = () => {
   const [terminal, setTerminal] = useState('');
   const [date,     setDate]     = useState('');
   const [time,     setTime]     = useState('');
-  const [vehicle,  setVehicle]  = useState('mini');
+  const [vehicle,  setVehicle]  = useState('sedan');
   const [errors,   setErrors]   = useState({});
 
   const selectedVehicle = VEHICLES.find(v => v.id === vehicle);
@@ -35,7 +41,7 @@ const AirportCab = () => {
   const handleBook = () => {
     if (!validate()) return;
     navigate('/cab/airport-confirm', {
-      state: { isAirport: true, pickup, terminal, date, time, vehicle: selectedVehicle, fare: selectedVehicle.fare },
+      state: { isAirport: true, pickup, terminal, date, time, vehicle: selectedVehicle, fare: selectedVehicle.fare, toll: selectedVehicle.toll || 120, total: (selectedVehicle.fare + (selectedVehicle.toll || 120)) },
     });
   };
 
@@ -61,7 +67,7 @@ const AirportCab = () => {
       <div className="mx-5 mt-4 rounded-[20px] overflow-hidden bg-gradient-to-br from-blue-600 to-blue-800 p-5 flex items-center gap-4 shadow-[0_8px_24px_rgba(37,99,235,0.25)]">
         <div className="flex-1">
           <p className="text-[10px] font-black text-blue-200 uppercase tracking-widest mb-1">On-time transfers</p>
-          <h2 className="text-[18px] font-black text-white leading-tight">Indore Airport<br />Cab Booking</h2>
+          <h2 className="text-[18px] font-black text-white leading-tight">Bengaluru Airport (BLR)<br />Cab Booking</h2>
           <p className="text-[11px] font-bold text-blue-200 mt-1">Fixed fares · No surge pricing</p>
         </div>
         <div className="w-16 h-16 bg-white/10 rounded-[18px] flex items-center justify-center">
@@ -135,7 +141,8 @@ const AirportCab = () => {
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-[17px] font-black text-slate-900">₹{v.fare}</p>
-                  <p className="text-[9px] font-bold text-slate-400">one way</p>
+                  <p className="text-[9px] font-bold text-slate-400">+ ₹{v.toll} Toll</p>
+                  <p className="text-[9px] font-extrabold text-blue-600">Up to 40 KM</p>
                 </div>
               </motion.button>
             ))}

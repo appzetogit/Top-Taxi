@@ -1448,7 +1448,7 @@ function TaxiApp() {
                   path="vehicle-type/edit/:id"
                   element={<AdminVehicleType mode="edit" />}
                 />
-                {/*<Route
+                <Route
                   path="rental-vehicles"
                   element={<AdminRentalVehicleTypes />}
                 />
@@ -1491,7 +1491,7 @@ function TaxiApp() {
                 <Route
                   path="rental-packages/edit/:id"
                   element={<AdminRentalPackageTypes mode="edit" />}
-                />*/}
+                />
                 <Route path="set-price" element={<AdminSetPrices />} />
                 <Route
                   path="set-price/create"

@@ -91,7 +91,7 @@ const AirportCabConfirm = () => {
               </div>
               <div>
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Destination</p>
-                <p className="text-[14px] font-bold text-slate-900 leading-snug tracking-tight">Indore Airport — Terminal {state.terminal}</p>
+                <p className="text-[14px] font-bold text-slate-900 leading-snug tracking-tight">Bengaluru Airport (BLR) — Terminal {state.terminal}</p>
               </div>
             </div>
           </div>

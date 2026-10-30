@@ -196,6 +196,38 @@ const setPriceSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    outstation_driver_batta: {
+      type: Number,
+      default: 0,
+    },
+    outstation_driver_batta_night: {
+      type: Number,
+      default: 0,
+    },
+    outstation_min_km_per_day: {
+      type: Number,
+      default: 300,
+    },
+    airport_fixed_fare: {
+      type: Number,
+      default: 0,
+    },
+    airport_included_km: {
+      type: Number,
+      default: 40,
+    },
+    airport_toll: {
+      type: Number,
+      default: 0,
+    },
+    airport_extra_km_price: {
+      type: Number,
+      default: 0,
+    },
+    local_airport_transfer_extra: {
+      type: Number,
+      default: 1000,
+    },
     free_waiting_before: {
       type: Number,
       default: null,

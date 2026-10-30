@@ -117,7 +117,14 @@ const initialFormState = {
    enable_airport_ride: false,
    support_airport_fee: '',
    airport_surge: '',
+   airport_fixed_fare: '',
+   airport_included_km: '40',
+   airport_toll: '',
+   airport_extra_km_price: '',
    enable_outstation_ride: false,
+   outstation_driver_batta: '',
+   outstation_driver_batta_night: '',
+   outstation_min_km_per_day: '300',
    outstation_base_price: '',
    outstation_base_distance: '',
    outstation_price_per_distance: '',
@@ -708,6 +715,22 @@ const SetPrices = ({ mode }) => {
                                        <label className={labelClass}>Support Airport Fee <span className="text-rose-500">*</span></label>
                                        <input type="number" min="0" required={formData.enable_airport_ride} className={inputClass} placeholder="Enter Support Airport Fee" value={formData.support_airport_fee} onChange={e => setFormData(p => ({ ...p, support_airport_fee: e.target.value }))} />
                                     </div>
+                                     <div>
+                                        <label className={labelClass}>Airport Fixed Fare (₹)</label>
+                                        <input type="number" min="0" className={inputClass} placeholder="e.g. 999 (Fare up to 40 KM)" value={formData.airport_fixed_fare} onChange={e => setFormData(p => ({ ...p, airport_fixed_fare: e.target.value }))} />
+                                     </div>
+                                     <div>
+                                        <label className={labelClass}>Airport Included Distance (KM)</label>
+                                        <input type="number" min="0" className={inputClass} placeholder="Default: 40 KM" value={formData.airport_included_km} onChange={e => setFormData(p => ({ ...p, airport_included_km: e.target.value }))} />
+                                     </div>
+                                     <div>
+                                        <label className={labelClass}>Airport Toll Charge (₹)</label>
+                                        <input type="number" min="0" className={inputClass} placeholder="e.g. 120 or 500" value={formData.airport_toll} onChange={e => setFormData(p => ({ ...p, airport_toll: e.target.value }))} />
+                                     </div>
+                                     <div>
+                                        <label className={labelClass}>Airport Extra KM Price (₹/KM)</label>
+                                        <input type="number" min="0" className={inputClass} placeholder="Extra fare per KM after 40 KM" value={formData.airport_extra_km_price} onChange={e => setFormData(p => ({ ...p, airport_extra_km_price: e.target.value }))} />
+                                     </div>
                                  </div>
                               </div>
                            )}
@@ -739,6 +762,18 @@ const SetPrices = ({ mode }) => {
                                        <label className={labelClass}>Time Price in Mintue <span className="text-rose-500">*</span></label>
                                        <input type="number" min="0" required={formData.enable_outstation_ride} className={inputClass} placeholder="Enter Time Price" value={formData.outstation_time_price} onChange={e => setFormData(p => ({ ...p, outstation_time_price: e.target.value }))} />
                                     </div>
+                                     <div>
+                                        <label className={labelClass}>Driver Batta (Day: 6 AM to 10 PM) (₹)</label>
+                                        <input type="number" min="0" className={inputClass} placeholder="e.g. 400 or 500" value={formData.outstation_driver_batta} onChange={e => setFormData(p => ({ ...p, outstation_driver_batta: e.target.value }))} />
+                                     </div>
+                                     <div>
+                                        <label className={labelClass}>Driver Allowance (Night: after 10 PM) (₹)</label>
+                                        <input type="number" min="0" className={inputClass} placeholder="e.g. 250" value={formData.outstation_driver_batta_night} onChange={e => setFormData(p => ({ ...p, outstation_driver_batta_night: e.target.value }))} />
+                                     </div>
+                                     <div>
+                                        <label className={labelClass}>Minimum KM Per Day</label>
+                                        <input type="number" min="0" className={inputClass} placeholder="Default: 300 KM" value={formData.outstation_min_km_per_day} onChange={e => setFormData(p => ({ ...p, outstation_min_km_per_day: e.target.value }))} />
+                                     </div>
                                  </div>
                               </div>
                            )}
