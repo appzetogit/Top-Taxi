@@ -116,10 +116,19 @@ const RentalDeposit = () => {
   const { totalCost, selectedPackage, serviceLocation } = state;
   const vehicle = vehicleSnapshot || {};
   const advancePayment = vehicle.advancePayment || {};
-  const payableNow = useMemo(
-    () => (advancePayment.enabled ? Number(advancePayment.amount || 0) : 0),
-    [advancePayment.amount, advancePayment.enabled],
-  );
+  // Same rule the server applies: the booking is rejected if this and the payment disagree.
+  const payableNow = useMemo(() => {
+    if (!advancePayment.enabled) return 0;
+    const amount = Math.max(0, Number(advancePayment.amount || 0));
+    const total = Math.max(0, Number(totalCost || 0));
+    const value =
+      advancePayment.paymentMode === 'full'
+        ? total
+        : advancePayment.paymentMode === 'fixed'
+          ? Math.min(amount, total)
+          : (total * Math.min(amount, 100)) / 100;
+    return Math.round(value * 100) / 100;
+  }, [advancePayment.amount, advancePayment.enabled, advancePayment.paymentMode, totalCost]);
   const advancePaymentLabel = advancePayment.label || 'Advance booking payment';
   const bookingReference = useMemo(
     () => state.bookingReference || `RNT-${Date.now().toString(36).slice(-6).toUpperCase()}`,
