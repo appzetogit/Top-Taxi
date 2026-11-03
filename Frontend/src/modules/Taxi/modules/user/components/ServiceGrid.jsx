@@ -12,6 +12,8 @@ const getServiceAction = (serviceType, navigate) => {
     case 'tours': return () => navigate('/taxi/user/tours');
     case 'tour': return () => navigate('/taxi/user/tours');
     case 'rental': return () => navigate('/taxi/user/rental');
+    case 'delivery': return () => navigate('/taxi/user/parcel/type');
+    case 'parcel': return () => navigate('/taxi/user/parcel/type');
     default: return () => navigate('/taxi/user/ride/select-location');
   }
 };
