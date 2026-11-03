@@ -43,6 +43,7 @@ import { sendPushNotificationToEntities } from '../../services/pushNotificationS
 import { buildRentalTrackingSnapshot, updateUserRentalTracking } from '../../services/rentalTrackingService.js';
 import { listDriverServiceLocations } from '../../driver/services/serviceLocationService.js';
 import { listServiceStores } from '../../admin/services/adminService.js';
+import { computeRentalAdvance, resolveRentalQuote, round2 as roundRentalMoney } from '../../common/rentalPricing.js';
 import {
   getUserSubscriptionSummary,
   listCustomerSubscriptionPlans,
@@ -3555,24 +3556,101 @@ export const createRentalQuoteRequest = async (req, res) => {
   });
 };
 
+// Proves the advance was actually collected, for this user, for at least what the
+// server expects. Without it a client could post paymentStatus "paid" for nothing.
+const verifyRentalAdvanceProof = async ({ user, bookingReference, paymentPayload, expectedAmount }) => {
+  if (!(expectedAmount > 0)) {
+    return { provider: 'manual', status: 'not_required', amount: 0, currency: 'INR', orderId: '', paymentId: '', signature: '' };
+  }
+
+  const provider = toCleanString(paymentPayload.provider).toLowerCase();
+  const expectedPaise = Math.round(expectedAmount * 100);
+  const notPaid = () => new ApiError(402, `An advance payment of Rs.${expectedAmount} is required to book this rental`);
+
+  if (provider === 'wallet') {
+    const wallet = await UserWallet.findOne({ userId: user._id }).lean();
+    const referenceKey = `rental_advance_${bookingReference}`;
+    const debit = (wallet?.transactions || []).find(
+      (item) => item?.kind === 'debit' && String(item.referenceKey || '') === referenceKey,
+    );
+
+    if (!debit || Math.round(Number(debit.amount || 0) * 100) < expectedPaise) {
+      throw notPaid();
+    }
+
+    return {
+      provider: 'wallet',
+      status: 'paid',
+      amount: roundRentalMoney(debit.amount),
+      currency: 'INR',
+      orderId: '',
+      paymentId: bookingReference,
+      signature: '',
+    };
+  }
+
+  if (provider !== 'razorpay') {
+    throw notPaid();
+  }
+
+  const orderId = toCleanString(paymentPayload.orderId || paymentPayload.razorpay_order_id);
+  const paymentId = toCleanString(paymentPayload.paymentId || paymentPayload.razorpay_payment_id);
+  const signature = toCleanString(paymentPayload.signature || paymentPayload.razorpay_signature);
+  if (!orderId || !paymentId || !signature) {
+    throw notPaid();
+  }
+
+  const { keyId, keySecret } = await resolveRazorpayCredentials();
+  const expectedSignature = crypto.createHmac('sha256', keySecret).update(`${orderId}|${paymentId}`).digest('hex');
+  if (!safeSignatureEqual(expectedSignature, signature)) {
+    throw new ApiError(400, 'Invalid payment signature');
+  }
+
+  const order = await razorpayRequest({
+    method: 'GET',
+    path: `/orders/${encodeURIComponent(orderId)}`,
+    keyId,
+    keySecret,
+  });
+
+  if (
+    String(order?.notes?.purpose || '') !== 'rental_advance_payment' ||
+    String(order?.notes?.userId || '') !== String(user._id)
+  ) {
+    throw new ApiError(403, 'This payment does not belong to this booking');
+  }
+
+  if (!Number.isFinite(Number(order?.amount)) || Number(order.amount) < expectedPaise) {
+    throw new ApiError(402, `The payment is less than the required advance of Rs.${expectedAmount}`);
+  }
+
+  // One payment buys one booking.
+  const alreadyUsed = await RentalBookingRequest.exists({ 'payment.paymentId': paymentId });
+  if (alreadyUsed) {
+    throw new ApiError(409, 'This payment has already been used for a booking');
+  }
+
+  return {
+    provider: 'razorpay',
+    status: 'paid',
+    amount: roundRentalMoney(Number(order.amount) / 100),
+    currency: order.currency || 'INR',
+    orderId,
+    paymentId,
+    signature,
+  };
+};
+
 export const createRentalBookingRequest = async (req, res) => {
   const payload = req.body || {};
   const vehicleTypeId = String(payload.vehicleTypeId || payload.vehicleId || '').trim();
   const bookingReference = toCleanString(payload.bookingReference) || `RNT-${Date.now().toString(36).slice(-6).toUpperCase()}`;
-  const paymentStatus = toCleanString(payload.paymentStatus).toLowerCase() || 'pending';
   const paymentMethod = toCleanString(payload.paymentMethod).toLowerCase();
   const paymentMethodLabel = toCleanString(payload.paymentMethodLabel);
-  const advancePaymentLabel = toCleanString(payload.advancePaymentLabel) || 'Advance booking payment';
-  const totalCost = Math.max(0, Number(payload.totalCost || 0));
-  const payableNow = Math.max(0, Number(payload.payableNow || payload.deposit || 0));
   const kycCompleted = Boolean(payload.kycCompleted);
 
   if (!mongoose.Types.ObjectId.isValid(vehicleTypeId)) {
     throw new ApiError(400, 'Valid rental vehicle is required');
-  }
-
-  if (!['pending', 'paid', 'not_required', 'failed'].includes(paymentStatus)) {
-    throw new ApiError(400, 'Invalid rental payment status');
   }
 
   const pickupDateTime = payload.pickupDateTime ? new Date(payload.pickupDateTime) : null;
@@ -3603,14 +3681,39 @@ export const createRentalBookingRequest = async (req, res) => {
     throw new ApiError(404, 'User not found');
   }
 
-  const requestedHours = Math.max(
-    0,
-    Math.round((((returnDateTime.getTime() - pickupDateTime.getTime()) / 3600000) + Number.EPSILON) * 100) / 100,
-  );
+  // A retry of the same booking returns what was saved instead of rewriting it:
+  // pickup, price and payment are not editable once the booking exists.
+  const existingBooking = await RentalBookingRequest.findOne({ bookingReference, userId: user._id }).lean();
+  if (existingBooking) {
+    return res.status(200).json({
+      success: true,
+      data: serializeRentalBookingRequest(existingBooking),
+      message: 'Rental booking request already submitted',
+    });
+  }
 
   const selectedPackage = payload.selectedPackage || {};
+
+  // Price and advance come from the vehicle, never from the request body.
+  const quote = resolveRentalQuote({
+    vehicle,
+    packageId: selectedPackage.id || selectedPackage.packageId || selectedPackage._id,
+    pickupDateTime,
+    returnDateTime,
+  });
+  const totalCost = quote.totalCost;
+  const requestedHours = quote.requestedHours;
+  const payableNow = computeRentalAdvance(vehicle.advancePayment, totalCost);
+  const advancePaymentLabel = toCleanString(vehicle.advancePayment?.label) || 'Advance booking payment';
+  const verifiedPayment = await verifyRentalAdvanceProof({
+    user,
+    bookingReference,
+    paymentPayload: payload.payment || {},
+    expectedAmount: payableNow,
+  });
+  const paymentStatus = payableNow > 0 ? 'paid' : 'not_required';
+
   const serviceLocation = payload.serviceLocation || {};
-  const paymentPayload = payload.payment || {};
   const kycDocumentsPayload = payload.kycDocuments || {};
   const normalizedDrivingLicenseUrl = toCleanString(
     kycDocumentsPayload.drivingLicense?.imageUrl ||
@@ -3645,13 +3748,7 @@ export const createRentalBookingRequest = async (req, res) => {
     vehicleCategory: vehicle.vehicleCategory || '',
     vehicleImage: vehicle.image || '',
     serviceCenterIds: matchingServiceCenters.map((item) => item._id),
-    selectedPackage: {
-      packageId: toCleanString(selectedPackage.id || selectedPackage.packageId || ''),
-      label: toCleanString(selectedPackage.label),
-      durationHours: Math.max(0, Number(selectedPackage.durationHours || 0)),
-      price: Math.max(0, Number(selectedPackage.price || 0)),
-      extraHourPrice: Math.max(0, Number(selectedPackage.extraHourPrice || 0)),
-    },
+    selectedPackage: quote.package,
     serviceLocation: {
       locationId: toCleanString(serviceLocation.id || serviceLocation._id || serviceLocation.locationId || ''),
       name: toCleanString(serviceLocation.name),
@@ -3670,15 +3767,7 @@ export const createRentalBookingRequest = async (req, res) => {
     paymentStatus,
     paymentMethod,
     paymentMethodLabel,
-    payment: {
-      provider: toCleanString(paymentPayload.provider),
-      status: toCleanString(paymentPayload.status) || paymentStatus,
-      amount: Math.max(0, Number(paymentPayload.amount || payableNow || 0)),
-      currency: toCleanString(paymentPayload.currency) || 'INR',
-      orderId: toCleanString(paymentPayload.orderId || paymentPayload.razorpay_order_id),
-      paymentId: toCleanString(paymentPayload.paymentId || paymentPayload.razorpay_payment_id),
-      signature: toCleanString(paymentPayload.signature || paymentPayload.razorpay_signature),
-    },
+    payment: verifiedPayment,
     contactName: toCleanString(user.name),
     contactPhone: toCleanString(user.phone),
     contactEmail: toCleanString(user.email),
