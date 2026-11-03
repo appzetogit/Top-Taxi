@@ -11,6 +11,7 @@ const getServiceAction = (serviceType, navigate) => {
     case 'pooling': return () => navigate('/taxi/user/pooling');
     case 'tours': return () => navigate('/taxi/user/tours');
     case 'tour': return () => navigate('/taxi/user/tours');
+    case 'rental': return () => navigate('/taxi/user/rental');
     default: return () => navigate('/taxi/user/ride/select-location');
   }
 };
@@ -34,7 +35,7 @@ const ServiceGrid = () => {
 
   const services = useMemo(() => {
     return appModules
-      .filter(m => m.active !== false && m.service_type?.toLowerCase() !== 'rental')
+      .filter(m => m.active !== false)
       .sort((a, b) => (a.order_by || 99) - (b.order_by || 99))
       .map(m => ({
         id: m._id || m.id,

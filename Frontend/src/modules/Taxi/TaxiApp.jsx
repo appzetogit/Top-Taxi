@@ -111,12 +111,12 @@ const BusConfirm = lazy(() => import('./modules/user/pages/bus/BusConfirm'));
 const Onboarding = lazy(() => import('./modules/user/pages/auth/Onboarding'));
 
 // New Feature Pages
-// const BikeRentalHome = lazy(() => import('./modules/user/pages/rental/BikeRentalHome'));
-// const RentalVehicleDetail = lazy(() => import('./modules/user/pages/rental/RentalVehicleDetail'));
-// const RentalSchedule = lazy(() => import('./modules/user/pages/rental/RentalSchedule'));
-// const RentalKYC = lazy(() => import('./modules/user/pages/rental/RentalKYC'));
-// const RentalDeposit = lazy(() => import('./modules/user/pages/rental/RentalDeposit'));
-// const RentalConfirmed = lazy(() => import('./modules/user/pages/rental/RentalConfirmed'));
+const BikeRentalHome = lazy(() => import('./modules/user/pages/rental/BikeRentalHome'));
+const RentalVehicleDetail = lazy(() => import('./modules/user/pages/rental/RentalVehicleDetail'));
+const RentalSchedule = lazy(() => import('./modules/user/pages/rental/RentalSchedule'));
+const RentalKYC = lazy(() => import('./modules/user/pages/rental/RentalKYC'));
+const RentalDeposit = lazy(() => import('./modules/user/pages/rental/RentalDeposit'));
+const RentalConfirmed = lazy(() => import('./modules/user/pages/rental/RentalConfirmed'));
 const IntercityHome = lazy(() => import('./modules/user/pages/intercity/IntercityHome'));
 const CabSharing = lazy(() => import('./modules/user/pages/cabsharing/CabSharing'));
 
@@ -240,12 +240,12 @@ const AdminDriverIncentive = lazy(() => import('./modules/admin/pages/price-mana
 const AdminSurgePricing = lazy(() => import('./modules/admin/pages/price-management/SurgePricing'));
 const AdminRideInsurance = lazy(() => import('./modules/admin/pages/price-management/RideInsurance'));
 const AdminVehicleType = lazy(() => import('./modules/admin/pages/price-management/VehicleType'));
-// const AdminRentalVehicleTypes = lazy(() => import('./modules/admin/pages/price-management/RentalVehicleTypes'));
-// const AdminRentalTracking = lazy(() => import('./modules/admin/pages/price-management/RentalTracking'));
-// const AdminRentalTrackingDetail = lazy(() => import('./modules/admin/pages/price-management/RentalTrackingDetail'));
-// const AdminRentalBookingRequests = lazy(() => import('./modules/admin/pages/price-management/RentalBookingRequests'));
-// const AdminRentalQuoteRequests = lazy(() => import('./modules/admin/pages/price-management/RentalQuoteRequests'));
-// const AdminRentalPackageTypes = lazy(() => import('./modules/admin/pages/price-management/RentalPackageTypes'));
+const AdminRentalVehicleTypes = lazy(() => import('./modules/admin/pages/price-management/RentalVehicleTypes'));
+const AdminRentalTracking = lazy(() => import('./modules/admin/pages/price-management/RentalTracking'));
+const AdminRentalTrackingDetail = lazy(() => import('./modules/admin/pages/price-management/RentalTrackingDetail'));
+const AdminRentalBookingRequests = lazy(() => import('./modules/admin/pages/price-management/RentalBookingRequests'));
+const AdminRentalQuoteRequests = lazy(() => import('./modules/admin/pages/price-management/RentalQuoteRequests'));
+const AdminRentalPackageTypes = lazy(() => import('./modules/admin/pages/price-management/RentalPackageTypes'));
 const AdminGoodsTypes = lazy(() => import('./modules/admin/pages/price-management/GoodsTypes'));
 const AdminTourPackages = lazy(() => import('./modules/admin/pages/tour-packages/TourPackages'));
 const AdminTourBookings = lazy(() => import('./modules/admin/pages/tour-packages/TourBookings'));
@@ -743,12 +743,12 @@ function TaxiApp() {
               <Route path="parcel/detail/:id" element={<RideDetail />} />
 
               {/* New Service Routes — Real pages replacing ComingSoon */}
-              {/* <Route path="rental" element={<BikeRentalHome />} />
+              <Route path="rental" element={<BikeRentalHome />} />
               <Route path="rental/vehicle" element={<RentalVehicleDetail />} />
               <Route path="rental/schedule" element={<RentalSchedule />} />
               <Route path="rental/kyc" element={<RentalKYC />} />
               <Route path="rental/deposit" element={<RentalDeposit />} />
-              <Route path="rental/confirmed" element={<RentalConfirmed />} /> */}
+              <Route path="rental/confirmed" element={<RentalConfirmed />} />
               <Route path="intercity" element={<IntercityHome />} />
               <Route path="intercity/vehicle" element={<IntercityVehicle />} />
               <Route path="intercity/details" element={<IntercityDetails />} />
@@ -884,7 +884,7 @@ function TaxiApp() {
               <Route path="user/pooling/list" element={<UserPoolingList />} />
               <Route path="user/pooling/seats/:id" element={<UserPoolingSeats />} />
               <Route path="user/pooling/confirm" element={<UserPoolingConfirm />} />
-              {/* <Route path="user/rental" element={<BikeRentalHome />} />
+              <Route path="user/rental" element={<BikeRentalHome />} />
               <Route
                 path="user/rental/vehicle"
                 element={<RentalVehicleDetail />}
@@ -901,7 +901,7 @@ function TaxiApp() {
               <Route
                 path="user/rental/confirmed"
                 element={<RentalConfirmed />}
-              /> */}
+              />
               <Route path="user/intercity" element={<IntercityHome />} />
               <Route
                 path="user/intercity/vehicle"
