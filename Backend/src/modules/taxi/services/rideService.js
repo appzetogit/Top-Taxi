@@ -127,8 +127,11 @@ export const clearDriverActiveRideIfStale = async (driverOrId) => {
   return driver;
 };
 
+// COD and its spellings are cash; anything else non-empty is online.
+const CASH_PAYMENT_ALIASES = new Set(['cash', 'cod', 'cash_on_delivery', 'cashondelivery', 'cash on delivery']);
+
 const normalizeRidePaymentMethod = (paymentMethod) => (
-  !paymentMethod || String(paymentMethod).trim().toLowerCase() === 'cash' ? 'cash' : 'online'
+  !paymentMethod || CASH_PAYMENT_ALIASES.has(String(paymentMethod).trim().toLowerCase()) ? 'cash' : 'online'
 );
 
 const normalizeServiceType = (serviceType) => {
@@ -787,7 +790,7 @@ export const normalizeAllowedRidePaymentMethods = (paymentTypes = []) => {
   const normalized = rawItems
     .map((item) => String(item || '').trim().toLowerCase())
     .filter(Boolean)
-    .map((item) => (item === 'cash' ? 'cash' : item === 'online' || item === 'wallet' ? 'online' : null))
+    .map((item) => (CASH_PAYMENT_ALIASES.has(item) ? 'cash' : item === 'online' || item === 'wallet' ? 'online' : null))
     .filter(Boolean);
 
   const unique = [...new Set(normalized)];
@@ -1823,6 +1826,10 @@ export const serializeRideRealtime = (ride) => ({
   dropLocation: ride.dropLocation,
   dropAddress: ride.dropAddress || '',
   scheduledAt: ride.scheduledAt || null,
+  // Apps poll this payload; without these the accepted time set by the
+  // socket was overwritten with null, and history/invoices had no booking date.
+  acceptedAt: ride.acceptedAt || null,
+  createdAt: ride.createdAt || null,
   arrivedAt: ride.arrivedAt,
   destinationArrivedAt: ride.destinationArrivedAt || null,
   startedAt: ride.startedAt,
@@ -1899,7 +1906,17 @@ export const getActiveRideForIdentity = async ({ role, entityId }) => {
   return null;
 };
 
-export const listRideHistoryForIdentity = async ({ role, entityId, limit = 50, page = 1, category = 'all' }) => {
+const parseHistoryDate = (value, endOfDay = false) => {
+  if (!value) return null;
+  const raw = String(value).trim();
+  // A bare YYYY-MM-DD is a calendar day in India, where the apps run.
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(raw)
+    ? new Date(`${raw}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}+05:30`)
+    : new Date(raw);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+export const listRideHistoryForIdentity = async ({ role, entityId, limit = 50, page = 1, category = 'all', from = null, to = null, status = null }) => {
   if (!['user', 'driver'].includes(role)) {
     throw new ApiError(403, 'Only riders and drivers can access ride history');
   }
@@ -1908,6 +1925,22 @@ export const listRideHistoryForIdentity = async ({ role, entityId, limit = 50, p
   const safePage = Math.max(Number(page) || 1, 1);
   const query = role === 'driver' ? { driverId: entityId } : { userId: entityId };
   const normalizedCategory = String(category || 'all').trim().toLowerCase();
+
+  // Optional booking-date window (createdAt), inclusive, for date-wise filters.
+  const fromDate = parseHistoryDate(from, false);
+  const toDate = parseHistoryDate(to, true);
+  if (fromDate || toDate) {
+    query.createdAt = {};
+    if (fromDate) query.createdAt.$gte = fromDate;
+    if (toDate) query.createdAt.$lte = toDate;
+  }
+
+  const normalizedStatus = String(status || '').trim().toLowerCase();
+  if (normalizedStatus === 'completed' || normalizedStatus === 'cancelled') {
+    query.status = normalizedStatus;
+  } else if (normalizedStatus === 'active' || normalizedStatus === 'ongoing') {
+    query.status = { $nin: ['completed', 'cancelled'] };
+  }
 
   if (normalizedCategory === 'rides') {
     query.serviceType = 'ride';
@@ -1933,11 +1966,9 @@ export const listRideHistoryForIdentity = async ({ role, entityId, limit = 50, p
     query.scheduledAt = { $ne: null };
   }
 
-  const counterpartPath = role === 'driver' ? 'userId' : 'driverId';
-  const counterpartSelect =
-    role === 'driver'
-      ? 'name phone profileImage'
-      : 'name phone profileImage vehicleType vehicleIconType vehicleNumber vehicleColor vehicleMake vehicleModel vehicleImage rating';
+  // Both sides get the vehicle that did the trip; a driver's history also
+  // carries the passenger, a rider's the driver.
+  const driverSelect = 'name phone profileImage vehicleType vehicleIconType vehicleNumber vehicleColor vehicleMake vehicleModel vehicleImage rating';
 
   const ridesQuery = Ride.find(query)
     .select([
@@ -1995,12 +2026,18 @@ export const listRideHistoryForIdentity = async ({ role, entityId, limit = 50, p
       'cancellation_time',
       'recovered_cancellation_due',
       'insurance_fee',
+      'destinationArrivedAt',
+      'driverPaymentCollection',
     ].join(' '))
-    .sort({ createdAt: -1 })
+    .sort({ createdAt: -1, _id: -1 })
     .skip((safePage - 1) * safeLimit)
     .limit(safeLimit)
-    .populate(counterpartPath, counterpartSelect)
+    .populate('driverId', driverSelect)
     .lean();
+
+  if (role === 'driver') {
+    ridesQuery.populate('userId', 'name phone profileImage');
+  }
 
   if (role === 'user') {
     ridesQuery.populate('deliveryId', 'parcel');
@@ -2058,8 +2095,21 @@ export const listRideHistoryForIdentity = async ({ role, entityId, limit = 50, p
       feedback: ride.feedback || null,
       createdAt: ride.createdAt,
       updatedAt: ride.updatedAt,
+      destinationArrivedAt: ride.destinationArrivedAt || null,
+      insurance_fee: Number(ride.insurance_fee || 0),
       user: role === 'driver' ? (ride.userId || null) : null,
-      driver: role === 'user' ? (ride.driverId || null) : null,
+      driver: ride.driverId && typeof ride.driverId === 'object' ? ride.driverId : null,
+      // How the fare was actually collected (cash taken by the driver, or the
+      // online collection record) — amounts and state only, no provider links.
+      paymentCollection: ride.driverPaymentCollection
+        ? {
+            provider: ride.driverPaymentCollection.provider || '',
+            source: ride.driverPaymentCollection.source || '',
+            status: ride.driverPaymentCollection.status || 'pending',
+            amount: Number(ride.driverPaymentCollection.amount || 0),
+            currency: ride.driverPaymentCollection.currency || 'INR',
+          }
+        : null,
       cancelled_by: ride.cancelled_by || '',
       cancellation_reason: ride.cancellation_reason || '',
       cancellation_charge: Number(ride.cancellation_charge || 0),
