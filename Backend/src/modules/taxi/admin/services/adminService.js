@@ -4151,6 +4151,178 @@ export const listDrivers = async ({ page = 1, limit = 50, status, search, approv
   };
 };
 
+/*
+ * Live driver tracking for the admin map: four views over the same fleet.
+ *
+ *   waiting  - online, no trip in progress
+ *   on_trip  - on a trip right now (with the trip's pickup, drop and rider)
+ *   offline  - not online; shown at the last position the app reported
+ *   history  - trips finished or cancelled in the last `hours` hours
+ *
+ * Driver positions come from the Driver document, which the driver app keeps
+ * fresh over the socket every few seconds. `locationStale` marks a driver who
+ * says they are online but whose position has not moved in TRACKING_STALE_MS,
+ * i.e. a phone with no signal or a killed app, so the admin does not trust a
+ * dot that is really minutes old. (0,0) is the schema default for "never
+ * reported", so it is returned as no position rather than a pin in the ocean.
+ */
+const TRACKING_STALE_MS = 5 * 60 * 1000;
+const TRACKING_STATUSES = ['waiting', 'on_trip', 'offline', 'history'];
+
+const trackingPoint = (geo) => {
+  const [lng, lat] = Array.isArray(geo?.coordinates) ? geo.coordinates.map(Number) : [];
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || (lat === 0 && lng === 0)) return null;
+  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+  return { lat, lng };
+};
+
+const trackingRideCode = (ride) => `REQ_${String(ride._id).slice(-12).toUpperCase()}`;
+
+const trackingPlace = (address, geo) => ({ address: address || '', ...(trackingPoint(geo) || {}) });
+
+export const getDriverTracking = async (
+  { status = 'waiting', search = '', hours = 24, limit = 300 } = {},
+  currentAdmin = null,
+) => {
+  const view = TRACKING_STATUSES.includes(String(status)) ? String(status) : 'waiting';
+  const safeLimit = Math.min(500, Math.max(1, Number(limit) || 300));
+  const safeHours = Math.min(168, Math.max(1, Number(hours) || 24));
+
+  const baseQuery = { deletedAt: null, approve: true };
+  let scopedToRegion = false;
+  if (currentAdmin) {
+    assertAdminPermission(currentAdmin, 'drivers.view', 'drivers');
+    const scope = buildServiceLocationScopeQuery(currentAdmin);
+    scopedToRegion = Object.keys(scope).length > 0;
+    Object.assign(baseQuery, scope);
+  }
+
+  const term = String(search || '').trim();
+  const searchQuery = term
+    ? (() => {
+        const regex = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+        return { $or: [{ name: regex }, { phone: regex }, { vehicleNumber: regex }] };
+      })()
+    : {};
+
+  const since = new Date(Date.now() - safeHours * 3600000);
+  const stateQuery = {
+    waiting: { isOnline: true, isOnRide: { $ne: true } },
+    on_trip: { isOnRide: true },
+    offline: { isOnline: { $ne: true }, isOnRide: { $ne: true } },
+  };
+
+  // Rides are scoped through their driver, so a regional admin sees only their own fleet's trips.
+  const scopedDriverIds = scopedToRegion ? await Driver.find(baseQuery).distinct('_id') : null;
+  const historyQuery = {
+    status: { $in: ['completed', 'cancelled'] },
+    driverId: scopedDriverIds ? { $in: scopedDriverIds } : { $ne: null },
+    createdAt: { $gte: since },
+  };
+
+  const [waiting, onTrip, offline, history] = await Promise.all([
+    Driver.countDocuments({ ...baseQuery, ...stateQuery.waiting }),
+    Driver.countDocuments({ ...baseQuery, ...stateQuery.on_trip }),
+    Driver.countDocuments({ ...baseQuery, ...stateQuery.offline }),
+    Ride.countDocuments(historyQuery),
+  ]);
+  const counts = { waiting, on_trip: onTrip, offline, history };
+  const refreshedAt = new Date().toISOString();
+
+  if (view === 'history') {
+    const rides = await Ride.find(historyQuery)
+      .select('status fare pickupLocation pickupAddress dropLocation dropAddress driverId userId createdAt completedAt cancelled_by cancellation_reason')
+      .populate('driverId', 'name phone vehicleType vehicleNumber')
+      .populate('userId', 'name phone')
+      .sort({ createdAt: -1 })
+      .limit(safeLimit)
+      .lean();
+
+    const needle = term.toLowerCase();
+    const results = rides
+      .map((ride) => ({
+        id: String(ride._id),
+        requestId: trackingRideCode(ride),
+        status: ride.status,
+        fare: Number(ride.fare || 0),
+        pickup: trackingPlace(ride.pickupAddress, ride.pickupLocation),
+        drop: trackingPlace(ride.dropAddress, ride.dropLocation),
+        driver: ride.driverId
+          ? {
+              id: String(ride.driverId._id),
+              name: ride.driverId.name || '',
+              phone: ride.driverId.phone || '',
+              vehicleType: ride.driverId.vehicleType || '',
+              vehicleNumber: ride.driverId.vehicleNumber || '',
+            }
+          : null,
+        rider: ride.userId ? { name: ride.userId.name || '', phone: ride.userId.phone || '' } : null,
+        cancelledBy: ride.status === 'cancelled' ? ride.cancelled_by || '' : '',
+        cancellationReason: ride.status === 'cancelled' ? ride.cancellation_reason || '' : '',
+        createdAt: ride.createdAt || null,
+        completedAt: ride.completedAt || null,
+      }))
+      .filter((row) => !needle || [row.requestId, row.driver?.name, row.driver?.phone, row.driver?.vehicleNumber, row.rider?.name]
+        .some((value) => String(value || '').toLowerCase().includes(needle)));
+
+    return { status: view, counts, hours: safeHours, refreshedAt, results };
+  }
+
+  const drivers = await Driver.find({ ...baseQuery, ...stateQuery[view], ...searchQuery })
+    .select('name phone vehicleType vehicleNumber vehicleColor rating isOnline isOnRide location locationUpdatedAt profileImage')
+    .sort({ locationUpdatedAt: -1, name: 1 })
+    .limit(safeLimit)
+    .lean();
+
+  const activeRides = view === 'on_trip' && drivers.length
+    ? await Ride.find({ driverId: { $in: drivers.map((d) => d._id) }, status: { $in: ['accepted', 'ongoing'] } })
+        .select('status liveStatus pickupLocation pickupAddress dropLocation dropAddress driverId userId fare')
+        .populate('userId', 'name phone')
+        .sort({ createdAt: -1 })
+        .lean()
+    : [];
+  const rideByDriver = new Map();
+  activeRides.forEach((ride) => {
+    const key = String(ride.driverId);
+    if (!rideByDriver.has(key)) rideByDriver.set(key, ride);
+  });
+
+  const now = Date.now();
+  const results = drivers.map((driver) => {
+    const updatedAt = driver.locationUpdatedAt ? new Date(driver.locationUpdatedAt) : null;
+    const ride = rideByDriver.get(String(driver._id));
+    return {
+      id: String(driver._id),
+      name: driver.name || '',
+      phone: driver.phone || '',
+      profileImage: driver.profileImage || '',
+      vehicleType: driver.vehicleType || '',
+      vehicleNumber: driver.vehicleNumber || '',
+      vehicleColor: driver.vehicleColor || '',
+      rating: Number(driver.rating || 0),
+      isOnline: Boolean(driver.isOnline),
+      isOnRide: Boolean(driver.isOnRide),
+      position: trackingPoint(driver.location),
+      locationUpdatedAt: updatedAt,
+      locationStale: view !== 'offline' && (!updatedAt || now - updatedAt.getTime() > TRACKING_STALE_MS),
+      trip: ride
+        ? {
+            id: String(ride._id),
+            requestId: trackingRideCode(ride),
+            status: ride.status,
+            liveStatus: ride.liveStatus || '',
+            fare: Number(ride.fare || 0),
+            pickup: trackingPlace(ride.pickupAddress, ride.pickupLocation),
+            drop: trackingPlace(ride.dropAddress, ride.dropLocation),
+            rider: ride.userId ? { name: ride.userId.name || '', phone: ride.userId.phone || '' } : null,
+          }
+        : null,
+    };
+  });
+
+  return { status: view, counts, refreshedAt, results };
+};
+
 export const listDriverRatings = async ({ page = 1, limit = 50, search = '' }) => {
   const safePage = Number(page) || 1;
   const safeLimit = Number(limit) || 50;

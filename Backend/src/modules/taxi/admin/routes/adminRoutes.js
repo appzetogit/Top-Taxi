@@ -92,6 +92,7 @@ import {
   getDriverProfile,
   getDriverOnboarding,
   getDrivers,
+  getDriverTracking,
   getDriverRatings,
   getDriverRatingDetail,
   getNegativeBalanceDrivers,
@@ -283,6 +284,8 @@ adminRouter.get('/admin/users/:id/requests', getUserRequests);
 adminRouter.get('/admin/users/:id/wallet-history', getUserWalletHistory);
 
 adminRouter.get('/admin/drivers', getDrivers);
+// Before any /admin/drivers/:id route, which would read "tracking" as an id.
+adminRouter.get('/admin/drivers/tracking', getDriverTracking);
 adminRouter.post('/admin/drivers/bulk-import', bulkImportDrivers);
 adminRouter.get('/admin/drivers/deleted', authenticate(['admin']), getDeletedDrivers);
 adminRouter.get('/admin/drivers/delete-requests', authenticate(['admin']), getDriverDeletionRequests);

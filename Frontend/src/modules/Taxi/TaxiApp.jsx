@@ -205,6 +205,7 @@ const AdminPendingDrivers = lazy(() => import('./modules/admin/pages/drivers/Pen
 const AdminDriverSubscriptions = lazy(() => import('./modules/admin/pages/drivers/DriverSubscriptions'));
 const AdminDriverSubscriptionCreate = lazy(() => import('./modules/admin/pages/drivers/DriverSubscriptionCreate'));
 const AdminDriverRatings = lazy(() => import('./modules/admin/pages/drivers/DriverRatings'));
+const AdminDriverTracking = lazy(() => import('./modules/admin/pages/drivers/DriverTracking'));
 const AdminDriverRatingDetail = lazy(() => import('./modules/admin/pages/drivers/DriverRatingDetail'));
 const AdminDriverWallet = lazy(() => import('./modules/admin/pages/drivers/DriverWallet'));
 const AdminNegativeBalanceDrivers = lazy(() => import('./modules/admin/pages/drivers/NegativeBalanceDrivers'));
@@ -1205,6 +1206,7 @@ function TaxiApp() {
                 path="drivers/subscription/create"
                 element={<AdminDriverSubscriptionCreate />}
               />
+              <Route path="drivers/tracking" element={<AdminDriverTracking />} />
               <Route
                 path="drivers/ratings"
                 element={<AdminDriverRatings />}

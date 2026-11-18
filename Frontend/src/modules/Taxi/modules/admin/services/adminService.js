@@ -57,6 +57,12 @@ export const adminService = {
     return api.get(`/admin/drivers?${params}`);
   },
 
+  /** Live map data: status is waiting | on_trip | offline | history. */
+  getDriverTracking: ({ status = 'waiting', search = '', hours = 24 } = {}) => {
+    const params = new URLSearchParams({ status, hours });
+    if (search) params.set('search', search);
+    return api.get(`/admin/drivers/tracking?${params.toString()}`);
+  },
   bulkImportDrivers: (payload) => api.post('/admin/drivers/bulk-import', payload),
   getDriver: (id) => api.get(`/admin/drivers/${id}`),
   createDriver: (driverData) => api.post('/admin/drivers', driverData),

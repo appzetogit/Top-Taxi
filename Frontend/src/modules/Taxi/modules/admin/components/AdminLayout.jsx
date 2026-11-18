@@ -922,6 +922,7 @@ const AdminLayout = () => {
               { label: 'Approved Drivers', path: '/taxi/admin/drivers', permission: 'drivers.view' },
               { label: 'Active Drivers', path: '/taxi/admin/drivers/active', permission: 'drivers.view' },
               { label: 'Subscription', path: '/taxi/admin/drivers/subscription', permission: 'drivers.view' },
+              { label: 'Driver Tracking', path: '/taxi/admin/drivers/tracking', permission: 'drivers.view' },
               { label: 'Drivers Ratings', path: '/taxi/admin/drivers/ratings', permission: 'drivers.view' },
               {
                 label: 'Driver Wallet',
