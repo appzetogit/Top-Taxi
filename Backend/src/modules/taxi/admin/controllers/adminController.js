@@ -634,6 +634,9 @@ export const getOngoingRides = asyncHandler(async (req, res) =>
 export const getRideRequests = asyncHandler(async (req, res) =>
   ok(res, await adminService.listRideRequests(req.query)),
 );
+export const getRideRequestDetails = asyncHandler(async (req, res) =>
+  ok(res, await adminService.getRideRequestDetails(req.params.id)),
+);
 export const getDeliveries = asyncHandler(async (req, res) =>
   ok(res, await adminService.listDeliveries(req.query)),
 );

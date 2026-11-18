@@ -86,6 +86,7 @@ import {
   getCountries,
   getDashboardData,
   getDeliveries,
+  getRideRequestDetails,
   getDriver,
   getDriverNeededDocument,
   getDriverNeededDocuments,
@@ -484,6 +485,7 @@ adminRouter.get('/admin/safety/alerts', authenticate(['admin']), listSafetyAlert
 adminRouter.patch('/admin/safety/alerts/:id/resolve', authenticate(['admin']), resolveSafetyAlert);
 adminRouter.get('/admin/ongoing-rides', getOngoingRides);
 adminRouter.get('/admin/ride-requests', getRideRequests);
+adminRouter.get('/admin/ride-requests/:id', getRideRequestDetails);
 adminRouter.delete('/admin/ongoing-rides/:id', deleteOngoingRide);
 adminRouter.delete('/admin/ride-requests/:id', deleteTripRequest);
 adminRouter.get('/admin/deliveries', getDeliveries);

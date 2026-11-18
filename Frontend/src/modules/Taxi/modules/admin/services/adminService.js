@@ -3,6 +3,16 @@ import { BACKEND_ORIGIN } from '../../../shared/api/runtimeConfig';
 
 const unwrap = (response) => response?.data?.data || response?.data || response;
 
+// Query string for the ride lists: empty values are left out so the server uses its defaults.
+const rideListQuery = (params = {}) => {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && String(value).trim() !== '') query.set(key, String(value));
+  });
+  const text = query.toString();
+  return text ? `?${text}` : '';
+};
+
 export const adminService = {
   /**
    * Admin Authentication
@@ -193,14 +203,14 @@ export const adminService = {
   getSafetyAlerts: ({ page = 1, limit = 25, status = 'active' } = {}) =>
     api.get(`/admin/safety/alerts?page=${page}&limit=${limit}&status=${encodeURIComponent(status)}`),
   resolveSafetyAlert: (id, note = '') => api.patch(`/admin/safety/alerts/${id}/resolve`, { note }),
-  getOngoingRides: ({ page = 1, limit = 10, tab = 'all', search = '' } = {}) =>
-    api.get(`/admin/ongoing-rides?page=${page}&limit=${limit}&tab=${encodeURIComponent(tab)}&search=${encodeURIComponent(search)}`),
-  getRideRequests: ({ page = 1, limit = 10, tab = 'all', search = '' } = {}) =>
-    api.get(`/admin/ride-requests?page=${page}&limit=${limit}&tab=${encodeURIComponent(tab)}&search=${encodeURIComponent(search)}`),
-  listRideRequests: ({ page = 1, limit = 10, tab = 'all', search = '' } = {}) =>
-    api.get(`/admin/ride-requests?page=${page}&limit=${limit}&tab=${encodeURIComponent(tab)}&search=${encodeURIComponent(search)}`),
-  getDeliveries: ({ page = 1, limit = 10, tab = 'all', search = '' } = {}) =>
-    api.get(`/admin/deliveries?page=${page}&limit=${limit}&tab=${encodeURIComponent(tab)}&search=${encodeURIComponent(search)}`),
+  // Ongoing / trips / deliveries: params are page, limit, tab, search and the optional
+  // from, to (YYYY-MM-DD), payment (cash|online), serviceType and status filters.
+  getOngoingRides: (params = {}) => api.get(`/admin/ongoing-rides${rideListQuery(params)}`),
+  getRideRequests: (params = {}) => api.get(`/admin/ride-requests${rideListQuery(params)}`),
+  listRideRequests: (params = {}) => api.get(`/admin/ride-requests${rideListQuery(params)}`),
+  getDeliveries: (params = {}) => api.get(`/admin/deliveries${rideListQuery(params)}`),
+  /** Everything about one booking (rider, driver, timeline, fare, payment...); any service type. */
+  getRideRequestDetails: (id) => api.get(`/admin/ride-requests/${id}`),
   getTrips: ({ page = 1, limit = 10, tab = 'all', search = '' } = {}) =>
     api.get(`/admin/trips?page=${page}&limit=${limit}&tab=${encodeURIComponent(tab)}&search=${encodeURIComponent(search)}`),
   deleteOngoingRide: (id) => api.delete(`/admin/ongoing-rides/${id}`),

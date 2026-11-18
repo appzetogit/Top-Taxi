@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { managedBrand } from '../../../../core/settings/platformProfile.service.js';
 import { ApiError } from '../../../../utils/ApiError.js';
+import { getAdminRideDetails, listAdminRides } from './adminRideOperations.js';
 import { createDefaultAdminState } from '../data/defaultAdminState.js';
 import { Admin } from '../models/Admin.js';
 import { User } from '../../user/models/User.js';
@@ -5946,141 +5947,14 @@ const toAdminIntercityTripRow = (ride) => {
 
 
 
-export const listOngoingRides = async (query = {}) => {
-  const page = Number(query.page || 1);
-  const limit = Number(query.limit || 10);
-  const tab = String(query.tab || 'all').toLowerCase();
-  const search = String(query.search || '').trim().toLowerCase();
+// Trips, Deliveries and Ongoing share one query (filters, tab counts and paging in MongoDB): see adminRideOperations.js.
+export const listOngoingRides = async (query = {}) => listAdminRides('ongoing', query);
 
-  const rides = await Ride.find({
-    status: { $in: [RIDE_STATUS.SEARCHING, RIDE_STATUS.ACCEPTED, RIDE_STATUS.ONGOING] },
-  })
-    .sort({ createdAt: -1 })
-    .populate('userId', 'name phone')
-    .populate('driverId', 'name phone vehicleType vehicleNumber')
-    .lean();
+export const listRideRequests = async (query = {}) => listAdminRides('trips', query);
 
-  let rows = rides.map(toAdminRideRow);
+export const listDeliveries = async (query = {}) => listAdminRides('deliveries', query);
 
-  if (tab === 'accepted') {
-    rows = rows.filter((row) => row.tripStatus === 'ACCEPTED');
-  } else if (tab === 'upcoming') {
-    rows = rows.filter((row) => row.tripStatus === 'UPCOMING');
-  } else if (tab === 'ongoing') {
-    rows = rows.filter((row) => row.tripStatus === 'ONGOING');
-  }
-
-  if (search) {
-    rows = rows.filter((row) =>
-      [
-        row.requestId,
-        row.userName,
-        row.driverName,
-        row.transportType,
-        row.pickupLabel,
-        row.dropLabel,
-      ].some((value) => String(value || '').toLowerCase().includes(search)),
-    );
-  }
-
-  return buildPaginator(rows, page, limit);
-};
-
-export const listRideRequests = async (query = {}) => {
-  const page = Number(query.page || 1);
-  const limit = Number(query.limit || 10);
-  const tab = String(query.tab || 'all').toLowerCase();
-  const search = String(query.search || '').trim().toLowerCase();
-
-  const rides = await Ride.find({
-    serviceType: { $nin: ['parcel', 'intercity'] },
-    adminHiddenAt: null,
-  })
-    .sort({ createdAt: -1 })
-    .populate('userId', 'name phone')
-    .populate('driverId', 'name phone vehicleType vehicleNumber')
-    .lean();
-
-  let rows = rides.map(toAdminRideRow);
-
-  if (tab === 'completed') {
-    rows = rows.filter((row) => row.tripStatus === 'COMPLETED');
-  } else if (tab === 'cancelled') {
-    rows = rows.filter((row) => row.tripStatus === 'CANCELLED');
-  } else if (tab === 'upcoming') {
-    rows = rows.filter((row) => row.tripStatus === 'UPCOMING');
-  } else if (tab === 'on trip' || tab === 'on_trip' || tab === 'ongoing') {
-    rows = rows.filter((row) => row.tripStatus === 'ACCEPTED' || row.tripStatus === 'ONGOING');
-  }
-
-  if (search) {
-    rows = rows.filter((row) =>
-      [
-        row.requestId,
-        row.userName,
-        row.driverName,
-        row.transportType,
-        row.pickupLabel,
-        row.dropLabel,
-      ].some((value) => String(value || '').toLowerCase().includes(search)),
-    );
-  }
-
-  return buildPaginator(rows, page, limit);
-};
-
-export const listDeliveries = async (query = {}) => {
-  const page = Number(query.page || 1);
-  const limit = Number(query.limit || 10);
-  const tab = String(query.tab || 'all').toLowerCase();
-  const search = String(query.search || '').trim().toLowerCase();
-
-  const rides = await Ride.find({ serviceType: 'parcel' })
-    .sort({ createdAt: -1 })
-    .populate('deliveryId')
-    .populate('userId', 'name phone')
-    .populate('driverId', 'name phone vehicleType vehicleNumber')
-    .lean();
-
-  let rows = rides.map(toAdminDeliveryRow);
-
-  if (tab === 'completed') {
-    rows = rows.filter((row) => row.tripStatus === 'COMPLETED');
-  } else if (tab === 'cancelled') {
-    rows = rows.filter((row) => row.tripStatus === 'CANCELLED');
-  } else if (tab === 'upcoming') {
-    rows = rows.filter((row) => row.tripStatus === 'UPCOMING');
-  } else if (tab === 'on trip' || tab === 'on_trip' || tab === 'ongoing') {
-    rows = rows.filter((row) => row.tripStatus === 'ON_TRIP');
-  }
-  if (tab === 'completed') {
-    rows = rows.filter((row) => row.tripStatus === 'COMPLETED');
-  } else if (tab === 'cancelled') {
-    rows = rows.filter((row) => row.tripStatus === 'CANCELLED');
-  } else if (tab === 'upcoming') {
-    rows = rows.filter((row) => row.tripStatus === 'UPCOMING');
-  } else if (tab === 'on trip' || tab === 'on_trip' || tab === 'ongoing') {
-    rows = rows.filter((row) => row.tripStatus === 'ON_TRIP');
-  }
-
-  if (search) {
-    rows = rows.filter((row) =>
-      [
-        row.requestId,
-        row.userName,
-        row.driverName,
-        row.transportType,
-        row.pickupLabel,
-        row.dropLabel,
-        row.parcel?.category,
-        row.parcel?.senderName,
-        row.parcel?.receiverName,
-      ].some((value) => String(value || '').toLowerCase().includes(search)),
-    );
-  }
-
-  return buildPaginator(rows, page, limit);
-};
+export const getRideRequestDetails = async (id) => getAdminRideDetails(id);
 
 export const listIntercityTrips = async (query = {}) => {
   const page = Number(query.page || 1);
