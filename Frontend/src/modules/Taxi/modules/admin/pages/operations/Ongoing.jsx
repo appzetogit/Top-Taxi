@@ -9,6 +9,18 @@ const TABS = [
   { key: 'ongoing', label: 'Ongoing' },
 ];
 
+const TYPE_FILTER = {
+  key: 'bookingType',
+  label: 'Booking type',
+  options: [
+    { value: '', label: 'All types' },
+    { value: 'daily_cab', label: 'Daily Cab' },
+    { value: 'outstation', label: 'Outstation' },
+    { value: 'airport', label: 'Airport Taxi' },
+    { value: 'parcel', label: 'Parcel Delivery' },
+  ],
+};
+
 const Ongoing = () => (
   <RideOperationsPage
     title="ONGOING REQUESTS"
@@ -17,7 +29,8 @@ const Ongoing = () => (
     loadRows={adminService.getOngoingRides}
     emptyText="No ongoing requests right now."
     autoRefresh
-    serviceFilter
+    summary="active"
+    typeFilter={TYPE_FILTER}
     onDelete={(row) => adminService.deleteOngoingRide(row.id)}
     deleteQuestion={(row) => `Cancel and delete ride ${row.requestId}? This removes it for both rider and driver.`}
   />

@@ -10,6 +10,16 @@ const TABS = [
   { key: 'on_trip', label: 'On Trip' },
 ];
 
+const TYPE_FILTER = {
+  key: 'scope',
+  label: 'Delivery',
+  options: [
+    { value: '', label: 'All deliveries' },
+    { value: 'city', label: 'Within city' },
+    { value: 'outstation', label: 'Outstation' },
+  ],
+};
+
 const EXTRA_COLUMNS = [
   {
     header: 'Receiver',
@@ -40,6 +50,7 @@ const Deliveries = () => (
     breadcrumb={['Operations', 'Delivery Requests']}
     tabs={TABS}
     loadRows={adminService.getDeliveries}
+    typeFilter={TYPE_FILTER}
     searchPlaceholder="Search id, sender, receiver, driver"
     emptyText="No delivery requests found."
     extraColumns={EXTRA_COLUMNS}

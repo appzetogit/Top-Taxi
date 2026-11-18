@@ -19,6 +19,12 @@ const PoolingBookings = () => {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [paymentFilter, setPaymentFilter] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const loadBookings = async () => {
     setLoading(true);
@@ -46,11 +52,35 @@ const PoolingBookings = () => {
     }
   };
 
-  const filteredBookings = bookings.filter(b => 
-    b.bookingId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    b.user?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    b.route?.routeName?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Travel dates are compared as calendar days in India, as YYYY-MM-DD.
+  const istDay = (value) => {
+    const time = value ? new Date(value).getTime() : NaN;
+    return Number.isFinite(time) ? new Date(time + 5.5 * 3600000).toISOString().slice(0, 10) : '';
+  };
+
+  const needle = searchTerm.trim().toLowerCase();
+  const filteredBookings = bookings.filter((b) => {
+    if (statusFilter && (b.bookingStatus || '') !== statusFilter) return false;
+    if (paymentFilter && (b.paymentStatus || '') !== paymentFilter) return false;
+    const day = istDay(b.travelDate);
+    if (fromDate && (!day || day < fromDate)) return false;
+    if (toDate && (!day || day > toDate)) return false;
+    if (!needle) return true;
+    return [b.bookingId, b.user?.name, b.user?.phone, b.route?.routeName]
+      .some((value) => String(value || '').toLowerCase().includes(needle));
+  });
+
+  const statusCounts = bookings.reduce((acc, b) => ({ ...acc, [b.bookingStatus]: (acc[b.bookingStatus] || 0) + 1 }), {});
+  const activeFilterCount = [statusFilter, paymentFilter, fromDate, toDate].filter(Boolean).length;
+  const totalPages = Math.max(1, Math.ceil(filteredBookings.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const pagedBookings = filteredBookings.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const showingFrom = filteredBookings.length === 0 ? 0 : (safePage - 1) * pageSize + 1;
+  const showingTo = Math.min(filteredBookings.length, safePage * pageSize);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, statusFilter, paymentFilter, fromDate, toDate, pageSize]);
 
   const getStatusStyle = (status) => {
     switch (status) {
@@ -100,6 +130,42 @@ const PoolingBookings = () => {
         </div>
       </div>
 
+      <div className="mb-6 flex flex-wrap items-end gap-3">
+        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+          Status
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="mt-1 block rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold normal-case tracking-normal text-slate-700 outline-none">
+            <option value="">All ({bookings.length})</option>
+            {['confirmed', 'completed', 'cancelled'].map((value) => (
+              <option key={value} value={value}>{value.charAt(0).toUpperCase() + value.slice(1)} ({statusCounts[value] || 0})</option>
+            ))}
+          </select>
+        </label>
+        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+          Payment
+          <select value={paymentFilter} onChange={(e) => setPaymentFilter(e.target.value)} className="mt-1 block rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold normal-case tracking-normal text-slate-700 outline-none">
+            <option value="">All</option>
+            <option value="paid">Paid</option>
+            <option value="pending">Pending</option>
+          </select>
+        </label>
+        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+          Travel from
+          <input type="date" value={fromDate} max={toDate || undefined} onChange={(e) => setFromDate(e.target.value)} className="mt-1 block rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold normal-case tracking-normal text-slate-700 outline-none" />
+        </label>
+        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+          Travel to
+          <input type="date" value={toDate} min={fromDate || undefined} onChange={(e) => setToDate(e.target.value)} className="mt-1 block rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold normal-case tracking-normal text-slate-700 outline-none" />
+        </label>
+        <button
+          type="button"
+          disabled={activeFilterCount === 0}
+          onClick={() => { setStatusFilter(''); setPaymentFilter(''); setFromDate(''); setToDate(''); }}
+          className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600 disabled:opacity-40"
+        >
+          Clear filters
+        </button>
+      </div>
+
       {/* Bookings Table */}
       <div className="overflow-hidden rounded-[32px] border border-slate-100 bg-white shadow-sm">
         <div className="overflow-x-auto">
@@ -133,7 +199,7 @@ const PoolingBookings = () => {
                   </td>
                 </tr>
               ) : (
-                filteredBookings.map((booking) => (
+                pagedBookings.map((booking) => (
                   <tr key={booking._id} className="group transition hover:bg-slate-50/50">
                     <td className="px-6 py-5">
                       <span className="text-xs font-black text-indigo-600 uppercase">#{booking.bookingId || booking._id.slice(-8)}</span>
@@ -189,7 +255,7 @@ const PoolingBookings = () => {
                       </span>
                     </td>
                     <td className="px-6 py-5">
-                      <div className="flex items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+                      <div className="flex items-center gap-2">
                         {booking.bookingStatus === 'confirmed' && (
                           <>
                             <button 
@@ -218,6 +284,19 @@ const PoolingBookings = () => {
               )}
             </tbody>
           </table>
+        </div>
+        <div className="flex flex-col items-center justify-between gap-3 border-t border-slate-50 px-6 py-4 sm:flex-row">
+          <p className="text-xs font-bold text-slate-500">
+            Showing {showingFrom} to {showingTo} of {filteredBookings.length} bookings
+          </p>
+          <div className="flex items-center gap-2">
+            <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-bold text-slate-600">
+              {[10, 25, 50].map((n) => <option key={n} value={n}>{n} / page</option>)}
+            </select>
+            <button type="button" disabled={safePage <= 1} onClick={() => setPage(safePage - 1)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 disabled:opacity-40">Previous</button>
+            <span className="text-xs font-bold text-slate-500">Page {safePage} / {totalPages}</span>
+            <button type="button" disabled={safePage >= totalPages} onClick={() => setPage(safePage + 1)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 disabled:opacity-40">Next</button>
+          </div>
         </div>
       </div>
     </div>

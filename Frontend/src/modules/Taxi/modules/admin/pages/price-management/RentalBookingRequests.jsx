@@ -72,6 +72,10 @@ const RentalBookingRequests = () => {
   const [savingId, setSavingId] = useState('');
   const [selectedId, setSelectedId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [paymentFilter, setPaymentFilter] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [page, setPage] = useState(1);
 
@@ -99,17 +103,38 @@ const RentalBookingRequests = () => {
 
   useEffect(() => {
     setPage(1);
-  }, [itemsPerPage, searchTerm]);
+  }, [itemsPerPage, searchTerm, statusFilter, paymentFilter, fromDate, toDate]);
 
   const safeItems = useMemo(() => (Array.isArray(items) ? items : []), [items]);
   const pendingCount = useMemo(() => safeItems.filter((item) => item?.status === 'pending').length, [safeItems]);
   const paidCount = useMemo(() => safeItems.filter((item) => item?.paymentStatus === 'paid').length, [safeItems]);
 
+  // A booking's calendar day in India (the apps and admins are there), as YYYY-MM-DD.
+  const istDay = (value) => {
+    const time = value ? new Date(value).getTime() : NaN;
+    return Number.isFinite(time) ? new Date(time + 5.5 * 3600000).toISOString().slice(0, 10) : '';
+  };
+
+  const statusCounts = useMemo(
+    () => safeItems.reduce((acc, item) => ({ ...acc, [item?.status || 'pending']: (acc[item?.status || 'pending'] || 0) + 1 }), {}),
+    [safeItems],
+  );
+
+  const activeFilterCount = [statusFilter, paymentFilter, fromDate, toDate].filter(Boolean).length;
+
   const filteredItems = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
-    if (!query) return safeItems;
+    const byFilters = safeItems.filter((item) => {
+      if (statusFilter && (item?.status || 'pending') !== statusFilter) return false;
+      if (paymentFilter && (item?.paymentStatus || 'pending') !== paymentFilter) return false;
+      const day = istDay(item?.createdAt);
+      if (fromDate && (!day || day < fromDate)) return false;
+      if (toDate && (!day || day > toDate)) return false;
+      return true;
+    });
+    if (!query) return byFilters;
 
-    return safeItems.filter((item) =>
+    return byFilters.filter((item) =>
       [
         item?.bookingReference,
         item?.vehicleName,
@@ -126,7 +151,7 @@ const RentalBookingRequests = () => {
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(query)),
     );
-  }, [safeItems, searchTerm]);
+  }, [safeItems, searchTerm, statusFilter, paymentFilter, fromDate, toDate]);
 
   const totalEntries = filteredItems.length;
   const totalPages = Math.max(1, Math.ceil(totalEntries / itemsPerPage));
@@ -218,6 +243,71 @@ const RentalBookingRequests = () => {
               <option value={30}>30</option>
             </select>
           </div>
+        </div>
+
+        <div className="flex flex-wrap items-end gap-3 border-b border-slate-100 bg-slate-50/60 px-6 py-4">
+          <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+            Status
+            <select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value)}
+              className="mt-1 block rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold normal-case tracking-normal text-slate-700 outline-none"
+            >
+              <option value="">All ({safeItems.length})</option>
+              {['pending', 'confirmed', 'assigned', 'end_requested', 'completed', 'cancelled'].map((value) => (
+                <option key={value} value={value}>
+                  {value.replace('_', ' ').replace(/^./, (c) => c.toUpperCase())} ({statusCounts[value] || 0})
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+            Advance
+            <select
+              value={paymentFilter}
+              onChange={(event) => setPaymentFilter(event.target.value)}
+              className="mt-1 block rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold normal-case tracking-normal text-slate-700 outline-none"
+            >
+              <option value="">All</option>
+              <option value="paid">Paid</option>
+              <option value="not_required">Not required</option>
+              <option value="pending">Pending</option>
+              <option value="failed">Failed</option>
+            </select>
+          </label>
+          <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+            Booked from
+            <input
+              type="date"
+              value={fromDate}
+              max={toDate || undefined}
+              onChange={(event) => setFromDate(event.target.value)}
+              className="mt-1 block rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold normal-case tracking-normal text-slate-700 outline-none"
+            />
+          </label>
+          <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+            Booked to
+            <input
+              type="date"
+              value={toDate}
+              min={fromDate || undefined}
+              onChange={(event) => setToDate(event.target.value)}
+              className="mt-1 block rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold normal-case tracking-normal text-slate-700 outline-none"
+            />
+          </label>
+          <button
+            type="button"
+            disabled={activeFilterCount === 0}
+            onClick={() => {
+              setStatusFilter('');
+              setPaymentFilter('');
+              setFromDate('');
+              setToDate('');
+            }}
+            className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-600 disabled:opacity-40"
+          >
+            Clear filters
+          </button>
         </div>
 
         <div className="p-6">

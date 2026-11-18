@@ -8,9 +8,18 @@
  * paging run in MongoDB.
  *
  * kind:
- *   trips       - passenger rides (parcel and intercity have their own lists)
+ *   trips       - passenger rides: daily cab, outstation (intercity) and airport taxi
  *   deliveries  - parcel jobs
  *   ongoing     - rides that are not finished yet, of any service type
+ *
+ * A ride's "booking type" (what the admin filters by):
+ *   daily_cab   - a city ride
+ *   outstation  - an intercity ride
+ *   airport     - a city ride that starts or ends inside an airport's boundary
+ *                 (the ride record carries no airport flag, so it is read from the
+ *                 airport zones the admin drew)
+ *   parcel      - a parcel delivery
+ * Rental, pooling, tours and bus are not rides and have their own admin pages.
  */
 import mongoose from 'mongoose';
 import { Ride } from '../../user/models/Ride.js';
@@ -18,11 +27,71 @@ import { User } from '../../user/models/User.js';
 import { UserWallet } from '../../user/models/UserWallet.js';
 import { Delivery } from '../../user/models/Delivery.js';
 import { Driver } from '../../driver/models/Driver.js';
+import { Airport } from '../models/Airport.js';
 import { ApiError } from '../../../../utils/ApiError.js';
 
 const CODE_PREFIX = { ride: 'REQ', parcel: 'DEL', intercity: 'INT' };
 const SERVICE_LABEL = { ride: 'Ride', parcel: 'Parcel delivery', intercity: 'Intercity' };
 const ACTIVE_STATUSES = ['searching', 'accepted', 'ongoing'];
+
+const BOOKING_TYPE_LABEL = {
+  daily_cab: 'Daily Cab',
+  outstation: 'Outstation',
+  airport: 'Airport Taxi',
+  parcel: 'Parcel Delivery',
+};
+
+// An airport with no boundary drawn counts as everything within this distance of its point.
+const AIRPORT_RADIUS_KM = 3;
+const EARTH_RADIUS_KM = 6378.1;
+
+const activeAirports = async () =>
+  (await Airport.find({ active: { $ne: false }, status: { $ne: 'inactive' } })
+    .select('name boundary location')
+    .lean())
+    .filter((airport) => airport.boundary?.coordinates?.length || airport.location?.coordinates?.length === 2);
+
+const insideRing = ([x, y], ring = []) => {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i];
+    const [xj, yj] = ring[j];
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+};
+
+const kmBetween = ([lng1, lat1], [lng2, lat2]) => {
+  const rad = (d) => (d * Math.PI) / 180;
+  const a = Math.sin(rad(lat2 - lat1) / 2) ** 2 + Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(rad(lng2 - lng1) / 2) ** 2;
+  return 2 * EARTH_RADIUS_KM * Math.asin(Math.sqrt(a));
+};
+
+const inAirport = (geo, airports) => {
+  const c = geo?.coordinates;
+  if (!Array.isArray(c) || c.length < 2) return false;
+  return airports.some((airport) =>
+    airport.boundary?.coordinates?.length
+      ? insideRing(c, airport.boundary.coordinates[0])
+      : kmBetween(c, airport.location.coordinates) <= AIRPORT_RADIUS_KM,
+  );
+};
+
+/** Mongo condition for "starts or ends at an airport". */
+const airportCondition = (airports) => {
+  const area = (airport) =>
+    airport.boundary?.coordinates?.length
+      ? { $geoWithin: { $geometry: airport.boundary } }
+      : { $geoWithin: { $centerSphere: [airport.location.coordinates, AIRPORT_RADIUS_KM / EARTH_RADIUS_KM] } };
+  const clauses = airports.flatMap((airport) => [{ pickupLocation: area(airport) }, { dropLocation: area(airport) }]);
+  return clauses.length ? { $or: clauses } : { _id: { $in: [] } };
+};
+
+const bookingTypeOf = (ride, airports) => {
+  if (ride.serviceType === 'parcel') return 'parcel';
+  if (ride.serviceType === 'intercity') return 'outstation';
+  return inAirport(ride.pickupLocation, airports) || inAirport(ride.dropLocation, airports) ? 'airport' : 'daily_cab';
+};
 
 // Tab -> the Mongo condition on `status`. "On Trip" is a driver on the way or a trip under way.
 const TAB_STATUS = {
@@ -128,7 +197,7 @@ const driverSummary = (driver) =>
       }
     : null;
 
-export const toRideRow = (ride) => {
+export const toRideRow = (ride, airports = []) => {
   const parcel = { ...(ride.deliveryId?.parcel || {}), ...(ride.parcel || {}) };
   const user = userSummary(ride.userId);
   const driver = driverSummary(ride.driverId);
@@ -137,12 +206,23 @@ export const toRideRow = (ride) => {
   const pickup = place(ride.pickupAddress, ride.pickupLocation, 'Pickup');
   const drop = place(ride.dropAddress, ride.dropLocation, 'Drop');
   const intercity = ride.intercity || {};
+  const bookingType = bookingTypeOf(ride, airports);
+  const tags = [
+    ride.scheduledAt && 'Scheduled',
+    text(ride.bookingMode).toLowerCase().includes('bid') || text(ride.biddingStatus) ? 'Bidding' : null,
+    ride.isPoolRide ? 'Pool' : null,
+    ride.parcel?.deliveryScope === 'outstation' || ride.parcel?.isOutstation ? 'Outstation parcel' : null,
+    ride.promo?.code ? `Promo ${ride.promo.code}` : null,
+  ].filter(Boolean);
 
   return {
     id: String(ride._id),
     requestId: rideRequestCode(ride),
     serviceType,
     serviceLabel: SERVICE_LABEL[serviceType] || 'Ride',
+    bookingType,
+    bookingTypeLabel: BOOKING_TYPE_LABEL[bookingType],
+    tags,
     date: ride.createdAt,
     scheduledAt: ride.scheduledAt || null,
     userName: user?.name || text(parcel.senderName) || 'Unknown User',
@@ -243,7 +323,7 @@ const buildSearchCondition = async (term) => {
 const baseConditionFor = (kind) => {
   if (kind === 'deliveries') return { serviceType: 'parcel' };
   if (kind === 'ongoing') return { status: { $in: ACTIVE_STATUSES } };
-  return { serviceType: { $nin: ['parcel', 'intercity'] }, adminHiddenAt: null };
+  return { serviceType: { $ne: 'parcel' }, adminHiddenAt: null };
 };
 
 /** Everything except the tab, so the tab badges can count against the same filters. */
@@ -253,8 +333,20 @@ const buildFilterConditions = async (kind, query) => {
   const payment = text(query.payment).toLowerCase();
   if (payment === 'cash' || payment === 'online') conditions.push({ paymentMethod: payment });
 
-  const serviceType = text(query.serviceType).toLowerCase();
-  if (kind === 'ongoing' && CODE_PREFIX[serviceType]) conditions.push({ serviceType });
+  const bookingType = text(query.bookingType || query.serviceType).toLowerCase();
+  if (bookingType === 'outstation' || bookingType === 'intercity') conditions.push({ serviceType: 'intercity' });
+  else if (bookingType === 'parcel') conditions.push({ serviceType: 'parcel' });
+  else if (bookingType === 'airport' || bookingType === 'daily_cab') {
+    const near = airportCondition(await activeAirports());
+    conditions.push({ serviceType: 'ride' }, bookingType === 'airport' ? near : { $nor: [near] });
+  } else if (bookingType === 'ride') conditions.push({ serviceType: 'ride' });
+
+  const scope = text(query.scope).toLowerCase();
+  if (kind === 'deliveries' && (scope === 'city' || scope === 'outstation')) {
+    conditions.push(scope === 'outstation'
+      ? { $or: [{ 'parcel.deliveryScope': 'outstation' }, { 'parcel.isOutstation': true }] }
+      : { 'parcel.deliveryScope': { $ne: 'outstation' }, 'parcel.isOutstation': { $ne: true } });
+  }
 
   const status = text(query.status).toLowerCase();
   if (TAB_STATUS[status]) conditions.push(TAB_STATUS[status]);
@@ -284,8 +376,9 @@ export const listAdminRides = async (kind, query = {}) => {
 
   const filters = await buildFilterConditions(kind, query);
   const scoped = (extra) => ({ $and: extra ? [...filters, extra] : filters });
+  const airports = await activeAirports();
 
-  const [rides, total, ...tabCounts] = await Promise.all([
+  const [rides, total, totalsByMethod, ...tabCounts] = await Promise.all([
     Ride.find(scoped(TAB_STATUS[tab]))
       .sort({ createdAt: -1, _id: -1 })
       .skip((page - 1) * limit)
@@ -295,11 +388,24 @@ export const listAdminRides = async (kind, query = {}) => {
       .populate('driverId', DRIVER_SELECT)
       .lean(),
     Ride.countDocuments(scoped(TAB_STATUS[tab])),
+    // What the filtered completed rides brought in, split by how it was paid.
+    Ride.aggregate([
+      { $match: scoped(TAB_STATUS.completed) },
+      { $group: { _id: '$paymentMethod', fare: { $sum: '$fare' }, rides: { $sum: 1 } } },
+    ]),
     ...tabs.map((key) => Ride.countDocuments(scoped(TAB_STATUS[key]))),
   ]);
 
+  const byMethod = Object.fromEntries(totalsByMethod.map((row) => [row._id === 'online' ? 'online' : 'cash', row]));
+  const summary = {
+    completedRides: (byMethod.cash?.rides || 0) + (byMethod.online?.rides || 0),
+    completedFare: money((byMethod.cash?.fare || 0) + (byMethod.online?.fare || 0)),
+    cashFare: money(byMethod.cash?.fare),
+    onlineFare: money(byMethod.online?.fare),
+  };
+
   return {
-    results: rides.map(toRideRow),
+    results: rides.map((ride) => toRideRow(ride, airports)),
     paginator: {
       current_page: page,
       per_page: limit,
@@ -307,6 +413,7 @@ export const listAdminRides = async (kind, query = {}) => {
       last_page: Math.max(1, Math.ceil(total / limit)),
     },
     counts: Object.fromEntries(tabs.map((key, index) => [key, tabCounts[index]])),
+    summary,
     tab,
   };
 };
@@ -367,7 +474,7 @@ export const getAdminRideDetails = async (rideId) => {
     throw new ApiError(404, 'Ride not found');
   }
 
-  const row = toRideRow(ride);
+  const row = toRideRow(ride, await activeAirports());
   const userId = ride.userId?._id;
   const driverId = ride.driverId?._id;
 

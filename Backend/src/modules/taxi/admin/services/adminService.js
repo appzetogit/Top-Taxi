@@ -8912,10 +8912,31 @@ export const updateBusService = async (id, payload = {}, options = {}) => {
     };
   };
 
-  export const listTourBookings = async ({ status, packageId } = {}) => {
+  // Filters: status (payment state), bookingStatus (confirmed/completed/...), packageId,
+  // search (code, customer name or phone, destination) and from/to (booking date, YYYY-MM-DD, IST).
+  export const listTourBookings = async ({ status, bookingStatus, packageId, search, from, to } = {}) => {
     const filter = {};
     if (status) filter.paymentStatus = status;
+    if (bookingStatus) filter.status = bookingStatus;
     if (packageId && mongoose.Types.ObjectId.isValid(packageId)) filter.packageId = toObjectId(packageId);
+
+    const term = String(search || '').trim();
+    if (term) {
+      const regex = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      filter.$or = [{ bookingCode: regex }, { customerName: regex }, { customerPhone: regex }, { 'packageSnapshot.destination': regex }];
+    }
+
+    const istDay = (value, endOfDay) => {
+      const raw = String(value || '').trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
+      const date = new Date(`${raw}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}+05:30`);
+      return Number.isNaN(date.getTime()) ? null : date;
+    };
+    const fromDate = istDay(from, false);
+    const toDate = istDay(to, true);
+    if (fromDate || toDate) {
+      filter.createdAt = { ...(fromDate ? { $gte: fromDate } : {}), ...(toDate ? { $lte: toDate } : {}) };
+    }
 
     const items = await TourBooking.find(filter).sort({ createdAt: -1 }).limit(500).lean();
     const serialized = items.map((item) => serializeTourBooking(item));

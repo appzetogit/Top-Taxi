@@ -10,6 +10,17 @@ const TABS = [
   { key: 'on_trip', label: 'On Trip' },
 ];
 
+const TYPE_FILTER = {
+  key: 'bookingType',
+  label: 'Booking type',
+  options: [
+    { value: '', label: 'All types' },
+    { value: 'daily_cab', label: 'Daily Cab' },
+    { value: 'outstation', label: 'Outstation' },
+    { value: 'airport', label: 'Airport Taxi' },
+  ],
+};
+
 const LIVE = ['UPCOMING', 'ACCEPTED', 'ONGOING'];
 
 // A ride still searching or on its way is cancelled first; the ride record is
@@ -25,6 +36,7 @@ const Trips = () => (
     breadcrumb={['Operations', 'Ride Requests']}
     tabs={TABS}
     loadRows={adminService.getRideRequests}
+    typeFilter={TYPE_FILTER}
     emptyText="No ride requests found."
     onDelete={(row) => adminService.deleteTripRequest(row.id)}
     deleteQuestion={deleteQuestion}

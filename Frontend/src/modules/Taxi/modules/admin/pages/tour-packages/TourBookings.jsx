@@ -6,6 +6,14 @@ import { adminCardClass, adminInputClass, adminLabelClass, adminPageContainerCla
 import { describeApiError } from '../../../../shared/utils/apiError';
 
 const STATUS_OPTIONS = ['', 'pending', 'partial', 'paid', 'failed', 'expired'];
+const BOOKING_STATUS_OPTIONS = [
+  { value: '', label: 'All bookings' },
+  { value: 'confirmed', label: 'Confirmed' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'cancelled', label: 'Cancelled' },
+  { value: 'pending_payment', label: 'Awaiting payment' },
+  { value: 'expired', label: 'Expired' },
+];
 
 const PAYMENT_STATUS_BADGE = {
   pending: 'bg-amber-50 text-amber-700',
@@ -382,6 +390,11 @@ const TourBookings = () => {
   const [summary, setSummary] = useState({ totalBookings: 0, totalCollected: 0, totalOutstanding: 0 });
   const [statusFilter, setStatusFilter] = useState('');
   const [packageFilter, setPackageFilter] = useState('');
+  const [bookingStatusFilter, setBookingStatusFilter] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [notice, setNotice] = useState('');
@@ -406,6 +419,11 @@ const TourBookings = () => {
   }, [loadPackages, refreshKey]);
 
   useEffect(() => {
+    const timer = setTimeout(() => setSearch(searchInput.trim()), 350);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  useEffect(() => {
     let mounted = true;
     setLoading(true);
     setErrorMessage('');
@@ -413,6 +431,10 @@ const TourBookings = () => {
     const params = {};
     if (statusFilter) params.status = statusFilter;
     if (packageFilter) params.packageId = packageFilter;
+    if (bookingStatusFilter) params.bookingStatus = bookingStatusFilter;
+    if (search) params.search = search;
+    if (fromDate) params.from = fromDate;
+    if (toDate) params.to = toDate;
 
     adminService
       .getTourBookings(params)
@@ -433,7 +455,7 @@ const TourBookings = () => {
     return () => {
       mounted = false;
     };
-  }, [statusFilter, packageFilter, refreshKey]);
+  }, [statusFilter, packageFilter, bookingStatusFilter, search, fromDate, toDate, refreshKey]);
 
   const refresh = () => setRefreshKey((key) => key + 1);
 
@@ -498,7 +520,16 @@ const TourBookings = () => {
       </div>
 
       <div className={`${adminCardClass} mb-6`}>
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="xl:col-span-3">
+            <label className={adminLabelClass}>Search</label>
+            <input
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Booking code, customer name, phone or destination"
+              className={adminInputClass}
+            />
+          </div>
           <div>
             <label className={adminLabelClass}>Package</label>
             <select value={packageFilter} onChange={(e) => setPackageFilter(e.target.value)} className={adminInputClass}>
@@ -516,6 +547,22 @@ const TourBookings = () => {
               ))}
             </select>
           </div>
+          <div>
+            <label className={adminLabelClass}>Booking Status</label>
+            <select value={bookingStatusFilter} onChange={(e) => setBookingStatusFilter(e.target.value)} className={adminInputClass}>
+              {BOOKING_STATUS_OPTIONS.map((option) => (
+                <option key={option.value || 'all'} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={adminLabelClass}>Booked from</label>
+            <input type="date" value={fromDate} max={toDate || undefined} onChange={(e) => setFromDate(e.target.value)} className={adminInputClass} />
+          </div>
+          <div>
+            <label className={adminLabelClass}>Booked to</label>
+            <input type="date" value={toDate} min={fromDate || undefined} onChange={(e) => setToDate(e.target.value)} className={adminInputClass} />
+          </div>
         </div>
       </div>
 
@@ -532,7 +579,11 @@ const TourBookings = () => {
       {loading ? (
         <div className={adminCardClass}>Loading tour bookings...</div>
       ) : bookings.length === 0 ? (
-        <div className={adminCardClass}>No tour bookings found.</div>
+        <div className={adminCardClass}>
+          {statusFilter || packageFilter || bookingStatusFilter || search || fromDate || toDate
+            ? 'No tour bookings match these filters.'
+            : 'No tour bookings found.'}
+        </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
           <table className="w-full min-w-[1180px] text-sm">

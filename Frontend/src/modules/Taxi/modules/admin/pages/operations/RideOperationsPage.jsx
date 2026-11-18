@@ -44,10 +44,11 @@ const PAYMENT_STATE_STYLES = {
   FAILED: 'text-rose-600',
 };
 
-const SERVICE_STYLES = {
-  ride: 'bg-slate-100 text-slate-600',
+const TYPE_STYLES = {
+  daily_cab: 'bg-slate-100 text-slate-600',
+  outstation: 'bg-cyan-100 text-cyan-700',
+  airport: 'bg-sky-100 text-sky-700',
   parcel: 'bg-violet-100 text-violet-700',
-  intercity: 'bg-cyan-100 text-cyan-700',
 };
 
 const money = (value) => `₹${Number(value || 0).toFixed(2)}`;
@@ -130,6 +131,29 @@ const Card = ({ title, children, tone = 'text-slate-400' }) => (
   </section>
 );
 
+const SummaryCard = ({ label, value, tone = 'text-slate-900', hint }) => (
+  <div className="rounded-xl border border-slate-200 bg-white px-5 py-4">
+    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</p>
+    <p className={`mt-1 text-2xl font-black ${tone}`}>{value}</p>
+    {hint && <p className="mt-0.5 text-[11px] font-semibold text-slate-400">{hint}</p>}
+  </div>
+);
+
+const TypeBadge = ({ row }) => (
+  <div>
+    <span className={`inline-block rounded px-2 py-0.5 text-[10px] font-bold uppercase ${TYPE_STYLES[row.bookingType] || TYPE_STYLES.daily_cab}`}>
+      {row.bookingTypeLabel || row.serviceLabel}
+    </span>
+    {(row.tags || []).length > 0 && (
+      <div className="mt-1 flex flex-wrap gap-1">
+        {row.tags.map((tag) => (
+          <span key={tag} className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">{tag}</span>
+        ))}
+      </div>
+    )}
+  </div>
+);
+
 /* ------------------------------------------------------------------ drawer */
 
 const RideDetailsDrawer = ({ rideId, onClose }) => {
@@ -173,7 +197,7 @@ const RideDetailsDrawer = ({ rideId, onClose }) => {
       >
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-5 py-4">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{ride?.serviceLabel || 'Booking'} details</p>
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{ride?.bookingTypeLabel || 'Booking'} details</p>
             <h2 className="text-lg font-black text-slate-900">{ride?.requestId || '...'}</h2>
           </div>
           <div className="flex items-center gap-3">
@@ -194,6 +218,13 @@ const RideDetailsDrawer = ({ rideId, onClose }) => {
         {ride && (
           <div className="space-y-4 p-5">
             <Card title="Trip">
+              {ride.tags?.length > 0 && (
+                <div className="mb-3 flex flex-wrap gap-1.5">
+                  {ride.tags.map((tag) => (
+                    <span key={tag} className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700">{tag}</span>
+                  ))}
+                </div>
+              )}
               <div className="space-y-3">
                 <div className="flex items-start gap-3">
                   <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-500" />
@@ -457,7 +488,7 @@ const Pagination = ({ paginator, onPage }) => {
 
 /* -------------------------------------------------------------------- page */
 
-const EMPTY_FILTERS = { from: '', to: '', payment: '', serviceType: '' };
+const EMPTY_FILTERS = { from: '', to: '', payment: '', type: '' };
 const REFRESH_MS = 15000;
 
 const RideOperationsPage = ({
@@ -468,7 +499,9 @@ const RideOperationsPage = ({
   searchPlaceholder = 'Search id, rider, driver, address',
   emptyText = 'No bookings found.',
   autoRefresh = false,
-  serviceFilter = false,
+  // { key, label, options: [{ value, label }] }: which server filter the type dropdown drives.
+  typeFilter = null,
+  summary = 'revenue',
   extraColumns = [],
   onDelete,
   deleteQuestion,
@@ -504,7 +537,8 @@ const RideOperationsPage = ({
       const requestId = ++requestRef.current;
       if (!quiet) setLoading(true);
       try {
-        const response = await loadRows({ page, limit, tab, search, ...filters });
+        const { type, ...rest } = filters;
+        const response = await loadRows({ page, limit, tab, search, ...rest, ...(typeFilter && type ? { [typeFilter.key]: type } : {}) });
         if (requestId !== requestRef.current) return;
         const payload = response?.data || {};
         setData({ results: payload.results || [], paginator: payload.paginator || {}, counts: payload.counts || {} });
@@ -517,7 +551,7 @@ const RideOperationsPage = ({
         if (requestId === requestRef.current) setLoading(false);
       }
     },
-    [loadRows, page, limit, tab, search, filters],
+    [loadRows, page, limit, tab, search, filters, typeFilter],
   );
 
   React.useEffect(() => {
@@ -561,6 +595,23 @@ const RideOperationsPage = ({
             <span className="text-slate-500">{breadcrumb[1]}</span>
           </div>
         </div>
+
+        {summary === 'revenue' ? (
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+            <SummaryCard label="Bookings" value={data.counts?.all ?? 0} hint="matching the filters" />
+            <SummaryCard label="Completed" value={data.summary?.completedRides ?? 0} tone="text-teal-600" />
+            <SummaryCard label="Revenue" value={money(data.summary?.completedFare)} tone="text-emerald-600" hint="completed trips" />
+            <SummaryCard label="Cash" value={money(data.summary?.cashFare)} tone="text-orange-600" />
+            <SummaryCard label="Online" value={money(data.summary?.onlineFare)} tone="text-indigo-600" />
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <SummaryCard label="Active now" value={data.counts?.all ?? 0} />
+            <SummaryCard label="Searching driver" value={data.counts?.upcoming ?? 0} tone="text-amber-600" />
+            <SummaryCard label="Driver on the way" value={data.counts?.accepted ?? 0} tone="text-emerald-600" />
+            <SummaryCard label="Trip started" value={data.counts?.ongoing ?? 0} tone="text-blue-600" />
+          </div>
+        )}
 
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="space-y-4 border-b border-slate-100 px-6 py-5">
@@ -630,6 +681,27 @@ const RideOperationsPage = ({
               </div>
             </div>
 
+            {typeFilter && (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[11px] font-black uppercase tracking-widest text-slate-400">{typeFilter.label}</span>
+                {typeFilter.options.map((option) => {
+                  const active = filters.type === option.value;
+                  return (
+                    <button
+                      key={option.value || 'all'}
+                      type="button"
+                      onClick={() => setFilter('type', option.value)}
+                      className={`rounded-full border px-3.5 py-1.5 text-[12px] font-bold transition-colors ${
+                        active ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
             {showFilters && (
               <div className="flex flex-wrap items-end gap-4 rounded-lg border border-slate-100 bg-slate-50 p-4">
                 <label className="text-[12px] font-bold text-slate-500">
@@ -648,14 +720,13 @@ const RideOperationsPage = ({
                     <option value="online">Online</option>
                   </select>
                 </label>
-                {serviceFilter && (
+                {typeFilter && (
                   <label className="text-[12px] font-bold text-slate-500">
-                    Service
-                    <select value={filters.serviceType} onChange={(e) => setFilter('serviceType', e.target.value)} className="mt-1 block h-10 rounded-md border border-slate-200 bg-white px-3 text-[13px] font-medium text-slate-800">
-                      <option value="">All</option>
-                      <option value="ride">Ride</option>
-                      <option value="parcel">Parcel delivery</option>
-                      <option value="intercity">Intercity</option>
+                    {typeFilter.label}
+                    <select value={filters.type} onChange={(e) => setFilter('type', e.target.value)} className="mt-1 block h-10 rounded-md border border-slate-200 bg-white px-3 text-[13px] font-medium text-slate-800">
+                      {typeFilter.options.map((option) => (
+                        <option key={option.value || 'all'} value={option.value}>{option.label}</option>
+                      ))}
                     </select>
                   </label>
                 )}
@@ -704,9 +775,7 @@ const RideOperationsPage = ({
                     <tr key={row.id} onClick={() => setSelectedId(row.id)} className="cursor-pointer align-top transition-colors hover:bg-slate-50">
                       <td className="px-5 py-4">
                         <p className="whitespace-nowrap text-[13px] font-bold text-indigo-700">{row.requestId}</p>
-                        <span className={`mt-1 inline-block rounded px-2 py-0.5 text-[10px] font-bold uppercase ${SERVICE_STYLES[row.serviceType] || SERVICE_STYLES.ride}`}>
-                          {row.serviceLabel}
-                        </span>
+                        <div className="mt-1"><TypeBadge row={row} /></div>
                       </td>
                       <td className="whitespace-nowrap px-5 py-4 text-[13px] font-medium text-slate-600">
                         {formatTime(row.date)}
