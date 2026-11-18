@@ -100,7 +100,11 @@ export async function calculateCheckoutPricing(userId, dto = {}) {
     const items = Array.isArray(dto.items) ? dto.items : [];
     if (!items.length) throw new ValidationError('Checkout must contain at least one item');
 
-    const fulfilmentMode = dto.fulfilmentMode === 'standard' ? 'standard' : 'quick';
+    // Every Shop order is delivered by a gogo rider (no courier). The
+    // storefront the customer checked out from is kept only to clear the
+    // right cart afterwards.
+    const cartMode = dto.fulfilmentMode === 'standard' ? 'shop' : 'quick';
+    const fulfilmentMode = 'quick';
     const deliveryAddress = normalizeDeliveryAddress(dto.deliveryAddress || dto.address || {});
     const deliveryMode = fulfilmentMode === 'quick' ? 'quick' : 'basic';
     // Quote what can be ordered: Quick is bounded by delivery zones (the same
@@ -196,6 +200,7 @@ export async function calculateCheckoutPricing(userId, dto = {}) {
     const sum = (key) => round2(childPricings.reduce((acc, c) => acc + (Number(c.pricing[key]) || 0), 0));
     return {
         fulfilmentMode,
+        cartMode,
         subtotal: sum('subtotal'),
         tax: sum('tax'),
         packagingFee: sum('packagingFee'),
@@ -389,7 +394,7 @@ export async function createSplitCheckout(userId, dto = {}) {
     // Only the storefront that was checked out; the other mode's cart stays.
     await UserCart.deleteOne({
         userId: userOid,
-        mode: quote.fulfilmentMode === 'quick' ? 'quick' : { $in: ['shop', null] },
+        mode: (quote.cartMode || quote.fulfilmentMode) === 'quick' ? 'quick' : { $in: ['shop', null] },
     });
     const fresh = await Checkout.findById(checkout._id).lean();
     return {
