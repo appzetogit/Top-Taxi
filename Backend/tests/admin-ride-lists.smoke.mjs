@@ -74,7 +74,8 @@ const main = async () => {
     })])),
     cancelled: mk({ status: 'cancelled', liveStatus: 'cancelled', driverId: null, cancelled_by: 'rider', cancellation_reason: 'changed plan', cancellation_time: daysAgo(1) }),
     searching: mk({ status: 'searching', liveStatus: 'searching', driverId: null, pickupAddress: 'Koramangala Searching St' }),
-    accepted: mk({ status: 'accepted', liveStatus: 'arriving', driverId: drv, paymentMethod: 'online' }),
+    // booked from the Home "Outstation" tile: serviceType stays ride, transport_type is intercity
+    accepted: mk({ status: 'accepted', liveStatus: 'arriving', driverId: drv, paymentMethod: 'online', transport_type: 'intercity' }),
     ongoing: mk({ status: 'ongoing', liveStatus: 'started', driverId: drv }),
     parcelDone: mk({ serviceType: 'parcel', userId: ravi, driverId: drv, parcel: { category: 'Documents', senderName: 'Sunil Sender', receiverName: 'Rekha Receiver', receiverMobile: '9333333333' }, pickupAddress: 'Indiranagar', dropAddress: 'Whitefield' }),
     parcelOngoing: mk({ serviceType: 'parcel', userId: ravi, status: 'ongoing', liveStatus: 'started', driverId: drv }),
@@ -175,9 +176,10 @@ const main = async () => {
 
   await check('booking type: outstation, airport and daily cab are told apart', async () => {
     const outstation = await listRideRequests({ bookingType: 'outstation' });
-    assert.equal(outstation.paginator.total, 1);
-    assert.equal(outstation.results[0].bookingTypeLabel, 'Outstation');
-    assert.equal(outstation.results[0].routeLabel, 'Bengaluru -> Mysuru');
+    assert.equal(outstation.paginator.total, 2); // the Intercity-screen booking and the Home-tile one
+    assert.ok(outstation.results.every((r) => r.bookingTypeLabel === 'Outstation'));
+    assert.equal(outstation.results.find((r) => r.routeLabel).routeLabel, 'Bengaluru -> Mysuru');
+    assert.ok(outstation.results.some((r) => r.id === String(ids.accepted)));
 
     const airport = await listRideRequests({ bookingType: 'airport', limit: 50 });
     assert.equal(airport.paginator.total, 2); // one by boundary, one by the 3 km fallback
@@ -185,7 +187,7 @@ const main = async () => {
     assert.deepEqual(airport.results.map((r) => r.dropLabel + '|' + r.pickupLabel).sort().map((x) => x.includes('KIAL') || x.includes('Goa airport')), [true, true]);
 
     const cab = await listRideRequests({ bookingType: 'daily_cab', limit: 50 });
-    assert.equal(cab.paginator.total, 29); // everything else that is a city ride
+    assert.equal(cab.paginator.total, 28); // everything else that is a city ride
     assert.ok(cab.results.every((r) => r.bookingType === 'daily_cab'));
     assert.equal(cab.paginator.total + airport.paginator.total + outstation.paginator.total, 32);
     // tab counts follow the type filter
@@ -214,9 +216,9 @@ const main = async () => {
   });
 
   await check('ongoing: filter by booking type, airport included', async () => {
-    assert.equal((await listOngoingRides({ bookingType: 'outstation' })).paginator.total, 1);
+    assert.equal((await listOngoingRides({ bookingType: 'outstation' })).paginator.total, 2);
     assert.equal((await listOngoingRides({ bookingType: 'parcel' })).paginator.total, 2);
-    assert.equal((await listOngoingRides({ bookingType: 'daily_cab' })).paginator.total, 3);
+    assert.equal((await listOngoingRides({ bookingType: 'daily_cab' })).paginator.total, 2);
     assert.equal((await listOngoingRides({ bookingType: 'airport' })).paginator.total, 0);
   });
 

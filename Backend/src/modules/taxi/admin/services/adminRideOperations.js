@@ -14,7 +14,9 @@
  *
  * A ride's "booking type" (what the admin filters by):
  *   daily_cab   - a city ride
- *   outstation  - an intercity ride
+ *   outstation  - an intercity ride: either booked through the Intercity screens
+ *                 (serviceType intercity) or from the Outstation tile on Home, which
+ *                 leaves serviceType as ride but stores transport_type intercity
  *   airport     - a city ride that starts or ends inside an airport's boundary
  *                 (the ride record carries no airport flag, so it is read from the
  *                 airport zones the admin drew)
@@ -87,9 +89,13 @@ const airportCondition = (airports) => {
   return clauses.length ? { $or: clauses } : { _id: { $in: [] } };
 };
 
+const isOutstationRide = (ride) => ride.serviceType === 'intercity' || text(ride.transport_type).toLowerCase() === 'intercity';
+
+const OUTSTATION_CONDITION = { $or: [{ serviceType: 'intercity' }, { transport_type: 'intercity' }] };
+
 const bookingTypeOf = (ride, airports) => {
   if (ride.serviceType === 'parcel') return 'parcel';
-  if (ride.serviceType === 'intercity') return 'outstation';
+  if (isOutstationRide(ride)) return 'outstation';
   return inAirport(ride.pickupLocation, airports) || inAirport(ride.dropLocation, airports) ? 'airport' : 'daily_cab';
 };
 
@@ -334,12 +340,12 @@ const buildFilterConditions = async (kind, query) => {
   if (payment === 'cash' || payment === 'online') conditions.push({ paymentMethod: payment });
 
   const bookingType = text(query.bookingType || query.serviceType).toLowerCase();
-  if (bookingType === 'outstation' || bookingType === 'intercity') conditions.push({ serviceType: 'intercity' });
+  if (bookingType === 'outstation' || bookingType === 'intercity') conditions.push(OUTSTATION_CONDITION);
   else if (bookingType === 'parcel') conditions.push({ serviceType: 'parcel' });
   else if (bookingType === 'airport' || bookingType === 'daily_cab') {
     const near = airportCondition(await activeAirports());
-    conditions.push({ serviceType: 'ride' }, bookingType === 'airport' ? near : { $nor: [near] });
-  } else if (bookingType === 'ride') conditions.push({ serviceType: 'ride' });
+    conditions.push({ serviceType: 'ride', transport_type: { $ne: 'intercity' } }, bookingType === 'airport' ? near : { $nor: [near] });
+  } else if (bookingType === 'ride') conditions.push({ serviceType: 'ride', transport_type: { $ne: 'intercity' } });
 
   const scope = text(query.scope).toLowerCase();
   if (kind === 'deliveries' && (scope === 'city' || scope === 'outstation')) {
