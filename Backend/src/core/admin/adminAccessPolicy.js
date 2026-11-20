@@ -336,7 +336,7 @@ const TAXI_ADMIN_RULES = [
   rule(/^\/admin\/(drivers|driver-ratings|driver-subscriptions)(\/|$)/, 'delivery'),
   rule(/^\/admin\/(owner-management|types|service-stores|pooling-vehicles|pooling-routes|bus-services|preferences|goods-types)(\/|$)/, 'fleet'),
   rule(/^\/admin\/(zones|service-locations|airports)(\/|$)/, 'zones'),
-  rule(/^\/admin\/(trips|ride-requests|ongoing-rides|deliveries|rental-quote-requests|rental-booking-requests|rental-tracking|pooling-bookings|bus-bookings)(\/|$)/, 'orders'),
+  rule(/^\/admin\/(trips|ride-requests|admin-bookings|ongoing-rides|deliveries|rental-quote-requests|rental-booking-requests|rental-tracking|pooling-bookings|bus-bookings)(\/|$)/, 'orders'),
   rule(/^\/admin\/(safety|chat|support)(\/|$)/, 'support'),
   rule(/^\/admin\/(referrals|referral)(\/|$)/, 'referrals'),
   rule(/^\/admin\/(promotions|promos?|coupons|banners)(\/|$)/, 'promotions'),

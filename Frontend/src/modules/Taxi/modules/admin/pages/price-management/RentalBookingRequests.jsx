@@ -344,6 +344,11 @@ const RentalBookingRequests = () => {
                       <tr key={id} className="border-b border-slate-50 last:border-0">
                         <td className="px-4 py-4">
                           <p className="text-sm font-black text-slate-900">{item.bookingReference || 'Not generated'}</p>
+                          {item.adminBooking ? (
+                            <span className="mt-1 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                              Admin booking · {item.adminBooking.confirmation}
+                            </span>
+                          ) : null}
                           <p className="mt-1 text-xs font-semibold text-slate-400">{formatDateTime(item.createdAt)}</p>
                         </td>
                         <td className="px-4 py-4">

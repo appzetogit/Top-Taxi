@@ -262,6 +262,23 @@ const RideDetailsDrawer = ({ rideId, onClose }) => {
               </div>
             </Card>
 
+            {ride.adminBooking ? (
+              <Card title="Admin booking" tone="text-amber-600">
+                <Field label="Customer asked?">
+                  <span className="capitalize">{ride.adminBooking.confirmation === 'awaiting' ? 'Not yet (awaiting confirmation)' : ride.adminBooking.confirmation}</span>
+                </Field>
+                <Field label="Made by">{ride.adminBooking.createdByName}</Field>
+                <Field label="Made for">{[ride.adminBooking.customerName, ride.adminBooking.customerPhone].filter(Boolean).join(' · ')}</Field>
+                <Field label="Has an app account">{ride.adminBooking.registered ? 'Yes' : 'Not registered yet'}</Field>
+                <Field label="Confirmed by">{ride.adminBooking.confirmedBy === 'user' ? 'The customer' : ride.adminBooking.confirmedBy === 'admin' ? 'Admin' : ''}</Field>
+                <Field label="Cancelled by">{ride.adminBooking.cancelledBy === 'user' ? 'The customer' : ride.adminBooking.cancelledBy === 'admin' ? 'Admin' : ''}</Field>
+                <Field label="Cancel reason">{ride.adminBooking.cancelReason}</Field>
+                <Field label="Notes">{ride.adminBooking.notes}</Field>
+                <Field label="Driver note">{ride.adminBooking.activationNote}</Field>
+                <p className="mt-2 text-[11px] font-semibold text-slate-400">Confirm, cancel or give it a driver from Operations &rarr; Admin Bookings.</p>
+              </Card>
+            ) : null}
+
             <Card title="Rider">
               {ride.user ? (
                 <div>

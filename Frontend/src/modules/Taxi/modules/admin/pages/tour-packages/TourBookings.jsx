@@ -632,6 +632,11 @@ const TourBookings = () => {
                         <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase ${BOOKING_STATUS_BADGE[booking.status] || 'bg-gray-100 text-gray-500'}`}>
                           {String(booking.status || '').replace('_', ' ')}
                         </span>
+                        {booking.adminBooking ? (
+                          <p className={`mt-1 text-[10px] font-bold ${booking.adminBooking.confirmation === 'awaiting' ? 'text-amber-600' : 'text-gray-400'}`}>
+                            Admin booking · {booking.adminBooking.confirmation === 'awaiting' ? 'awaiting the customer' : booking.adminBooking.confirmation}
+                          </p>
+                        ) : null}
                       </td>
                       <td className="px-4 py-3 text-gray-500">{formatDate(booking.createdAt)}</td>
                       <td className="px-4 py-3">

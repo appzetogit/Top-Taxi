@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { asyncHandler } from '../../../../utils/asyncHandler.js';
+import { cancelMyAdminBooking, confirmMyAdminBooking } from '../controllers/adminBookingController.js';
 import { authenticateOrResolveUser } from '../../middlewares/authMiddleware.js';
 import {
   cancelMyBusBooking,
@@ -159,6 +160,10 @@ userRouter.post('/tour-bookings/:id/balance/order', authenticateOrResolveUser(['
 userRouter.post('/tour-bookings/:id/balance/verify', authenticateOrResolveUser(['user']), asyncHandler(verifyTourBalancePayment));
 userRouter.get('/tour-bookings', authenticateOrResolveUser(['user']), asyncHandler(listMyTourBookings));
 userRouter.get('/tour-bookings/:id', authenticateOrResolveUser(['user']), asyncHandler(getMyTourBookingById));
+
+// A booking an admin made for the customer: they confirm or cancel it here (kind is ride, rental or tour).
+userRouter.post('/admin-bookings/:kind/:id/confirm', authenticateOrResolveUser(['user']), asyncHandler(confirmMyAdminBooking));
+userRouter.post('/admin-bookings/:kind/:id/cancel', authenticateOrResolveUser(['user']), asyncHandler(cancelMyAdminBooking));
 
 userRouter.get('/pooling/search', authenticateOrResolveUser(['user']), asyncHandler(searchPoolingRoutes));
 userRouter.get('/pooling/routes/:id', authenticateOrResolveUser(['user']), asyncHandler(getPoolingRouteDetails));

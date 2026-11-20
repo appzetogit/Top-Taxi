@@ -290,6 +290,22 @@ export const adminService = {
   uploadImage: (image) => api.post('/admin/upload-image', { image }),
 
   /**
+   * Bookings an admin makes for a customer (daily cab, outstation, airport, parcel, rental, tour).
+   * kind is 'ride', 'rental' or 'tour'. List params: type, confirmation (awaiting|confirmed|cancelled),
+   * search, from, to, page, limit.
+   */
+  getAdminBookings: (params = {}) => api.get(`/admin/admin-bookings${rideListQuery(params)}`),
+  createAdminBooking: (payload) => api.post('/admin/admin-bookings', payload),
+  quoteAdminBooking: (payload) => api.post('/admin/admin-bookings/quote', payload),
+  confirmAdminBooking: (kind, id) => api.post(`/admin/admin-bookings/${kind}/${id}/confirm`),
+  cancelAdminBooking: (kind, id, reason) => api.post(`/admin/admin-bookings/${kind}/${id}/cancel`, { reason }),
+  getAdminBookingDrivers: (id, search = '') =>
+    api.get(`/admin/admin-bookings/ride/${id}/drivers${search ? `?search=${encodeURIComponent(search)}` : ''}`),
+  assignAdminBookingDriver: (id, driverId) => api.post(`/admin/admin-bookings/ride/${id}/assign-driver`, { driverId }),
+  unassignAdminBookingDriver: (id) => api.post(`/admin/admin-bookings/ride/${id}/unassign-driver`),
+  getGoodsTypes: () => api.get('/admin/goods-types'),
+
+  /**
    * Tour Packages
    */
   getTourPackages: () => api.get('/admin/types/tour-packages'),

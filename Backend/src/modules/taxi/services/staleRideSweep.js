@@ -22,13 +22,19 @@ const SEARCHING_MS = 30 * 60 * 1000;
 const ASSIGNED_MS = 2 * 60 * 60 * 1000;
 
 export async function sweepStaleRides(now = Date.now()) {
+  // A booking an admin made for later is judged from its pickup time, not from when
+  // it was created: it is meant to sit untouched until then.
+  const afterPickup = (ms) => ({
+    $or: [{ bookingSource: { $ne: 'admin' } }, { scheduledAt: { $lte: new Date(now - ms) } }],
+  });
   const stale = await Ride.find({
     $or: [
-      { status: RIDE_STATUS.SEARCHING, updatedAt: { $lte: new Date(now - SEARCHING_MS) } },
+      { status: RIDE_STATUS.SEARCHING, updatedAt: { $lte: new Date(now - SEARCHING_MS) }, ...afterPickup(SEARCHING_MS) },
       {
         status: RIDE_STATUS.ACCEPTED,
         liveStatus: { $in: [RIDE_LIVE_STATUS.ACCEPTED, RIDE_LIVE_STATUS.ARRIVING] },
         updatedAt: { $lte: new Date(now - ASSIGNED_MS) },
+        ...afterPickup(ASSIGNED_MS),
       },
     ],
   }).select('_id userId driverId status').limit(500).lean();

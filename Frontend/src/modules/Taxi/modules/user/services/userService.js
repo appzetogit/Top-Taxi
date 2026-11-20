@@ -37,6 +37,15 @@ export const userService = {
     const response = await api.get('/users/rental-bookings', { params });
     return response;
   },
+  // A booking Gogo support made for the customer: confirm it or cancel it (kind: ride, rental or tour).
+  confirmAdminBooking: async (kind, id) => {
+    const response = await api.post(`/users/admin-bookings/${kind}/${id}/confirm`);
+    return response;
+  },
+  cancelAdminBooking: async (kind, id, reason = '') => {
+    const response = await api.post(`/users/admin-bookings/${kind}/${id}/cancel`, { reason });
+    return response;
+  },
   getActiveRentalBooking: async () => {
     const response = await api.get('/users/rental-bookings/active');
     return response;

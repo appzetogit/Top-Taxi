@@ -34,6 +34,7 @@ import { measureTrip, measureTripRoad } from '../common/tripMeasure.js';
 
 import { taxiReferralFor } from '../../../core/referral/referralSettings.service.js';
 import { TAXI_SPECIFIC_FIRST } from '../../../core/zones/zonePriority.js';
+import { describeAdminBooking, displayStatus } from '../common/adminBookings.js';
 const clearUserActiveRideIfPresent = async (user) => {
   if (!user?.currentRideId) {
     return;
@@ -1084,7 +1085,7 @@ export const quoteRideFares = async ({
   }));
 };
 
-const buildDriverVehicleAcceptFilter = async (ride) => {
+export const buildDriverVehicleAcceptFilter = async (ride) => {
   const vehicleTypeIds = normalizeVehicleTypeIds(ride.dispatchVehicleTypeIds || [], ride.vehicleTypeId);
 
   if (vehicleTypeIds.length === 0) {
@@ -1106,8 +1107,10 @@ const buildDriverVehicleAcceptFilter = async (ride) => {
   return clauses.length > 1 ? { $or: clauses } : clauses[0];
 };
 
-const syncDeliveryWithRide = async (ride) => {
-  if (!ride || (ride.serviceType || 'ride') !== 'parcel') {
+// A parcel booked by an admin for a customer without an account has no one to
+// own a Delivery yet; it is created when the customer registers.
+export const syncDeliveryWithRide = async (ride) => {
+  if (!ride || (ride.serviceType || 'ride') !== 'parcel' || !ride.userId) {
     return null;
   }
 
@@ -1167,14 +1170,24 @@ export const createRideRecord = async ({
   userMaxBidFare,
   bidStepAmount,
   insurancePlanId = null,
+  // Set when an admin books for a customer: see common/adminBookingSchema.js.
+  adminBooking = null,
 }) => {
-  const user = await User.findById(userId);
+  /*
+   * An admin-made booking is for a customer who may not have an account yet, and
+   * it must neither replace nor be blocked by a ride the customer has open right
+   * now, so it never touches their current ride.
+   */
+  const isAdminBooking = Boolean(adminBooking);
+  const user = userId ? await User.findById(userId) : null;
 
-  if (!user) {
+  if (!user && !(isAdminBooking && !userId)) {
     throw new ApiError(404, 'User not found');
   }
 
-  await clearUserActiveRideIfPresent(user);
+  if (user && !isAdminBooking) {
+    await clearUserActiveRideIfPresent(user);
+  }
 
   /*
    * Measured here rather than read from the app: the fare is priced from the
@@ -1440,7 +1453,7 @@ export const createRideRecord = async ({
 
   const promoCode = typeof promo_code === 'string' ? promo_code.trim() : '';
   const normalizedScheduledAt = normalizeScheduledAt(scheduledAt);
-  const applicableSubscription = primaryVehicleTypeId
+  const applicableSubscription = primaryVehicleTypeId && userId
     ? await resolveApplicableUserSubscription({
       userId,
       vehicleTypeId: primaryVehicleTypeId,
@@ -1494,6 +1507,10 @@ export const createRideRecord = async ({
     throw new ApiError(400, 'Promo codes cannot be combined with subscription rides');
   }
 
+  if (isAdminBooking && promoCode) {
+    throw new ApiError(400, 'Promo codes cannot be used on a booking made by an admin');
+  }
+
   if (!promoCode) {
     const ride = await Ride.create({
       userId,
@@ -1531,11 +1548,16 @@ export const createRideRecord = async ({
       scheduledAt: normalizedScheduledAt,
       status: RIDE_STATUS.SEARCHING,
       liveStatus: RIDE_LIVE_STATUS.SEARCHING,
-      pending_cancellation_due: Number(user.pending_cancellation_due || 0),
+      pending_cancellation_due: Number(user?.pending_cancellation_due || 0),
+      ...(isAdminBooking
+        ? { bookingSource: 'admin', adminBooking: { ...adminBooking, confirmation: 'awaiting' } }
+        : {}),
     });
 
-    user.currentRideId = ride._id;
-    await user.save();
+    if (user && !isAdminBooking) {
+      user.currentRideId = ride._id;
+      await user.save();
+    }
     await syncDeliveryWithRide(ride);
 
     return ride;
@@ -1711,6 +1733,8 @@ const populateRideRealtime = async (rideId) => {
 
 export const serializeRideRealtime = (ride) => ({
   rideId: String(ride._id),
+  adminBooking: describeAdminBooking('ride', ride),
+  displayStatus: displayStatus(ride),
   room: getRideRoom(ride._id),
   deliveryId: ride.deliveryId?._id ? String(ride.deliveryId._id) : ride.deliveryId ? String(ride.deliveryId) : null,
   type: ride.serviceType || 'ride',
@@ -2028,6 +2052,8 @@ export const listRideHistoryForIdentity = async ({ role, entityId, limit = 50, p
       'insurance_fee',
       'destinationArrivedAt',
       'driverPaymentCollection',
+      'bookingSource',
+      'adminBooking',
     ].join(' '))
     .sort({ createdAt: -1, _id: -1 })
     .skip((safePage - 1) * safeLimit)
@@ -2051,6 +2077,9 @@ export const listRideHistoryForIdentity = async ({ role, entityId, limit = 50, p
   return {
     results: rides.map((ride) => ({
       rideId: String(ride._id),
+      // Set for a booking an admin made for the rider: whether they have confirmed it, and what they can do.
+      adminBooking: describeAdminBooking('ride', ride),
+      displayStatus: displayStatus(ride),
       deliveryId: ride.deliveryId?._id ? String(ride.deliveryId._id) : ride.deliveryId ? String(ride.deliveryId) : null,
       type: ride.serviceType || 'ride',
       serviceType: ride.serviceType || 'ride',
@@ -2133,7 +2162,7 @@ export const listRideHistoryForIdentity = async ({ role, entityId, limit = 50, p
   };
 };
 
-export const acceptRideAssignment = async ({ rideId, driverId }) => {
+export const acceptRideAssignment = async ({ rideId, driverId, byAdmin = false }) => {
   let lastError = null;
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -2161,7 +2190,9 @@ export const acceptRideAssignment = async ({ rideId, driverId }) => {
 
       const driverFilter = {
         _id: driverId,
-        isOnline: true,
+        // A driver accepting from their app is online; an admin assigning a booked
+        // trip may pick a driver who is not on shift yet.
+        ...(byAdmin ? {} : { isOnline: true }),
         'wallet.isBlocked': { $ne: true },
         // Suspended drivers accepted rides over the socket, which checks no approval.
         approve: { $ne: false },
@@ -2560,6 +2591,17 @@ export const updateRideLifecycle = async ({ rideId, driverId, nextStatus, paymen
 
   await ride.save();
   await syncDeliveryWithRide(ride);
+
+  // An admin-made booking leaves the customer's "current ride" alone until the trip is
+  // actually under way, so a booking made for later never blocks (or is cancelled by)
+  // whatever else they book in between.
+  if (
+    ride.bookingSource === 'admin'
+    && ride.userId
+    && [RIDE_LIVE_STATUS.ARRIVING, RIDE_LIVE_STATUS.STARTED].includes(nextStatus)
+  ) {
+    await User.updateOne({ _id: ride.userId, currentRideId: null }, { $set: { currentRideId: ride._id } });
+  }
 
   let walletUpdate = null;
 

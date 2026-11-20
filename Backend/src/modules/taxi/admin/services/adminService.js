@@ -31,6 +31,7 @@ import { PoolingVehicle } from '../models/PoolingVehicle.js';
 import { RentalVehicleType } from '../models/RentalVehicleType.js';
 import { TourPackage } from '../models/TourPackage.js';
 import { TourBooking } from '../../user/models/TourBooking.js';
+import { describeAdminBooking, displayStatus, effectiveConfirmation } from '../../common/adminBookings.js';
 import {
   TOUR_MANUAL_PAYMENT_MODES,
   deriveTourPaymentState,
@@ -1289,6 +1290,8 @@ const serializeRentalQuoteRequest = (item = {}) => ({
 });
 
 const serializeRentalBookingRequest = (item = {}) => ({
+  adminBooking: describeAdminBooking('rental', item, { audience: 'admin' }),
+  displayStatus: displayStatus(item),
   id: String(item._id || item.id || ''),
   _id: item._id,
   bookingReference: item.bookingReference || '',
@@ -8905,8 +8908,11 @@ export const updateBusService = async (id, payload = {}, options = {}) => {
       balancePaymentStatus: item.balancePaymentStatus || 'not_required',
       payments,
       status: item.status || 'pending_payment',
+      // A booking an admin made and the customer has not agreed to yet cannot be marked done.
+      adminBooking: describeAdminBooking('tour', item, { audience: 'admin' }),
+      displayStatus: displayStatus(item),
       canAddPayment: item.status === 'confirmed' && balanceAmount > 0,
-      canComplete: item.status === 'confirmed' && balanceAmount <= 0,
+      canComplete: item.status === 'confirmed' && balanceAmount <= 0 && effectiveConfirmation(item) !== 'awaiting',
       completedAt: item.completedAt || null,
       createdAt: item.createdAt,
     };
@@ -9076,6 +9082,16 @@ export const updateBusService = async (id, payload = {}, options = {}) => {
         upfrontPaymentSnapshot: { paymentMode: upfront.paymentMode, percentage: upfront.percentage },
         upfrontRequiredAmount,
         status: 'confirmed',
+        // Seats are held now so nobody else can take them, but the booking is not final
+        // until the customer agrees to it: see common/adminBookings.js.
+        adminBooking: {
+          createdBy: adminId,
+          createdByName: currentAdmin?.name || '',
+          bookingType: 'tour',
+          customerPhone,
+          customerName,
+          notes: String(payload.notes || '').trim().slice(0, 500),
+        },
         payment: { provider: 'manual', amount: 0, status: 'created' },
         manualPayments,
         ...state,
@@ -9087,6 +9103,12 @@ export const updateBusService = async (id, payload = {}, options = {}) => {
       await adjustTourSeats(packageId, departureId, -personCount).catch(() => {});
       throw error;
     }
+  };
+
+  export const getTourBookingById = async (id) => {
+    const booking = await TourBooking.findById(id).lean();
+    if (!booking) throw new ApiError(404, 'Tour booking not found');
+    return serializeTourBooking(booking);
   };
 
   export const recordTourBookingPayment = async (id, payload = {}, currentAdmin = null) => {
@@ -9151,6 +9173,9 @@ export const updateBusService = async (id, payload = {}, options = {}) => {
     if (!booking) throw new ApiError(404, 'Tour booking not found');
     if (booking.status === 'completed') return serializeTourBooking(booking);
     if (booking.status !== 'confirmed') throw new ApiError(409, 'Only a confirmed booking can be marked done');
+    if (effectiveConfirmation(booking) === 'awaiting') {
+      throw new ApiError(409, 'The customer has not confirmed this booking yet. Confirm it first.');
+    }
 
     const balanceDue = getTourBalanceDue(booking);
     if (balanceDue > 0) {

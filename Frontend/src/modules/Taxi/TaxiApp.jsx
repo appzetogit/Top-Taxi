@@ -188,6 +188,7 @@ const AdminChat = lazy(() => import('./modules/admin/pages/operations/Chat'));
 const AdminTrips = lazy(() => import('./modules/admin/pages/operations/Trips'));
 const AdminDeliveries = lazy(() => import('./modules/admin/pages/operations/Deliveries'));
 const AdminOngoing = lazy(() => import('./modules/admin/pages/operations/Ongoing'));
+const AdminBookings = lazy(() => import('./modules/admin/pages/admin-bookings/AdminBookings'));
 const AdminWalletPayment = lazy(() => import('./modules/admin/pages/wallet/WalletPayment'));
 const AdminUserList = lazy(() => import('./modules/admin/pages/users/UserList'));
 const AdminUserCreate = lazy(() => import('./modules/admin/pages/users/UserCreate'));
@@ -1139,6 +1140,7 @@ function TaxiApp() {
               <Route path="trips" element={<AdminTrips />} />
               <Route path="deliveries" element={<AdminDeliveries />} />
               <Route path="ongoing" element={<AdminOngoing />} />
+              <Route path="admin-bookings" element={<AdminBookings />} />
               <Route path="bus-service" element={<AdminBusServiceManager basePath="/taxi/admin/bus-service" />} />
               <Route path="bus-service/create" element={<AdminBusServiceManager mode="create" basePath="/taxi/admin/bus-service" />} />
               <Route path="bus-service/edit/:id" element={<AdminBusServiceManager mode="edit" basePath="/taxi/admin/bus-service" />} />

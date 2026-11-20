@@ -134,14 +134,18 @@ export const normalizeRide = (ride) => {
     'Driver assigned',
   );
   const vehicle = ride.driver?.vehicleType || ride.vehicleIconType || 'Ride';
-  const status = formatStatus(ride.status || ride.liveStatus);
+  // A booking Gogo support made for the customer reads "awaiting" until they (or support) confirm it.
+  const adminBooking = ride?.adminBooking || null;
+  const status = adminBooking?.confirmation === 'awaiting' ? 'Awaiting confirmation' : formatStatus(ride.status || ride.liveStatus);
   const serviceType = String(ride.serviceType || ride.type || 'ride').toLowerCase();
   const type = serviceType === 'parcel' ? 'parcel' : 'ride';
   const pickup = ride.pickupAddress || coordLabel(ride.pickupLocation, 'Pickup');
   const drop = ride.dropAddress || coordLabel(ride.dropLocation, 'Drop');
   const isScheduled = Boolean(ride?.scheduledAt);
   const isOutstation = serviceType === 'intercity' || Boolean(ride?.parcel?.isOutstation) || String(ride?.parcel?.deliveryScope || '').toLowerCase() === 'outstation';
-  const title = type === 'parcel'
+  const title = adminBooking
+    ? `${adminBooking.bookingTypeLabel || (type === 'parcel' ? 'Parcel' : 'Ride')} booked for you`
+    : type === 'parcel'
     ? (isScheduled ? 'Scheduled parcel' : isOutstation ? 'Outstation parcel' : status === 'Searching' ? 'Parcel request' : 'Parcel delivery')
     : isScheduled
       ? `Scheduled ride with ${driverName}`
@@ -160,9 +164,12 @@ export const normalizeRide = (ride) => {
     statusTone: getStatusTone(status),
     price: Number(ride.fare || 0).toFixed(0),
     ride,
+    adminBooking,
     vehicle: type === 'parcel' ? 'Parcel' : vehicle,
     driverName,
-    eyebrow: isScheduled
+    eyebrow: adminBooking
+      ? 'Booked by Gogo'
+      : isScheduled
       ? 'Scheduled booking'
       : isOutstation
         ? 'Outstation trip'
@@ -243,7 +250,8 @@ export const normalizePoolingBooking = (booking) => {
 
 export const normalizeTourBooking = (booking) => {
   const destination = pickFirstString(booking?.packageSnapshot?.destination, 'Tour');
-  const status = formatStatus(booking?.status || 'pending_payment');
+  const adminBooking = booking?.adminBooking || null;
+  const status = adminBooking?.confirmation === 'awaiting' ? 'Awaiting confirmation' : formatStatus(booking?.status || 'pending_payment');
 
   return {
     id: booking?.id,
@@ -260,6 +268,7 @@ export const normalizeTourBooking = (booking) => {
     driverImage: buildAvatarFallback(destination),
     vehicleImage: pickFirstString(booking?.packageSnapshot?.coverImage, null),
     booking,
+    adminBooking,
     paymentStatus: booking?.paymentStatus,
     balanceAmount: Number(booking?.balanceAmount || 0),
     sortTimestamp: toTimestamp(booking?.createdAt),
@@ -267,7 +276,8 @@ export const normalizeTourBooking = (booking) => {
 };
 
 export const normalizeRentalBooking = (booking) => {
-  const status = formatStatus(booking?.status || 'pending');
+  const adminBooking = booking?.adminBooking || null;
+  const status = adminBooking?.confirmation === 'awaiting' ? 'Awaiting confirmation' : formatStatus(booking?.status || 'pending');
   const locationName = pickFirstString(
     booking?.serviceLocation?.name,
     booking?.serviceLocation?.city,
@@ -300,6 +310,7 @@ export const normalizeRentalBooking = (booking) => {
       carIcon,
     ),
     booking,
+    adminBooking,
     sortTimestamp: toTimestamp(booking?.updatedAt || booking?.pickupDateTime || booking?.createdAt),
   };
 };

@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { adminBookingSchema } from '../../common/adminBookingSchema.js';
 
 // First (upfront) and second (balance) payment legs share this shape.
 const tourPaymentSnapshotSchema = new mongoose.Schema(
@@ -60,6 +61,8 @@ const tourBookingSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       default: null,
     },
+    /** Set only on admin-made bookings: see common/adminBookingSchema.js. */
+    adminBooking: { type: adminBookingSchema, default: undefined },
     packageId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'TaxiTourPackage',
@@ -178,6 +181,10 @@ const tourBookingSchema = new mongoose.Schema(
 );
 
 tourBookingSchema.index({ userId: 1, createdAt: -1 });
+tourBookingSchema.index(
+  { 'adminBooking.customerPhone': 1, userId: 1 },
+  { partialFilterExpression: { bookingSource: 'admin' } },
+);
 tourBookingSchema.index({ packageId: 1, departureId: 1 });
 
 export const TourBooking =

@@ -6,6 +6,7 @@ import { BusService } from '../models/BusService.js';
 import { BusSeatHold } from '../../user/models/BusSeatHold.js';
 import { LandingPageSetting } from '../models/LandingPageSetting.js';
 import { ApiError } from '../../../../utils/ApiError.js';
+import { createAdminBooking } from '../services/adminBookings.js';
 
 const ok = (res, data, extra = {}) =>
   res.json({ success: true, data, ...extra });
@@ -1400,9 +1401,21 @@ export const deleteTourPackage = asyncHandler(async (req, res) => {
 export const getTourBookings = asyncHandler(async (req, res) =>
   ok(res, await adminService.listTourBookings(req.query || {})),
 );
-export const createAdminTourBooking = asyncHandler(async (req, res) =>
-  ok(res, await adminService.createAdminTourBooking(req.body, req.auth?.admin)),
-);
+export const createAdminTourBooking = asyncHandler(async (req, res) => {
+  // Through the booking orchestrator so the customer is told, like any admin-made booking.
+  const body = req.body || {};
+  const booking = await createAdminBooking(
+    {
+      type: 'tour',
+      customer: { name: body.customerName, phone: body.customerPhone },
+      notes: body.notes,
+      tour: { packageId: body.packageId, departureId: body.departureId, personCount: body.personCount, initialPayment: body.initialPayment },
+    },
+    req.auth?.admin,
+  );
+  // The Tour Bookings page reads its own row shape.
+  ok(res, await adminService.getTourBookingById(booking.id));
+});
 export const addTourBookingPayment = asyncHandler(async (req, res) =>
   ok(res, await adminService.recordTourBookingPayment(req.params.id, req.body, req.auth?.admin)),
 );

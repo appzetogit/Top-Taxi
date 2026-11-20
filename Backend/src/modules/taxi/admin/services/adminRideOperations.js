@@ -30,6 +30,7 @@ import { UserWallet } from '../../user/models/UserWallet.js';
 import { Delivery } from '../../user/models/Delivery.js';
 import { Driver } from '../../driver/models/Driver.js';
 import { Airport } from '../models/Airport.js';
+import { describeAdminBooking } from '../../common/adminBookings.js';
 import { ApiError } from '../../../../utils/ApiError.js';
 
 const CODE_PREFIX = { ride: 'REQ', parcel: 'DEL', intercity: 'INT' };
@@ -94,6 +95,9 @@ const isOutstationRide = (ride) => ride.serviceType === 'intercity' || text(ride
 const OUTSTATION_CONDITION = { $or: [{ serviceType: 'intercity' }, { transport_type: 'intercity' }] };
 
 const bookingTypeOf = (ride, airports) => {
+  // An admin who booked it chose its kind; that is what it is.
+  const chosen = ride.adminBooking?.bookingType;
+  if (['daily_cab', 'outstation', 'airport', 'parcel'].includes(chosen)) return chosen;
   if (ride.serviceType === 'parcel') return 'parcel';
   if (isOutstationRide(ride)) return 'outstation';
   return inAirport(ride.pickupLocation, airports) || inAirport(ride.dropLocation, airports) ? 'airport' : 'daily_cab';
@@ -213,7 +217,11 @@ export const toRideRow = (ride, airports = []) => {
   const drop = place(ride.dropAddress, ride.dropLocation, 'Drop');
   const intercity = ride.intercity || {};
   const bookingType = bookingTypeOf(ride, airports);
+  const adminMeta = describeAdminBooking('ride', ride, { audience: 'admin' });
   const tags = [
+    adminMeta && 'Admin booking',
+    adminMeta?.confirmation === 'awaiting' && 'Awaiting confirmation',
+    adminMeta?.confirmation === 'confirmed' && 'Confirmed',
     ride.scheduledAt && 'Scheduled',
     text(ride.bookingMode).toLowerCase().includes('bid') || text(ride.biddingStatus) ? 'Bidding' : null,
     ride.isPoolRide ? 'Pool' : null,
@@ -229,6 +237,8 @@ export const toRideRow = (ride, airports = []) => {
     bookingType,
     bookingTypeLabel: BOOKING_TYPE_LABEL[bookingType],
     tags,
+    // Set when an admin made the booking: who for, and whether the customer has agreed.
+    adminBooking: adminMeta,
     date: ride.createdAt,
     scheduledAt: ride.scheduledAt || null,
     userName: user?.name || text(parcel.senderName) || 'Unknown User',
@@ -238,7 +248,7 @@ export const toRideRow = (ride, airports = []) => {
     transportType:
       text(intercity.vehicleName) || driver?.vehicleType || text(ride.vehicleIconType) || SERVICE_LABEL[serviceType] || 'Taxi',
     tripStatus,
-    statusLabel,
+    statusLabel: adminMeta?.confirmation === 'awaiting' ? 'Awaiting confirmation' : statusLabel,
     rideStatus: ride.status,
     liveStatus: ride.liveStatus,
     ...describePayment(ride),

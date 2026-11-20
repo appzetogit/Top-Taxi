@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Calendar, ChevronRight, Clock } from 'lucide-react';
 import { buildAvatarFallback } from './activityHelpers';
 import tourService from '../../services/tourService';
+import AdminBookingPanel from './AdminBookingPanel';
 
 const loadRazorpayScript = () =>
   new Promise((resolve) => {
@@ -18,7 +19,7 @@ const loadRazorpayScript = () =>
     document.body.appendChild(script);
   });
 
-const ActivityCard = ({ id, type, title, address, date, time, status, statusTone, price, onClick, driverName, driverImage, vehicleImage, eyebrow, paymentStatus, balanceAmount, onBalancePaid }) => {
+const ActivityCard = ({ id, type, title, address, date, time, status, statusTone, price, onClick, driverName, driverImage, vehicleImage, eyebrow, paymentStatus, balanceAmount, onBalancePaid, adminBooking }) => {
   const [vehicleBroken, setVehicleBroken] = useState(false);
   const [driverBroken, setDriverBroken] = useState(false);
   const [payingBalance, setPayingBalance] = useState(false);
@@ -146,6 +147,8 @@ const ActivityCard = ({ id, type, title, address, date, time, status, statusTone
               {status.toUpperCase()}
             </span>
           </div>
+
+          <AdminBookingPanel type={type} id={id} adminBooking={adminBooking} onChanged={onBalancePaid} />
 
           {showPayBalance ? (
             <div className="mt-3 border-t border-slate-100 pt-3">

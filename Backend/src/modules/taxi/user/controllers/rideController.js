@@ -40,6 +40,7 @@ import { buildDriverMatchFilters } from '../../services/matchingService.js';
 import { SOCKET_EVENTS } from '../../socket/events.js';
 import { getTipSettings } from '../../services/appSettingsService.js';
 import { Ride } from '../models/Ride.js';
+import { linkMyAdminBookings } from './userController.js';
 import { UserWallet } from '../models/UserWallet.js';
 
 const EARTH_RADIUS_METERS = 6371000;
@@ -514,6 +515,8 @@ export const getMyActiveRide = async (req, res) => {
 };
 
 export const listMyRides = async (req, res) => {
+  // Bookings an admin made for this phone number before the customer registered.
+  if (req.auth.role === 'user') await linkMyAdminBookings(req);
   const history = await listRideHistoryForIdentity({
     role: req.auth.role,
     entityId: req.auth.sub,

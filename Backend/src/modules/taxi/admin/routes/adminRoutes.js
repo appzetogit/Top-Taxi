@@ -243,6 +243,16 @@ import { promotionsRouter } from '../promotions/routes/index.js';
 import { enforceAdminAccess } from '../../../../core/admin/enforceAdminAccess.middleware.js';
 import { resolveTaxiAdminResource } from '../../../../core/admin/adminAccessPolicy.js';
 import { listSafetyAlerts, resolveSafetyAlert } from '../../safety/controllers/safetyController.js';
+import {
+  getAdminBookingDrivers,
+  getAdminBookings,
+  postAdminBooking,
+  postAdminBookingQuote,
+  postAssignAdminBookingDriver,
+  postCancelAdminBooking,
+  postConfirmAdminBooking,
+  postUnassignAdminBookingDriver,
+} from '../controllers/adminBookingController.js';
 
 export const adminRouter = Router();
 
@@ -485,6 +495,16 @@ adminRouter.get('/admin/safety/alerts', authenticate(['admin']), listSafetyAlert
 adminRouter.patch('/admin/safety/alerts/:id/resolve', authenticate(['admin']), resolveSafetyAlert);
 adminRouter.get('/admin/ongoing-rides', getOngoingRides);
 adminRouter.get('/admin/ride-requests', getRideRequests);
+// Bookings an admin makes for a customer (daily cab, outstation, airport, parcel,
+// rental, tour): create, then confirm or cancel once the customer has been asked.
+adminRouter.get('/admin/admin-bookings', getAdminBookings);
+adminRouter.post('/admin/admin-bookings', postAdminBooking);
+adminRouter.post('/admin/admin-bookings/quote', postAdminBookingQuote);
+adminRouter.post('/admin/admin-bookings/:kind/:id/confirm', postConfirmAdminBooking);
+adminRouter.post('/admin/admin-bookings/:kind/:id/cancel', postCancelAdminBooking);
+adminRouter.get('/admin/admin-bookings/ride/:id/drivers', getAdminBookingDrivers);
+adminRouter.post('/admin/admin-bookings/ride/:id/assign-driver', postAssignAdminBookingDriver);
+adminRouter.post('/admin/admin-bookings/ride/:id/unassign-driver', postUnassignAdminBookingDriver);
 adminRouter.get('/admin/ride-requests/:id', getRideRequestDetails);
 adminRouter.delete('/admin/ongoing-rides/:id', deleteOngoingRide);
 adminRouter.delete('/admin/ride-requests/:id', deleteTripRequest);

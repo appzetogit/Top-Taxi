@@ -667,6 +667,16 @@ export const markDriverRejectedFromDispatch = (rideId, driverId) => {
 };
 
 const closeRideAsUnmatched = async (rideId) => {
+  // A booking an admin made is never cancelled just because no driver took it. It stays
+  // confirmed, with a note, for the admin to give it a driver by hand.
+  const keptForAdmin = await Ride.updateOne(
+    { _id: rideId, status: RIDE_STATUS.SEARCHING, bookingSource: 'admin' },
+    { $set: { 'adminBooking.activationNote': 'No driver accepted this booking yet. Assign a driver.' } },
+  );
+  if (keptForAdmin.matchedCount) {
+    return;
+  }
+
   const dispatchState = getDispatchState(rideId);
   const ride = await Ride.findOneAndUpdate(
     { _id: rideId, status: RIDE_STATUS.SEARCHING },
@@ -1406,6 +1416,10 @@ export const restoreScheduledDispatches = async () => {
     status: RIDE_STATUS.SEARCHING,
     liveStatus: RIDE_LIVE_STATUS.SEARCHING,
     scheduledAt: { $ne: null },
+    // A booking an admin made and the customer has not confirmed is not offered to
+    // drivers, and one for a customer with no account has nobody to notify yet.
+    'adminBooking.confirmation': { $ne: 'awaiting' },
+    userId: { $ne: null },
   }).select('_id scheduledAt');
 
   for (const ride of rides) {

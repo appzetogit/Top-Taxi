@@ -53,7 +53,7 @@ const goodsTypeAllowsVehicle = (goodsType, vehicle) => {
   return allowedLabels.some((label) => tokens.some((token) => token.includes(label) || label.includes(token)));
 };
 
-const ensureDeliveryVehicleAllowed = async ({ vehicleTypeId, parcel }) => {
+export const ensureDeliveryVehicleAllowed = async ({ vehicleTypeId, parcel }) => {
   const category = String(parcel?.category || '').trim();
 
   if (!vehicleTypeId || !category) {

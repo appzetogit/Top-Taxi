@@ -20,6 +20,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  CalendarPlus,
   Clock,
   FileText,
   Globe,
@@ -895,6 +896,7 @@ const AdminLayout = () => {
           { icon: Car, label: 'Trip Requests', path: '/taxi/admin/trips', permission: 'trips.view' },
           { icon: Package, label: 'Delivery Requests', path: '/taxi/admin/deliveries', permission: 'deliveries.view' },
           { icon: Clock, label: 'Ongoing Requests', path: '/taxi/admin/ongoing', permission: 'ongoing.view' },
+          { icon: CalendarPlus, label: 'Admin Bookings', path: '/taxi/admin/admin-bookings', permission: 'trips.view' },
         ],
       },
       {

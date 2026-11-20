@@ -2659,6 +2659,8 @@ export const getDriverScheduledRides = async (req, res) => {
 
   const query = {
     scheduledAt: { $ne: null, $gte: new Date() },
+    // A booking an admin made that the customer has not confirmed is not shown to drivers.
+    'adminBooking.confirmation': { $ne: 'awaiting' },
     $or: [
       openScheduledRideQuery,
       {

@@ -43,6 +43,8 @@ import { sendPushNotificationToEntities } from '../../services/pushNotificationS
 import { buildRentalTrackingSnapshot, updateUserRentalTracking } from '../../services/rentalTrackingService.js';
 import { listDriverServiceLocations } from '../../driver/services/serviceLocationService.js';
 import { listServiceStores } from '../../admin/services/adminService.js';
+import { linkAdminBookingsToUser } from '../../admin/services/adminBookings.js';
+import { describeAdminBooking, displayStatus } from '../../common/adminBookings.js';
 import { computeRentalAdvance, resolveRentalQuote, round2 as roundRentalMoney } from '../../common/rentalPricing.js';
 import {
   getUserSubscriptionSummary,
@@ -883,6 +885,9 @@ const serializeRentalQuoteRequest = (item = {}) => ({
 });
 
 const serializeRentalBookingRequest = (item = {}) => ({
+  // Set for a booking an admin made for the customer: whether they have confirmed it, and what they can do.
+  adminBooking: describeAdminBooking('rental', item),
+  displayStatus: displayStatus(item),
   id: String(item._id || item.id || ''),
   bookingReference: item.bookingReference || '',
   userId: item.userId ? String(item.userId) : '',
@@ -1445,6 +1450,8 @@ export const getCurrentUser = async (req, res) => {
   if (!user) {
     throw new ApiError(404, 'User not found');
   }
+
+  await linkMyAdminBookings(req);
 
   if (!String(user.referralCode || '').trim()) {
     user.referralCode = generateUserReferralCode(user);
@@ -3142,6 +3149,20 @@ const serializeTourPackageDetail = (item) => ({
   upfrontPayment: item.upfrontPayment || { paymentMode: 'percentage', percentage: 20 },
 });
 
+/*
+ * A booking an admin made for this phone number before the customer had an account is
+ * theirs the moment they have one. Done whenever they look at their bookings, so it
+ * does not matter how or when they signed up. Never breaks the page it is called from.
+ */
+export const linkMyAdminBookings = async (req) => {
+  try {
+    const user = await User.findById(req.auth?.sub).select('_id phone');
+    if (user) await linkAdminBookingsToUser(user);
+  } catch (error) {
+    console.error('Failed to link admin bookings to the customer', error);
+  }
+};
+
 const serializeTourBooking = (booking) => ({
   id: String(booking._id),
   bookingCode: booking.bookingCode || '',
@@ -3159,6 +3180,9 @@ const serializeTourBooking = (booking) => ({
   balanceAmount: booking.balanceAmount || 0,
   balancePaymentStatus: booking.balancePaymentStatus || 'not_required',
   status: booking.status || 'pending_payment',
+  // Set for a booking an admin made for the customer: whether they have confirmed it, and what they can do.
+  adminBooking: describeAdminBooking('tour', booking),
+  displayStatus: displayStatus(booking),
   createdAt: booking.createdAt,
 });
 
@@ -3484,6 +3508,7 @@ export const verifyTourBalancePayment = async (req, res) => {
 };
 
 export const listMyTourBookings = async (req, res) => {
+  await linkMyAdminBookings(req);
   const items = await TourBooking.find({ userId: req.auth?.sub }).sort({ createdAt: -1 }).lean();
   res.status(200).json({ success: true, data: { results: items.map(serializeTourBooking) } });
 };
@@ -3865,6 +3890,7 @@ export const getMyActiveRentalBooking = async (req, res) => {
 };
 
 export const listMyRentalBookings = async (req, res) => {
+  await linkMyAdminBookings(req);
   const page = toPositiveInteger(req.query?.page, 1);
   const limit = Math.min(20, toPositiveInteger(req.query?.limit, 10));
   const userId = resolveAuthenticatedUserObjectId(req);

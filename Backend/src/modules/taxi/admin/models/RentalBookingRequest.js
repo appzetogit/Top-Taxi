@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { adminBookingSchema } from '../../common/adminBookingSchema.js';
 
 const rentalTrackingHistorySchema = new mongoose.Schema(
   {
@@ -162,6 +163,10 @@ const rentalBookingRequestSchema = new mongoose.Schema(
       ref: 'TaxiUser',
       default: null,
     },
+    /** Who made the booking: the customer in the app, or an admin on their behalf. */
+    bookingSource: { type: String, enum: ['user', 'admin'], default: 'user' },
+    /** Set only on admin-made bookings: see common/adminBookingSchema.js. */
+    adminBooking: { type: adminBookingSchema, default: undefined },
     bookingReference: {
       type: String,
       required: true,
@@ -611,6 +616,10 @@ const rentalBookingRequestSchema = new mongoose.Schema(
 
 rentalBookingRequestSchema.index({ status: 1, createdAt: -1 });
 rentalBookingRequestSchema.index({ userId: 1, createdAt: -1 });
+rentalBookingRequestSchema.index(
+  { 'adminBooking.customerPhone': 1, userId: 1 },
+  { partialFilterExpression: { bookingSource: 'admin' } },
+);
 rentalBookingRequestSchema.index({ vehicleTypeId: 1, createdAt: -1 });
 rentalBookingRequestSchema.index({ 'rentalTracking.currentLocation': '2dsphere' });
 
