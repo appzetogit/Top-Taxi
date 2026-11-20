@@ -259,20 +259,20 @@ const AdminBookings = () => {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1100px] text-left text-sm">
+          <table className="w-full text-left text-sm">
             <thead>
               <tr className="bg-gray-50 text-[11px] font-bold uppercase tracking-wide text-gray-500">
-                {['Booking', 'Customer', 'Details', 'For', 'Amount', 'Driver', 'Status', 'Action'].map((heading) => (
+                {['Booking', 'Customer', 'Details', 'When and amount', 'Driver', 'Status and action'].map((heading) => (
                   <th key={heading} className="whitespace-nowrap px-4 py-3">{heading}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {loading && data.results.length === 0 ? (
-                <tr><td colSpan={8} className="py-16 text-center"><Loader2 className="mx-auto animate-spin text-gray-300" size={28} /></td></tr>
+                <tr><td colSpan={6} className="py-16 text-center"><Loader2 className="mx-auto animate-spin text-gray-300" size={28} /></td></tr>
               ) : data.results.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-16 text-center text-sm font-medium text-gray-400">
+                  <td colSpan={6} className="py-16 text-center text-sm font-medium text-gray-400">
                     {search || type || from || to ? 'No bookings match these filters.' : tab === 'awaiting' ? 'Nothing is waiting for confirmation.' : 'No bookings here yet.'}
                   </td>
                 </tr>
@@ -287,23 +287,23 @@ const AdminBookings = () => {
                     <td className="px-4 py-4">
                       <p className="font-bold text-gray-900">{booking.customer.name || '--'}</p>
                       <p className="flex items-center gap-1 text-xs text-gray-500"><Phone size={11} />{booking.customer.phone}</p>
-                      <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${booking.customer.registered ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+                      <span className={`mt-1 inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-bold ${booking.customer.registered ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
                         {booking.customer.registered ? 'App user' : 'Not registered yet'}
                       </span>
                     </td>
-                    <td className="min-w-[220px] max-w-[300px] px-4 py-4">
+                    <td className="min-w-[180px] max-w-[260px] px-4 py-4">
                       <p className="font-semibold text-gray-900">{booking.title}</p>
                       <p className="line-clamp-2 text-xs text-gray-500">{booking.subtitle}</p>
                       {booking.detail ? <p className="text-xs text-gray-400">{booking.detail}</p> : null}
                       {booking.notes ? <p className="mt-1 text-[11px] italic text-gray-400">&ldquo;{booking.notes}&rdquo;</p> : null}
                     </td>
-                    <td className="whitespace-nowrap px-4 py-4 text-xs font-semibold text-gray-700">{formatWhen(booking.when)}</td>
-                    <td className="whitespace-nowrap px-4 py-4">
-                      <p className="font-black text-gray-900">{money(booking.amount)}</p>
+                    <td className="px-4 py-4">
+                      <p className="text-xs font-semibold text-gray-700">{formatWhen(booking.when)}</p>
+                      <p className="mt-1 font-black text-gray-900">{money(booking.amount)}</p>
                       <p className="text-[11px] font-semibold uppercase text-gray-400">{[booking.payment?.method, booking.payment?.status].filter(Boolean).join(' · ')}</p>
                       {booking.payment?.due > 0 ? <p className="text-[11px] font-bold text-rose-600">Due {money(booking.payment.due)}</p> : null}
                     </td>
-                    <td className="min-w-[150px] px-4 py-4 text-xs">
+                    <td className="min-w-[130px] px-4 py-4 text-xs">
                       {booking.kind !== 'ride' ? (
                         <span className="text-gray-300">--</span>
                       ) : booking.driver ? (
@@ -332,9 +332,7 @@ const AdminBookings = () => {
                         </p>
                       ) : null}
                       <p className="mt-1 text-[11px] capitalize text-gray-400">{String(booking.status || '').replace('_', ' ')}</p>
-                    </td>
-                    <td className="px-4 py-4">
-                      <div className="flex flex-col items-start gap-1.5">
+                      <div className="mt-3 flex flex-wrap items-start gap-1.5">
                         {booking.canConfirm ? (
                           <button type="button" onClick={() => confirm(booking)} disabled={busyKey === booking.key} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-60">
                             {busyKey === booking.key ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={13} />} Confirm
