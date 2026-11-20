@@ -245,6 +245,8 @@ import { resolveTaxiAdminResource } from '../../../../core/admin/adminAccessPoli
 import { listSafetyAlerts, resolveSafetyAlert } from '../../safety/controllers/safetyController.js';
 import {
   getAdminBookingDrivers,
+  getAdminBookingPlace,
+  getAdminBookingPlaces,
   getAdminBookings,
   postAdminBooking,
   postAdminBookingQuote,
@@ -500,6 +502,8 @@ adminRouter.get('/admin/ride-requests', getRideRequests);
 adminRouter.get('/admin/admin-bookings', getAdminBookings);
 adminRouter.post('/admin/admin-bookings', postAdminBooking);
 adminRouter.post('/admin/admin-bookings/quote', postAdminBookingQuote);
+adminRouter.get('/admin/admin-bookings/places', getAdminBookingPlaces);
+adminRouter.get('/admin/admin-bookings/places/:placeId', getAdminBookingPlace);
 adminRouter.post('/admin/admin-bookings/:kind/:id/confirm', postConfirmAdminBooking);
 adminRouter.post('/admin/admin-bookings/:kind/:id/cancel', postCancelAdminBooking);
 adminRouter.get('/admin/admin-bookings/ride/:id/drivers', getAdminBookingDrivers);

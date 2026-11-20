@@ -11,6 +11,7 @@ import {
   quoteAdminRide,
   unassignDriverFromRide,
 } from '../services/adminBookingRides.js';
+import { getPlaceDetails, searchPlaces } from '../services/adminBookingPlaces.js';
 
 const ok = (res, data) => res.json({ success: true, data });
 const adminOf = (req) => req.auth?.admin || null;
@@ -31,6 +32,10 @@ export const postConfirmAdminBooking = asyncHandler(async (req, res) =>
 export const postCancelAdminBooking = asyncHandler(async (req, res) =>
   ok(res, await cancelAdminBooking({ kind: req.params.kind, id: req.params.id, actor: 'admin', reason: req.body?.reason })),
 );
+
+export const getAdminBookingPlaces = asyncHandler(async (req, res) => ok(res, await searchPlaces(req.query.q)));
+
+export const getAdminBookingPlace = asyncHandler(async (req, res) => ok(res, await getPlaceDetails(req.params.placeId)));
 
 export const getAdminBookingDrivers = asyncHandler(async (req, res) =>
   ok(res, await listEligibleDrivers(req.params.id, { search: req.query.search })),

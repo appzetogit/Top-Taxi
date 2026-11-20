@@ -304,6 +304,8 @@ export const adminService = {
   assignAdminBookingDriver: (id, driverId) => api.post(`/admin/admin-bookings/ride/${id}/assign-driver`, { driverId }),
   unassignAdminBookingDriver: (id) => api.post(`/admin/admin-bookings/ride/${id}/unassign-driver`),
   getGoodsTypes: () => api.get('/admin/goods-types'),
+  searchBookingPlaces: (q) => api.get(`/admin/admin-bookings/places?q=${encodeURIComponent(q)}`),
+  getBookingPlace: (placeId) => api.get(`/admin/admin-bookings/places/${encodeURIComponent(placeId)}`),
 
   /**
    * Tour Packages
