@@ -19,6 +19,7 @@ import { Ride } from '../../user/models/Ride.js';
 import { RentalBookingRequest } from '../models/RentalBookingRequest.js';
 import { TourBooking } from '../../user/models/TourBooking.js';
 import { Driver } from '../../driver/models/Driver.js';
+import { Vehicle } from '../models/Vehicle.js';
 import { syncDeliveryWithRide } from '../../services/rideService.js';
 import { emitToAdmins, emitToRoom, getUserRoom } from '../../services/dispatchService.js';
 import { sendPushNotificationToEntities } from '../../services/pushNotificationService.js';
@@ -290,6 +291,127 @@ const driverLine = (driver) =>
       }
     : null;
 
+const when = (value) => (value ? new Date(value).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : '');
+const rupees = (value) => `₹${Number(value || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+const cleanRows = (rows) => rows.filter(([, value]) => value !== '' && value !== null && value !== undefined && value !== false);
+const who = (actor) => (actor === 'user' ? 'the customer' : 'admin');
+
+/** Everything about a booking, grouped for the admin's details view. */
+const detailSections = (kind, doc, { vehicleName = '', driver = null, picked = null } = {}) => {
+  const meta = doc.adminBooking || {};
+  const sections = [];
+
+  if (kind === 'ride') {
+    const parcel = doc.parcel || {};
+    const intercity = doc.intercity || {};
+    sections.push({
+      title: 'Trip',
+      rows: cleanRows([
+        ['Pickup', doc.pickupAddress],
+        ['Drop', doc.dropAddress],
+        ['Pickup time', when(doc.scheduledAt)],
+        ['Vehicle', vehicleName],
+        ['Distance', doc.estimatedDistanceMeters ? `${(doc.estimatedDistanceMeters / 1000).toFixed(1)} km` : ''],
+        ['Duration', doc.estimatedDurationMinutes ? `${Math.round(doc.estimatedDurationMinutes)} min` : ''],
+        ['Route', intercity.fromCity ? `${intercity.fromCity} → ${intercity.toCity}` : ''],
+        ['Trip type', intercity.tripType],
+        ['Passengers', intercity.fromCity ? intercity.passengers : ''],
+      ]),
+    });
+    if (meta.bookingType === 'parcel') {
+      sections.push({
+        title: 'Parcel',
+        rows: cleanRows([
+          ['What', parcel.category],
+          ['Weight', parcel.weightSlotLabel || parcel.weight],
+          ['Delivery', parcel.deliveryScope === 'outstation' ? 'Outstation' : 'Within the city'],
+          ['Sender', [parcel.senderName, parcel.senderMobile].filter(Boolean).join(' · ')],
+          ['Receiver', [parcel.receiverName, parcel.receiverMobile].filter(Boolean).join(' · ')],
+          ['Description', parcel.description],
+        ]),
+      });
+    }
+    sections.push({
+      title: 'Fare and payment',
+      rows: cleanRows([
+        ['Fare', rupees(doc.fare)],
+        ['Payment', doc.paymentMethod === 'online' ? 'Online' : 'Cash to the driver'],
+      ]),
+    });
+    sections.push({
+      title: 'Driver',
+      rows: cleanRows(driver
+        ? [['Assigned', driver.name], ['Phone', driver.phone], ['Vehicle number', driver.vehicleNumber], ['Trip OTP (tell the customer)', doc.otp]]
+        : [['Assigned', 'No driver yet'], ['Picked by admin', picked ? `${picked.name} (assigned when confirmed)` : '']]),
+    });
+  } else if (kind === 'rental') {
+    const balance = Math.max(0, Number(doc.totalCost || 0) - (doc.paymentStatus === 'paid' ? Number(doc.payableNow || 0) : 0));
+    sections.push({
+      title: 'Rental',
+      rows: cleanRows([
+        ['Vehicle', doc.vehicleName],
+        ['Package', doc.selectedPackage?.label],
+        ['Pickup', when(doc.pickupDateTime)],
+        ['Return', when(doc.returnDateTime)],
+        ['Duration', doc.requestedHours ? `${doc.requestedHours} h` : ''],
+        ['Pickup hub', [doc.serviceLocation?.name, doc.serviceLocation?.address].filter(Boolean).join(', ')],
+        ['Booking reference', doc.bookingReference],
+      ]),
+    });
+    sections.push({
+      title: 'Price and advance',
+      rows: cleanRows([
+        ['Total', rupees(doc.totalCost)],
+        ['Advance asked', doc.payableNow ? rupees(doc.payableNow) : 'None'],
+        ['Advance status', doc.paymentStatus],
+        ['Paid by', doc.paymentMethod],
+        ['Reference', doc.payment?.paymentId],
+        ['Balance at pickup', rupees(balance)],
+        ['Vehicle given', doc.assignedVehicle?.name],
+      ]),
+    });
+  } else {
+    const paid = (doc.payment?.status === 'paid' ? Number(doc.payment.amount || 0) : 0)
+      + (doc.balancePayment?.status === 'paid' ? Number(doc.balancePayment.amount || 0) : 0)
+      + (doc.manualPayments || []).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    sections.push({
+      title: 'Tour',
+      rows: cleanRows([
+        ['Package', doc.packageSnapshot?.destination],
+        ['Duration', doc.packageSnapshot?.durationLabel],
+        ['Departure', when(doc.departureSnapshot?.startDate)],
+        ['Return', when(doc.departureSnapshot?.endDate)],
+        ['Persons', doc.personCount],
+        ['Booking code', doc.bookingCode],
+      ]),
+    });
+    sections.push({
+      title: 'Price and payment',
+      rows: cleanRows([
+        ['Price per person', rupees(doc.pricePerPerson)],
+        ['Total', rupees(doc.totalAmount)],
+        ['Upfront asked', rupees(doc.upfrontRequiredAmount)],
+        ['Received so far', rupees(paid)],
+        ['Balance', rupees(Math.max(0, Number(doc.totalAmount || 0) - paid))],
+        ['Payments recorded', (doc.manualPayments || []).length || ''],
+      ]),
+    });
+  }
+
+  sections.push({
+    title: 'Booking',
+    rows: cleanRows([
+      ['Made', `${when(doc.createdAt)}${meta.createdByName ? ` by ${meta.createdByName}` : ''}`],
+      ['Notes', meta.notes],
+      ['Confirmed', meta.confirmedAt ? `${when(meta.confirmedAt)} by ${who(meta.confirmedBy)}` : ''],
+      ['Cancelled', meta.cancelledAt ? `${when(meta.cancelledAt)} by ${who(meta.cancelledBy)}` : ''],
+      ['Cancel reason', meta.cancelReason],
+      ['Needs attention', meta.activationNote],
+    ]),
+  });
+  return sections;
+};
+
 /** One uniform row per booking, for the admin's list. */
 const serializeRows = async (entries) => {
   const rides = entries.filter((entry) => entry.kind === 'ride').map((entry) => entry.doc);
@@ -302,6 +424,10 @@ const serializeRows = async (entries) => {
     ? await Driver.find({ _id: { $in: driverIds } }).select('name phone vehicleNumber vehicleType').lean()
     : [];
   const driverById = new Map(drivers.map((driver) => [String(driver._id), driver]));
+  const vehicleIds = [...new Set(rides.map((ride) => String(ride.vehicleTypeId || '')).filter(Boolean))];
+  const vehicleNames = new Map(
+    vehicleIds.length ? (await Vehicle.find({ _id: { $in: vehicleIds } }).select('name').lean()).map((v) => [String(v._id), v.name || '']) : [],
+  );
   const now = new Date();
 
   return entries.map(({ kind, doc }) => {
@@ -347,6 +473,7 @@ const serializeRows = async (entries) => {
         driver: driverLine(assigned),
         preAssignedDriver: assigned ? null : driverLine(picked),
         activationNote: meta.activationNote || '',
+        sections: detailSections(kind, doc, { vehicleName: vehicleNames.get(String(doc.vehicleTypeId || '')) || '', driver: driverLine(assigned), picked: driverLine(picked) }),
         canAssignDriver: canCancel(kind, doc, now),
         // Without an account there is nobody to notify, so a driver cannot be given the trip yet.
         driverBlockedReason: doc.userId ? '' : 'The customer has not registered in the app yet.',
@@ -361,6 +488,7 @@ const serializeRows = async (entries) => {
         detail: '',
         amount: Number(doc.totalCost || 0),
         payment: { method: doc.paymentMethod || '', status: doc.paymentStatus || '', due: Math.max(0, Number(doc.totalCost || 0) - (doc.paymentStatus === 'paid' ? Number(doc.payableNow || 0) : 0)) },
+        sections: detailSections(kind, doc),
       };
     }
 
@@ -371,6 +499,7 @@ const serializeRows = async (entries) => {
       detail: '',
       amount: Number(doc.totalAmount || 0),
       payment: { method: '', status: doc.paymentStatus || '', due: Number(doc.balanceAmount || 0) },
+      sections: detailSections(kind, doc),
     };
   });
 };

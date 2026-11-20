@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { CheckCircle2, ChevronLeft, ChevronRight, Loader2, Phone, Plus, RefreshCw, Search, UserCheck, X, XCircle } from 'lucide-react';
+import { CheckCircle2, ChevronLeft, ChevronRight, Eye, Loader2, MessageCircle, Phone, Plus, RefreshCw, Search, UserCheck, X, XCircle } from 'lucide-react';
 import { adminService } from '../../services/adminService';
 import { describeApiError } from '../../../../shared/utils/apiError';
 import AdminPageHeader from '../../components/ui/AdminPageHeader.jsx';
@@ -113,6 +113,92 @@ const CancelModal = ({ booking, onClose, onDone }) => {
   );
 };
 
+/* Ring or WhatsApp the customer straight from the booking. */
+const contactLinks = (booking) => {
+  const phone = String(booking.customer?.phone || '').replace(/\D/g, '').slice(-10);
+  const name = booking.customer?.name || 'there';
+  const message = `Hello ${name}, this is Gogo support. We have booked a ${booking.bookingTypeLabel || 'booking'} for you`
+    + `${booking.when ? ` on ${formatWhen(booking.when)}` : ''}. Please reply YES to confirm it or NO to cancel it.`;
+  return { call: `tel:+91${phone}`, whatsapp: `https://wa.me/91${phone}?text=${encodeURIComponent(message)}` };
+};
+
+const ContactButtons = ({ booking, size = 'sm' }) => {
+  const links = contactLinks(booking);
+  const pad = size === 'lg' ? 'px-4 py-2 text-sm' : 'px-2.5 py-1 text-[11px]';
+  return (
+    <div className="mt-1.5 flex flex-wrap gap-1.5" onClick={(event) => event.stopPropagation()}>
+      <a href={links.call} className={`inline-flex items-center gap-1 rounded-lg border border-sky-200 bg-sky-50 font-bold text-sky-700 hover:bg-sky-100 ${pad}`}>
+        <Phone size={size === 'lg' ? 15 : 12} /> Call
+      </a>
+      <a href={links.whatsapp} target="_blank" rel="noreferrer" className={`inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 font-bold text-emerald-700 hover:bg-emerald-100 ${pad}`}>
+        <MessageCircle size={size === 'lg' ? 15 : 12} /> WhatsApp
+      </a>
+    </div>
+  );
+};
+
+const BookingDrawer = ({ booking, onClose, onConfirm, onCancel, onAssign, busy }) => (
+  <div className="fixed inset-0 z-[55] flex justify-end bg-slate-900/40" onClick={onClose}>
+    <aside className="h-full w-full max-w-[520px] overflow-y-auto bg-gray-50 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+      <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-gray-200 bg-white px-5 py-4">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">{booking.bookingTypeLabel}</p>
+          <h2 className="text-lg font-black text-gray-900">{booking.code}</h2>
+          <span className={`mt-1 inline-block rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${CONFIRMATION_STYLE[booking.confirmation] || CONFIRMATION_STYLE.awaiting}`}>
+            {CONFIRMATION_LABEL[booking.confirmation] || booking.confirmation}
+          </span>
+        </div>
+        <button type="button" onClick={onClose} aria-label="Close" className="rounded-full p-2 text-gray-500 hover:bg-gray-100"><X size={20} /></button>
+      </div>
+
+      <div className="space-y-4 p-5">
+        <section className="rounded-xl border border-gray-200 bg-white p-4">
+          <h3 className="mb-2 text-[11px] font-black uppercase tracking-wider text-gray-400">Customer</h3>
+          <p className="text-base font-black text-gray-900">{booking.customer.name || '--'}</p>
+          <p className="flex items-center gap-1 text-sm text-gray-600"><Phone size={13} />{booking.customer.phone}</p>
+          <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${booking.customer.registered ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+            {booking.customer.registered ? 'Has the app' : 'Not registered yet'}
+          </span>
+          <ContactButtons booking={booking} size="lg" />
+          <p className="mt-2 text-[11px] text-gray-400">WhatsApp opens a ready message asking them to reply YES to confirm or NO to cancel.</p>
+        </section>
+
+        {(booking.sections || []).map((section) => (
+          <section key={section.title} className="rounded-xl border border-gray-200 bg-white p-4">
+            <h3 className="mb-2 text-[11px] font-black uppercase tracking-wider text-gray-400">{section.title}</h3>
+            <dl className="divide-y divide-gray-50">
+              {section.rows.map(([label, value]) => (
+                <div key={label} className="flex items-start justify-between gap-4 py-1.5 text-[13px]">
+                  <dt className="shrink-0 text-gray-500">{label}</dt>
+                  <dd className="text-right font-semibold text-gray-900">{String(value)}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        ))}
+
+        <div className="flex flex-wrap gap-2 pb-6">
+          {booking.canConfirm ? (
+            <button type="button" onClick={() => onConfirm(booking)} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-60">
+              <CheckCircle2 size={15} /> Confirm
+            </button>
+          ) : null}
+          {booking.kind === 'ride' && booking.canAssignDriver ? (
+            <button type="button" onClick={() => onAssign(booking)} className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-white px-4 py-2 text-sm font-bold text-indigo-700 hover:bg-indigo-50">
+              <UserCheck size={15} /> {booking.driver || booking.preAssignedDriver ? 'Change driver' : 'Assign driver'}
+            </button>
+          ) : null}
+          {booking.canCancel ? (
+            <button type="button" onClick={() => onCancel(booking)} className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-4 py-2 text-sm font-bold text-rose-600 hover:bg-rose-50">
+              <XCircle size={15} /> Cancel booking
+            </button>
+          ) : null}
+        </div>
+      </div>
+    </aside>
+  </div>
+);
+
 const AdminBookings = () => {
   const [tab, setTab] = useState('awaiting');
   const [type, setType] = useState('');
@@ -129,6 +215,7 @@ const AdminBookings = () => {
   const [createOpen, setCreateOpen] = useState(false);
   const [cancelFor, setCancelFor] = useState(null);
   const [assignFor, setAssignFor] = useState(null);
+  const [detailKey, setDetailKey] = useState(null);
   const requestRef = useRef(0);
 
   useEffect(() => {
@@ -278,7 +365,7 @@ const AdminBookings = () => {
                 </tr>
               ) : (
                 data.results.map((booking) => (
-                  <tr key={booking.key} className="align-top hover:bg-gray-50/60">
+                  <tr key={booking.key} onClick={() => setDetailKey(booking.key)} className="cursor-pointer align-top hover:bg-gray-50/60">
                     <td className="px-4 py-4">
                       <p className="whitespace-nowrap text-[13px] font-bold text-indigo-700">{booking.code}</p>
                       <span className={`mt-1 inline-block rounded px-2 py-0.5 text-[10px] font-bold uppercase ${TYPE_STYLE[booking.bookingType] || TYPE_STYLE.daily_cab}`}>{booking.bookingTypeLabel}</span>
@@ -290,6 +377,7 @@ const AdminBookings = () => {
                       <span className={`mt-1 inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-bold ${booking.customer.registered ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
                         {booking.customer.registered ? 'App user' : 'Not registered yet'}
                       </span>
+                      <ContactButtons booking={booking} />
                     </td>
                     <td className="min-w-[180px] max-w-[260px] px-4 py-4">
                       <p className="font-semibold text-gray-900">{booking.title}</p>
@@ -332,7 +420,10 @@ const AdminBookings = () => {
                         </p>
                       ) : null}
                       <p className="mt-1 text-[11px] capitalize text-gray-400">{String(booking.status || '').replace('_', ' ')}</p>
-                      <div className="mt-3 flex flex-wrap items-start gap-1.5">
+                      <div className="mt-3 flex flex-wrap items-start gap-1.5" onClick={(event) => event.stopPropagation()}>
+                        <button type="button" onClick={() => setDetailKey(booking.key)} className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-gray-700 hover:bg-gray-50">
+                          <Eye size={13} /> Details
+                        </button>
                         {booking.canConfirm ? (
                           <button type="button" onClick={() => confirm(booking)} disabled={busyKey === booking.key} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-60">
                             {busyKey === booking.key ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={13} />} Confirm
@@ -352,8 +443,7 @@ const AdminBookings = () => {
                             <XCircle size={13} /> Cancel
                           </button>
                         ) : null}
-                        {!booking.canConfirm && !booking.canCancel && !booking.canAssignDriver ? <span className="text-xs text-gray-300">--</span> : null}
-                      </div>
+                                              </div>
                     </td>
                   </tr>
                 ))
@@ -381,6 +471,19 @@ const AdminBookings = () => {
           }}
         />
       ) : null}
+      {detailKey ? (() => {
+        const booking = data.results.find((item) => item.key === detailKey);
+        return booking ? (
+          <BookingDrawer
+            booking={booking}
+            busy={busyKey === booking.key}
+            onClose={() => setDetailKey(null)}
+            onConfirm={confirm}
+            onCancel={(item) => { setDetailKey(null); setCancelFor(item); }}
+            onAssign={(item) => { setDetailKey(null); setAssignFor(item); }}
+          />
+        ) : null;
+      })() : null}
       {cancelFor ? <CancelModal booking={cancelFor} onClose={() => setCancelFor(null)} onDone={afterChange} /> : null}
       {assignFor ? <AssignDriverModal booking={assignFor} onClose={() => setAssignFor(null)} onChanged={afterChange} /> : null}
     </div>
