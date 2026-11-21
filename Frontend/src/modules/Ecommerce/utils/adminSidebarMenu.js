@@ -253,6 +253,8 @@ const adminSidebarMenuTemplate = [
     items: [
       { type: "link", label: "Broadcast Notification", path: "/broadcast-notification", icon: "Bell" },
       { type: "link", label: "Business Setup", path: "/business-setup", icon: "Settings" },
+      // The Shop panel's courier delivery fee (fixed, or the courier's live rate). The Quick panel has its own link above.
+      { type: "link", label: "Delivery Fee (Courier)", path: "/fee-settings", icon: "DollarSign", panels: SHOP },
     ],
   },
   {
