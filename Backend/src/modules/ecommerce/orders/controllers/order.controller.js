@@ -221,7 +221,7 @@ export async function createOrderShipmentSellerController(req, res, next) {
     try {
         const sellerId = req.user?.userId;
         const orderId = req.params.orderId;
-        const result = await orderService.createOrderShipmentSeller(orderId, sellerId);
+        const result = await orderService.createOrderShipmentSeller(orderId, sellerId, req.body?.warehouseId || null);
         return sendResponse(res, 200, 'Shipment created successfully', result);
     } catch (err) {
         next(err);

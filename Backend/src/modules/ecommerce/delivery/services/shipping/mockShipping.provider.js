@@ -32,6 +32,10 @@ export class MockShippingProvider extends ShippingProvider {
         };
     }
 
+    async addPickupLocation({ nickname }) {
+        return { nickname };
+    }
+
     async createShipment(orderData) {
         const shipmentId = `MOCK-SHIP-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
         const awb = `AWB${Date.now()}${Math.floor(Math.random() * 1000)}`;

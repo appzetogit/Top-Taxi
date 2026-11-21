@@ -136,6 +136,13 @@ const buildCatalogUpdate = (body = {}) => {
         update.tags = [...new Set(raw.map((t) => toStr(t).toLowerCase()).filter(Boolean))].slice(0, 20);
     }
     if (body.packSize !== undefined) update.packSize = toStr(body.packSize);
+    for (const [field, label, max] of [['weightGrams', 'Weight', 100000], ['lengthCm', 'Length', 500], ['breadthCm', 'Breadth', 500], ['heightCm', 'Height', 500]]) {
+        if (body[field] === undefined) continue;
+        if (body[field] === null || body[field] === '') { update[field] = null; continue; }
+        const value = Number(body[field]);
+        if (!Number.isFinite(value) || value < 1 || value > max) throw new ValidationError(`${label} must be between 1 and ${max}`);
+        update[field] = value;
+    }
     if (body.sku !== undefined) update.sku = toStr(body.sku);
     if (body.barcode !== undefined) update.barcode = toStr(body.barcode);
 

@@ -23,6 +23,15 @@ export class ShippingProvider {
     }
 
     /**
+     * Register a pickup address (a seller's warehouse) with the courier.
+     * @param {{ nickname: string, name: string, email?: string, phone: string, address: string, address2?: string, city: string, state: string, pincode: string }} params
+     * @returns {Promise<{ nickname: string }>}
+     */
+    async addPickupLocation(params) {
+        throw new Error('addPickupLocation must be implemented');
+    }
+
+    /**
      * Create shipment and generate AWB.
      * @param {Object} orderData - Child order payload
      * @returns {Promise<{ shipmentId: string, awb: string, courierName: string, labelUrl?: string, etd?: Date }>}

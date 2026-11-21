@@ -321,6 +321,15 @@ const startServer = async () => {
                 })
                 .catch((err) => logger.error(`Manual-assign expiry failed to start: ${err.message}`));
 
+            // Courier settings saved in the admin panel must survive a restart: load them
+            // now (and every minute), or the shop would fall back to the mock courier.
+            import('./src/modules/ecommerce/delivery/services/shipping/index.js')
+                .then(({ refreshShippingConfig, startShippingConfigRefresh }) => {
+                    startShippingConfigRefresh();
+                    return refreshShippingConfig();
+                })
+                .catch((err) => logger.error(`Shipping config failed to load: ${err.message}`));
+
             if (!config.backgroundJobsEnabled) {
                 logger.warn('BACKGROUND_JOBS_ENABLED=false — skipping offer expiry and FSSAI sync (read-mostly instance)');
                 return;
@@ -331,6 +340,23 @@ const startServer = async () => {
 
             runFssaiExpirySync();
             fssaiExpiryInterval = setInterval(runFssaiExpirySync, 60 * 60 * 1000);
+
+            // Courier tracking: delivered / failed-delivery / return updates arrive without
+            // anyone opening the order. Only with a real courier; the mock has nothing to poll.
+            Promise.all([
+                import('./src/modules/ecommerce/delivery/services/shipping/index.js'),
+                import('./src/modules/ecommerce/orders/services/shipmentAdmin.service.js'),
+            ])
+                .then(([{ getShippingProvider }, { syncActiveShipmentTracking }]) => {
+                    const tick = () => {
+                        if (getShippingProvider()?.name !== 'shiprocket') return;
+                        syncActiveShipmentTracking()
+                            .catch((err) => logger.error(`Courier tracking sync failed: ${err.message}`));
+                    };
+                    const timer = setInterval(tick, 15 * 60 * 1000);
+                    timer.unref?.();
+                })
+                .catch((err) => logger.error(`Courier tracking sync failed to start: ${err.message}`));
         };
 
         if (mongoose.connection.readyState === 1) {

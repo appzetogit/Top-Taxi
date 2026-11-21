@@ -3846,6 +3846,10 @@ function buildAdminCatalogFields(body = {}) {
     return {
         brand: typeof body.brand === 'string' ? body.brand.trim() : undefined,
         packSize: typeof body.packSize === 'string' ? body.packSize.trim() : undefined,
+        weightGrams: num(body.weightGrams, { min: 1, max: 100000 }),
+        lengthCm: num(body.lengthCm, { min: 1, max: 500 }),
+        breadthCm: num(body.breadthCm, { min: 1, max: 500 }),
+        heightCm: num(body.heightCm, { min: 1, max: 500 }),
         mrp,
         gstRate: num(body.gstRate, { max: 100 }),
         maxQtyPerOrder: num(body.maxQtyPerOrder, { min: 1 }),

@@ -90,6 +90,11 @@ const productSchema = new mongoose.Schema(
         brand: { type: String, trim: true, default: '' },
         /** What one unit is: "500 g", "1 L", "pack of 6". Free text, since packs are not standard. */
         packSize: { type: String, trim: true, default: '' },
+        /** Packed parcel, for the courier's rate: grams and centimetres. null = not set, the courier default applies. */
+        weightGrams: { type: Number, min: 1, max: 100000, default: null },
+        lengthCm: { type: Number, min: 1, max: 500, default: null },
+        breadthCm: { type: Number, min: 1, max: 500, default: null },
+        heightCm: { type: Number, min: 1, max: 500, default: null },
         /**
          * The seller's own stock-keeping code.
          *

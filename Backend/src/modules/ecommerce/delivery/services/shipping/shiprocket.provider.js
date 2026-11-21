@@ -98,6 +98,43 @@ export class ShiprocketProvider extends ShippingProvider {
         };
     }
 
+    /**
+     * Creates a pickup address in the Shiprocket account (a seller's warehouse), so
+     * parcels are collected from it. Shiprocket checks the address and answers with a
+     * plain reason when it refuses (e.g. the first line needs a house / flat / road no.).
+     */
+    async addPickupLocation({ nickname, name, email, phone, address, address2, city, state, pincode }) {
+        const token = await this.authToken();
+        const res = await this.fetch(`${BASE}/settings/company/addpickup`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({
+                pickup_location: nickname,
+                name,
+                email: email || this.email,
+                phone: String(phone || '').replace(/\D/g, '').slice(-10),
+                address,
+                address_2: address2 || '',
+                city,
+                state,
+                country: 'India',
+                pin_code: String(pincode || ''),
+            }),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok || body.success === false) {
+            let reason = body.message || `status ${res.status}`;
+            try {
+                const parsed = JSON.parse(body.message);
+                reason = Object.values(parsed).flat().join(' ') || reason;
+            } catch { /* the message was plain text */ }
+            const error = new Error(reason);
+            error.pickupRejected = true;
+            throw error;
+        }
+        return { nickname };
+    }
+
     async couriersFor(originPincode, destPincode, weightGrams) {
         const q = new URLSearchParams({
             pickup_postcode: String(originPincode || this.pickupPincode || ''),
@@ -140,7 +177,7 @@ export class ShiprocketProvider extends ShippingProvider {
         const created = await this.call('POST', '/orders/create/adhoc', {
             order_id: String(o.orderId),
             order_date: new Date().toISOString().slice(0, 16).replace('T', ' '),
-            pickup_location: this.pickupLocation,
+            pickup_location: o.pickupLocation || this.pickupLocation,
             billing_customer_name: o.customerName || addr.fullName || addr.name || 'Customer',
             billing_last_name: '',
             billing_address: [addr.street, addr.additionalDetails].filter(Boolean).join(', '),
@@ -154,9 +191,9 @@ export class ShiprocketProvider extends ShippingProvider {
             order_items: items,
             payment_method: o.paymentMethod === 'cash' ? 'COD' : 'Prepaid',
             sub_total: Number(o.subTotal) || items.reduce((s, i) => s + i.selling_price * i.units, 0),
-            length: 20,
-            breadth: 15,
-            height: 10,
+            length: Number(o.lengthCm) || 20,
+            breadth: Number(o.breadthCm) || 15,
+            height: Number(o.heightCm) || 10,
             weight: kg(o.weightGrams),
         });
         const shipmentId = created.shipment_id;

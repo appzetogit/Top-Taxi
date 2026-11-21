@@ -68,7 +68,8 @@ import * as orderController from '../../orders/controllers/order.controller.js';
 import { listReturnsSellerController } from '../../orders/controllers/shipmentReturn.controller.js';
 import { authMiddleware } from '../../../../core/auth/auth.middleware.js';
 import { sellerReviewRoutes } from '../../reviews/routes/productReview.routes.js';
-import { sendError } from '../../../../utils/response.js';
+import { sendError, sendResponse } from '../../../../utils/response.js';
+import * as warehouses from '../services/sellerWarehouse.service.js';
 import { getSellerFinanceController } from '../controllers/sellerFinance.controller.js';
 import {
     listBannersController,
@@ -283,6 +284,20 @@ router.get('/orders', authMiddleware, requireSeller, orderController.listOrdersS
 router.get('/returns', authMiddleware, requireSeller, listReturnsSellerController);
 router.get('/orders/:orderId', authMiddleware, requireSeller, orderController.getOrderByIdSellerController);
 router.patch('/orders/:orderId/status', authMiddleware, requireSeller, orderController.updateOrderStatusSellerController);
+// Warehouses: where the courier collects this seller's parcels (each is registered with the courier).
+const warehouseRoute = (handler, message) => async (req, res, next) => {
+    try {
+        return sendResponse(res, 200, message, await handler(req.user?.userId, req));
+    } catch (err) {
+        next(err);
+    }
+};
+router.get('/warehouses', authMiddleware, requireSeller, warehouseRoute((id) => warehouses.listWarehouses(id), 'Warehouses'));
+router.post('/warehouses', authMiddleware, requireSeller, warehouseRoute((id, req) => warehouses.createWarehouse(id, req.body), 'Warehouse added'));
+router.patch('/warehouses/:warehouseId', authMiddleware, requireSeller, warehouseRoute((id, req) => warehouses.updateWarehouse(id, req.params.warehouseId, req.body), 'Warehouse updated'));
+router.post('/warehouses/:warehouseId/default', authMiddleware, requireSeller, warehouseRoute((id, req) => warehouses.setDefaultWarehouse(id, req.params.warehouseId), 'Default warehouse changed'));
+router.delete('/warehouses/:warehouseId', authMiddleware, requireSeller, warehouseRoute((id, req) => warehouses.deleteWarehouse(id, req.params.warehouseId), 'Warehouse removed'));
+
 router.post('/orders/:orderId/shipment', authMiddleware, requireSeller, orderController.createOrderShipmentSellerController);
 router.get('/orders/:orderId/shipment/track', authMiddleware, requireSeller, orderController.trackOrderShipmentSellerController);
 router.post('/orders/:orderId/resend-notification', authMiddleware, requireSeller, orderController.resendDeliveryNotificationSellerController);

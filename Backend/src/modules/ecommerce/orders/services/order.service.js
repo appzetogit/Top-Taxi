@@ -15,6 +15,7 @@ import { FoodUser as User } from '../../../../core/users/user.model.js';
 import { Product } from '../../admin/models/product.model.js';
 import { orderFulfilmentModeFilter } from '../../admin/validators/adminPanel.validator.js';
 import { Seller } from '../../seller/models/seller.model.js';
+import { pickWarehouse } from '../../seller/services/sellerWarehouse.service.js';
 import { DeliveryPartner } from '../../delivery/models/deliveryPartner.model.js';
 import { Zone } from '../../admin/models/zone.model.js';
 import { ValidationError, ForbiddenError, NotFoundError } from '../../../../core/auth/errors.js';
@@ -3213,7 +3214,7 @@ export async function processRefundAdmin(orderId, amount, adminId) {
     return { success: true, order: normalizeOrderForClient(order) };
 }
 
-export async function createOrderShipmentSeller(orderId, sellerId) {
+export async function createOrderShipmentSeller(orderId, sellerId, warehouseId = null) {
   const identity = buildOrderIdentityFilter(orderId);
   const order = await Order.findOne({
     ...identity,
@@ -3225,7 +3226,7 @@ export async function createOrderShipmentSeller(orderId, sellerId) {
     throw new ValidationError("This order is not actionable yet");
   }
 
-  return bookOrderShipment(order, { byRole: 'SELLER', byId: sellerId });
+  return bookOrderShipment(order, { byRole: 'SELLER', byId: sellerId, warehouseId });
 }
 
 /**
@@ -3236,7 +3237,7 @@ const SHIPMENT_BOOKABLE = ['confirmed', 'preparing', 'ready_for_pickup'];
 // Orders with a booking in flight in this process: a double tap books once.
 const shipmentBookingsInFlight = new Set();
 
-export async function bookOrderShipment(order, { byRole = 'SELLER', byId = null } = {}) {
+export async function bookOrderShipment(order, { byRole = 'SELLER', byId = null, warehouseId = null } = {}) {
   if (order.shipment?.awb) {
     return { order: normalizeOrderForClient(order), shipment: order.shipment };
   }
@@ -3256,20 +3257,52 @@ export async function bookOrderShipment(order, { byRole = 'SELLER', byId = null 
   }
   shipmentBookingsInFlight.add(key);
   try {
-    return await bookOrderShipmentNow(order, { byRole, byId });
+    return await bookOrderShipmentNow(order, { byRole, byId, warehouseId });
   } finally {
     shipmentBookingsInFlight.delete(key);
   }
 }
 
-async function bookOrderShipmentNow(order, { byRole, byId }) {
+/** Packed weight and box for the courier, from the products' own figures (defaults where a seller has not set them). */
+async function parcelFor(order) {
+  const ids = (order.items || []).map((i) => i.itemId).filter((id) => mongoose.Types.ObjectId.isValid(id));
+  const products = ids.length
+    ? await Product.find({ _id: { $in: ids } }).select('weightGrams lengthCm breadthCm heightCm').lean()
+    : [];
+  const byId = new Map(products.map((p) => [String(p._id), p]));
+  let weight = 0;
+  let length = 0;
+  let breadth = 0;
+  let height = 0;
+  for (const item of order.items || []) {
+    const p = byId.get(String(item.itemId)) || {};
+    const qty = Number(item.quantity) || 1;
+    weight += (Number(p.weightGrams) || 500) * qty;
+    length = Math.max(length, Number(p.lengthCm) || 0);
+    breadth = Math.max(breadth, Number(p.breadthCm) || 0);
+    height += (Number(p.heightCm) || 0) * qty;
+  }
+  return { weightGrams: weight || 500, lengthCm: length || 20, breadthCm: breadth || 15, heightCm: height || 10 };
+}
+
+async function bookOrderShipmentNow(order, { byRole, byId, warehouseId = null }) {
   const sellerId = order.sellerId;
+  const provider = getShippingProvider();
 
   const seller = await Seller.findById(sellerId).select('sellerName location addressLine1 city state').lean();
-  const originPincode = seller?.location?.pincode || '560001';
+  // A real courier collects from one of the seller's own warehouses. The mock (development
+  // and tests) has no pickups to choose from, so it keeps using the seller's shop address.
+  const warehouse = await pickWarehouse(sellerId, warehouseId);
+  if (!warehouse && provider.name !== 'mock') {
+    throw new ValidationError('Add a warehouse in your store settings first, so the courier knows where to collect the parcel.');
+  }
+  const originPincode = warehouse?.pincode || seller?.location?.pincode || '560001';
   const destPincode = order.deliveryAddress?.zipCode || '560001';
+  const parcel = await parcelFor(order);
 
-  const shipmentData = await getShippingProvider().createShipment({
+  const shipmentData = await provider.createShipment({
+    ...parcel,
+    pickupLocation: warehouse?.pickupNickname,
     orderId: order.orderId || order._id.toString(),
     originPincode,
     destPincode,
@@ -3279,10 +3312,9 @@ async function bookOrderShipmentNow(order, { byRole, byId }) {
     items: order.items,
     subTotal: order.pricing?.subtotal,
     paymentMethod: order.payment?.method,
-    weightGrams: 500,
   });
 
-  order.shipment = shipmentData;
+  order.shipment = { ...shipmentData, warehouseId: warehouse ? String(warehouse._id) : null, pickupLocation: warehouse?.pickupNickname || null };
   const prevStatus = order.orderStatus;
   order.acceptanceDeadlineAt = null;
   if (prevStatus === 'confirmed' || prevStatus === 'preparing') {
@@ -3307,7 +3339,7 @@ async function bookOrderShipmentNow(order, { byRole, byId }) {
       },
     ).catch(() => {});
   }
-  return { order: normalizeOrderForClient(order), shipment: shipmentData };
+  return { order: normalizeOrderForClient(order), shipment: order.shipment };
 }
 
 export async function trackOrderShipmentSeller(orderId, sellerId) {
