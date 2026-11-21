@@ -211,7 +211,18 @@ export class ShiprocketProvider extends ShippingProvider {
             weight: kg(o.weightGrams),
         });
         const shipmentId = created.shipment_id;
-        const assigned = await this.call('POST', '/courier/assign/awb', { shipment_id: shipmentId });
+        // Book the cheapest courier for this route and weight: the one the customer's delivery fee
+        // was quoted from. Left to itself the account would pick by its own rules, often a dearer
+        // air courier. If the lookup fails the account's own choice is used.
+        let courierId = null;
+        try {
+            const options = await this.couriersFor(o.originPincode, addr.zipCode || o.destPincode, o.weightGrams, o.paymentMethod === 'cash');
+            const cheapest = options.length ? options.reduce((a, b) => (Number(b.rate) < Number(a.rate) ? b : a)) : null;
+            courierId = cheapest?.courier_company_id || null;
+        } catch (err) {
+            logger.warn(`Shiprocket courier choice for ${shipmentId}: ${err.message}`);
+        }
+        const assigned = await this.call('POST', '/courier/assign/awb', courierId ? { shipment_id: shipmentId, courier_id: courierId } : { shipment_id: shipmentId });
         const awbData = assigned?.response?.data || {};
         if (!awbData.awb_code) throw new Error(`Shiprocket could not assign a courier: ${assigned?.message || 'no AWB'}`);
         await this.requestPickup(shipmentId).catch((err) => logger.warn(`Shiprocket pickup for ${shipmentId}: ${err.message}`));
