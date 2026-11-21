@@ -16,6 +16,7 @@ import { Product } from '../../admin/models/product.model.js';
 import { orderFulfilmentModeFilter } from '../../admin/validators/adminPanel.validator.js';
 import { Seller } from '../../seller/models/seller.model.js';
 import { pickWarehouse } from '../../seller/services/sellerWarehouse.service.js';
+import { parcelFor } from './parcelSpec.service.js';
 import { DeliveryPartner } from '../../delivery/models/deliveryPartner.model.js';
 import { Zone } from '../../admin/models/zone.model.js';
 import { ValidationError, ForbiddenError, NotFoundError } from '../../../../core/auth/errors.js';
@@ -3263,28 +3264,6 @@ export async function bookOrderShipment(order, { byRole = 'SELLER', byId = null,
   }
 }
 
-/** Packed weight and box for the courier, from the products' own figures (defaults where a seller has not set them). */
-async function parcelFor(order) {
-  const ids = (order.items || []).map((i) => i.itemId).filter((id) => mongoose.Types.ObjectId.isValid(id));
-  const products = ids.length
-    ? await Product.find({ _id: { $in: ids } }).select('weightGrams lengthCm breadthCm heightCm').lean()
-    : [];
-  const byId = new Map(products.map((p) => [String(p._id), p]));
-  let weight = 0;
-  let length = 0;
-  let breadth = 0;
-  let height = 0;
-  for (const item of order.items || []) {
-    const p = byId.get(String(item.itemId)) || {};
-    const qty = Number(item.quantity) || 1;
-    weight += (Number(p.weightGrams) || 500) * qty;
-    length = Math.max(length, Number(p.lengthCm) || 0);
-    breadth = Math.max(breadth, Number(p.breadthCm) || 0);
-    height += (Number(p.heightCm) || 0) * qty;
-  }
-  return { weightGrams: weight || 500, lengthCm: length || 20, breadthCm: breadth || 15, heightCm: height || 10 };
-}
-
 async function bookOrderShipmentNow(order, { byRole, byId, warehouseId = null }) {
   const sellerId = order.sellerId;
   const provider = getShippingProvider();
@@ -3303,6 +3282,8 @@ async function bookOrderShipmentNow(order, { byRole, byId, warehouseId = null })
   const shipmentData = await provider.createShipment({
     ...parcel,
     pickupLocation: warehouse?.pickupNickname,
+    // Cash on delivery: the courier collects what the customer owes, delivery fee and taxes included.
+    collectAmount: Number(order.payment?.amountDue ?? order.pricing?.total) || 0,
     orderId: order.orderId || order._id.toString(),
     originPincode,
     destPincode,

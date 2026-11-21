@@ -2258,6 +2258,7 @@ export async function upsertFeeSettings(body) {
         else if (body.gstRate !== undefined) $set.gstRate = body.gstRate;
 
         if (body.isActive !== undefined) $set.isActive = body.isActive;
+        if (body.courierRate !== undefined) $set.courierRate = body.courierRate;
 
         const update = {};
         if (Object.keys($set).length) update.$set = $set;
@@ -2276,6 +2277,7 @@ export async function upsertFeeSettings(body) {
     if (body.platformFee !== undefined && body.platformFee !== null) payload.platformFee = body.platformFee;
     if (body.quickDeliveryFee !== undefined && body.quickDeliveryFee !== null) payload.quickDeliveryFee = body.quickDeliveryFee;
     if (body.gstRate !== undefined && body.gstRate !== null) payload.gstRate = body.gstRate;
+    if (body.courierRate !== undefined) payload.courierRate = body.courierRate;
 
     console.log('[DEBUG] Creating NEW settings with payload:', JSON.stringify(payload, null, 2));
     const created = await FeeSettings.create(payload);

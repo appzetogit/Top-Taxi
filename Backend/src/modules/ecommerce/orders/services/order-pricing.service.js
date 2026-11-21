@@ -18,6 +18,9 @@ import { attachOutletTimingsToSellers } from '../../seller/services/outletTiming
 import { resolveOrderCartItems } from '../helpers/order-cart-items.helper.js';
 import { AVG_SPEED_KMPH, PACKING_MINUTES } from './order.helpers.js';
 import { checkFirstOrderEligibility } from './firstOrderGuard.service.js';
+import { isLiveCourierRate, quoteCourierDeliveryFee } from '../../delivery/services/shipping/courierRate.service.js';
+import { pickWarehouse } from '../../seller/services/sellerWarehouse.service.js';
+import { parcelFor } from './parcelSpec.service.js';
 
 const round2 = (value) => Math.round((Number(value) || 0) * 100) / 100;
 
@@ -646,7 +649,29 @@ export async function calculateOrderPricing(userId, dto, options = {}) {
   let distanceKm = await getDeliveryDistanceKm(seller, deliveryAddress);
   const straightLineKm = calculateDistanceKm(seller, deliveryAddress);
 
-  const deliveryFeeResult = resolveUserDeliveryFee(feeSettings, { subtotal, distanceKm });
+  let deliveryFeeResult = resolveUserDeliveryFee(feeSettings, { subtotal, distanceKm });
+  // With "live courier rate" on, the fee follows the courier's own charge for this parcel and
+  // route (city, state or across the country all price differently); the fixed fee above stays
+  // as the fallback whenever the courier cannot answer.
+  if (isLiveCourierRate(feeSettings)) {
+    const warehouse = await pickWarehouse(seller._id).catch(() => null);
+    const parcel = await parcelFor({ items });
+    const live = await quoteCourierDeliveryFee({
+      feeSettings,
+      originPincode: warehouse?.pincode || seller?.location?.pincode || seller?.pincode,
+      destPincode: deliveryAddress?.zipCode,
+      weightGrams: parcel.weightGrams,
+      subtotal,
+    });
+    if (live.ok) {
+      deliveryFeeResult = {
+        deliveryFee: live.fee,
+        distanceKm: deliveryFeeResult.distanceKm,
+        source: 'courier',
+        courier: { courierRate: live.courierRate, courierName: live.courierName, estimatedDays: live.estimatedDays, weightGrams: parcel.weightGrams },
+      };
+    }
+  }
   const deliveryFee = round2(deliveryFeeResult.deliveryFee);
   distanceKm = deliveryFeeResult.distanceKm ?? distanceKm;
 
@@ -738,7 +763,10 @@ export async function calculateOrderPricing(userId, dto, options = {}) {
         source: deliveryFeeResult.source,
         distanceKm: Number.isFinite(distanceKm) ? Number(distanceKm.toFixed(2)) : null,
         deliveryFee,
-        message: Number.isFinite(distanceKm)
+        ...(deliveryFeeResult.courier || {}),
+        message: deliveryFeeResult.courier
+          ? `Courier delivery (${deliveryFeeResult.courier.courierName || 'courier'})`
+          : Number.isFinite(distanceKm)
           ? `Distance: ${Number(distanceKm).toFixed(1)} km`
           : null,
       },

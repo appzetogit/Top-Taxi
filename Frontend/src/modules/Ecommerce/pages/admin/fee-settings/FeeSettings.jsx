@@ -8,6 +8,23 @@ const debugWarn = (...args) => {}
 const debugError = (...args) => {}
 
 
+const DEFAULT_COURIER_RATE = { mode: "fixed", markupPercent: "", markupFlat: "", freeAboveSubtotal: "", minFee: "", maxFee: "" }
+const courierRateFrom = (saved) => {
+  const merged = { ...DEFAULT_COURIER_RATE, ...(saved || {}) }
+  for (const key of ["markupPercent", "markupFlat", "freeAboveSubtotal", "minFee", "maxFee"]) {
+    if (merged[key] === 0 || merged[key] === null || merged[key] === undefined) merged[key] = ""
+  }
+  return merged
+}
+const courierRatePayload = (c = DEFAULT_COURIER_RATE) => ({
+  mode: c.mode === "live" ? "live" : "fixed",
+  markupPercent: Number(c.markupPercent) || 0,
+  markupFlat: Number(c.markupFlat) || 0,
+  freeAboveSubtotal: Number(c.freeAboveSubtotal) || 0,
+  minFee: Number(c.minFee) || 0,
+  maxFee: Number(c.maxFee) || 0,
+})
+
 // Fee Settings Component - Range-based delivery fee configuration
 export default function FeeSettings() {
   const [feeSettings, setFeeSettings] = useState({
@@ -16,6 +33,7 @@ export default function FeeSettings() {
     platformFee: "",
     quickDeliveryFee: "",
     gstRate: "",
+    courierRate: DEFAULT_COURIER_RATE,
   })
   const [loadingFeeSettings, setLoadingFeeSettings] = useState(false)
   const [savingFeeSettings, setSavingFeeSettings] = useState(false)
@@ -40,6 +58,7 @@ export default function FeeSettings() {
           platformFee: response.data.data.feeSettings.platformFee ?? "",
           quickDeliveryFee: response.data.data.feeSettings.quickDeliveryFee ?? "",
           gstRate: response.data.data.feeSettings.gstRate ?? "",
+          courierRate: courierRateFrom(response.data.data.feeSettings.courierRate),
         })
       } else if (response.data.success && response.data.data.feeSettings === null) {
         // Not configured yet - keep empty fields (no defaults).
@@ -49,6 +68,7 @@ export default function FeeSettings() {
           platformFee: "",
           quickDeliveryFee: "",
           gstRate: "",
+          courierRate: DEFAULT_COURIER_RATE,
         })
       }
     } catch (error) {
@@ -78,6 +98,7 @@ export default function FeeSettings() {
         platformFee: settingsToSave.platformFee === "" ? undefined : Number(settingsToSave.platformFee),
         quickDeliveryFee: settingsToSave.quickDeliveryFee === "" ? undefined : Number(settingsToSave.quickDeliveryFee),
         gstRate: settingsToSave.gstRate === "" ? undefined : Number(settingsToSave.gstRate),
+        courierRate: courierRatePayload(settingsToSave.courierRate),
         isActive: true,
       }
       
@@ -95,6 +116,7 @@ export default function FeeSettings() {
             platformFee: saved.platformFee ?? "",
             quickDeliveryFee: saved.quickDeliveryFee ?? "",
             gstRate: saved.gstRate ?? "",
+            courierRate: courierRateFrom(saved.courierRate),
           })
         }
         return true
@@ -318,6 +340,72 @@ export default function FeeSettings() {
         <p className="text-sm text-slate-600">
           Configure delivery fee, platform fee, and GST settings for orders
         </p>
+      </div>
+
+      {/* Courier delivery fee (Shop orders) */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+        <h2 className="text-xl font-bold text-slate-900">Shop delivery fee: courier rate</h2>
+        <p className="text-sm text-slate-500 mt-1 mb-4">
+          Shop orders go by courier (Shiprocket). The courier charges by weight and route (same city, same state, other states), not by km.
+          Choose how the customer's delivery fee is set.
+        </p>
+        <div className="grid gap-3 md:grid-cols-2">
+          {[
+            { value: "fixed", title: "Fixed fee", text: "Use the delivery fee / distance ranges set below, for every order." },
+            { value: "live", title: "Live courier rate", text: "Ask the courier for each order's real charge (by weight and pincodes) and add your margin. The fixed fee below is used if the courier cannot answer." },
+          ].map((option) => {
+            const active = feeSettings.courierRate?.mode === option.value
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setFeeSettings({ ...feeSettings, courierRate: { ...feeSettings.courierRate, mode: option.value } })}
+                className={`text-left rounded-lg border-2 p-4 transition ${active ? "border-green-500 bg-green-50" : "border-slate-200 hover:border-slate-300"}`}
+              >
+                <p className="font-bold text-slate-900">{option.title}{active ? "  (selected)" : ""}</p>
+                <p className="text-xs text-slate-600 mt-1">{option.text}</p>
+              </button>
+            )
+          })}
+        </div>
+
+        {feeSettings.courierRate?.mode === "live" && (
+          <div className="grid gap-4 md:grid-cols-5 mt-5">
+            {[
+              ["markupPercent", "Extra on courier rate (%)", "e.g. 10", "Added on top of the courier's charge"],
+              ["markupFlat", "Extra flat (₹)", "e.g. 10", "Added after the percentage"],
+              ["minFee", "Minimum fee (₹)", "e.g. 30", "Customer never pays less than this"],
+              ["maxFee", "Maximum fee (₹)", "e.g. 150", "Customer never pays more (empty = no limit)"],
+              ["freeAboveSubtotal", "Free delivery above (₹)", "e.g. 999", "Items total at which delivery is free (empty = off)"],
+            ].map(([key, label, placeholder, help]) => (
+              <div key={key} className="space-y-1">
+                <label className="block text-sm font-semibold text-slate-700">{label}</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={feeSettings.courierRate?.[key] ?? ""}
+                  onChange={(e) => setFeeSettings({ ...feeSettings, courierRate: { ...feeSettings.courierRate, [key]: e.target.value } })}
+                  placeholder={placeholder}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
+                />
+                <p className="text-[11px] text-slate-500">{help}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <p className="text-xs text-slate-500 mt-4">
+          18% GST is added on the delivery fee, as before. The courier's extra charge for cash on delivery is not added to the customer's fee.
+        </p>
+        <button
+          type="button"
+          onClick={handleSaveFeeSettings}
+          disabled={savingFeeSettings}
+          className="mt-4 px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold disabled:opacity-60"
+        >
+          {savingFeeSettings ? "Saving..." : "Save delivery fee setting"}
+        </button>
       </div>
 
       {/* Fee Settings Panel */}

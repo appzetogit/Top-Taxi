@@ -19,6 +19,19 @@ const feeSettingsSchema = new mongoose.Schema(
         platformFee: { type: Number, min: 0 },
         quickDeliveryFee: { type: Number, min: 0 },
         gstRate: { type: Number, min: 0, max: 100 },
+        /**
+         * Shop (courier) delivery fee. 'fixed' = the flat fee / distance ranges above.
+         * 'live' = the courier's own rate for the parcel and route, plus a margin; the fixed
+         * fee is still used when the courier cannot answer.
+         */
+        courierRate: {
+            mode: { type: String, enum: ['fixed', 'live'], default: 'fixed' },
+            markupPercent: { type: Number, min: 0, max: 500, default: 0 },
+            markupFlat: { type: Number, min: 0, default: 0 },
+            freeAboveSubtotal: { type: Number, min: 0, default: 0 },
+            minFee: { type: Number, min: 0, default: 0 },
+            maxFee: { type: Number, min: 0, default: 0 },
+        },
         isActive: { type: Boolean, default: true, index: true }
     },
     { collection: 'ecom_fee_settings', timestamps: true }

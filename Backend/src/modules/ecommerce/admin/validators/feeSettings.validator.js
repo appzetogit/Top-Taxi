@@ -9,7 +9,17 @@ const rangeSchema = z.object({
     deliveryBoyBasePay: z.number().min(0).optional().default(0)
 });
 
+const courierRateSchema = z.object({
+    mode: z.enum(['fixed', 'live']),
+    markupPercent: z.number().min(0).max(500),
+    markupFlat: z.number().min(0),
+    freeAboveSubtotal: z.number().min(0),
+    minFee: z.number().min(0),
+    maxFee: z.number().min(0)
+});
+
 const feeSettingsUpsertSchema = z.object({
+    courierRate: courierRateSchema.optional(),
     deliveryFee: z.number().min(0).nullable().optional(),
     deliveryFeeRanges: z.array(rangeSchema).optional(),
     platformFee: z.number().min(0).nullable().optional(),
@@ -45,12 +55,27 @@ export const validateFeeSettingsUpsertDto = (body) => {
                     : undefined,
         gstRate:
             body?.gstRate === null ? null : body?.gstRate !== undefined ? Number(body.gstRate) : undefined,
-        isActive: body?.isActive !== undefined ? Boolean(body.isActive) : undefined
+        isActive: body?.isActive !== undefined ? Boolean(body.isActive) : undefined,
+        courierRate: body?.courierRate && typeof body.courierRate === 'object'
+            ? {
+                mode: body.courierRate.mode === 'live' ? 'live' : 'fixed',
+                markupPercent: Number(body.courierRate.markupPercent) || 0,
+                markupFlat: Number(body.courierRate.markupFlat) || 0,
+                freeAboveSubtotal: Number(body.courierRate.freeAboveSubtotal) || 0,
+                minFee: Number(body.courierRate.minFee) || 0,
+                maxFee: Number(body.courierRate.maxFee) || 0
+            }
+            : undefined
     };
 
     const result = feeSettingsUpsertSchema.safeParse(normalized);
     if (!result.success) {
         throw new ValidationError(result.error.errors[0].message);
+    }
+
+    const cr = result.data.courierRate;
+    if (cr && cr.maxFee > 0 && cr.minFee > cr.maxFee) {
+        throw new ValidationError('The minimum courier fee cannot be above the maximum');
     }
 
     // Validate ranges: min < max, non-overlapping after sorting

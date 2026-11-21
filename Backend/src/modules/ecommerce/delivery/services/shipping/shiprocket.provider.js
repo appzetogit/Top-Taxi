@@ -135,12 +135,12 @@ export class ShiprocketProvider extends ShippingProvider {
         return { nickname };
     }
 
-    async couriersFor(originPincode, destPincode, weightGrams) {
+    async couriersFor(originPincode, destPincode, weightGrams, cod = false) {
         const q = new URLSearchParams({
             pickup_postcode: String(originPincode || this.pickupPincode || ''),
             delivery_postcode: String(destPincode || ''),
             weight: String(kg(weightGrams)),
-            cod: '0',
+            cod: cod ? '1' : '0',
         });
         const body = await this.call('GET', `/courier/serviceability/?${q}`);
         return body?.data?.available_courier_companies || [];
@@ -155,11 +155,17 @@ export class ShiprocketProvider extends ShippingProvider {
         };
     }
 
-    async calculateRate({ originPincode, destPincode, weightGrams = 500 }) {
-        const list = await this.couriersFor(originPincode, destPincode, weightGrams);
+    /** The cheapest courier's charge for this parcel on this route (COD adds the courier's COD fee). */
+    async calculateRate({ originPincode, destPincode, weightGrams = 500, cod = false }) {
+        const list = await this.couriersFor(originPincode, destPincode, weightGrams, cod);
         if (!list.length) throw new Error('No courier serves this pincode');
         const cheapest = list.reduce((a, b) => (Number(b.rate) < Number(a.rate) ? b : a));
-        return { rate: Number(cheapest.rate), currency: 'INR', courierName: cheapest.courier_name };
+        return {
+            rate: Number(cheapest.rate),
+            currency: 'INR',
+            courierName: cheapest.courier_name,
+            estimatedDays: Number(cheapest.estimated_delivery_days) || null,
+        };
     }
 
     /**
@@ -174,6 +180,11 @@ export class ShiprocketProvider extends ShippingProvider {
             units: Number(i.quantity) || 1,
             selling_price: Number(i.price) || 0,
         }));
+        const itemsTotal = Number(o.subTotal) || items.reduce((s, i) => s + i.selling_price * i.units, 0);
+        const owed = o.paymentMethod === 'cash' && Number(o.collectAmount) > 0 ? Number(o.collectAmount) : null;
+        const collect = owed === null
+            ? {}
+            : { shipping_charges: Math.max(0, Math.round((owed - itemsTotal) * 100) / 100), total_discount: Math.max(0, Math.round((itemsTotal - owed) * 100) / 100) };
         const created = await this.call('POST', '/orders/create/adhoc', {
             order_id: String(o.orderId),
             order_date: new Date().toISOString().slice(0, 16).replace('T', ' '),
@@ -190,7 +201,10 @@ export class ShiprocketProvider extends ShippingProvider {
             shipping_is_billing: true,
             order_items: items,
             payment_method: o.paymentMethod === 'cash' ? 'COD' : 'Prepaid',
-            sub_total: Number(o.subTotal) || items.reduce((s, i) => s + i.selling_price * i.units, 0),
+            sub_total: itemsTotal,
+            // The courier collects sub_total + shipping_charges - total_discount: for COD that must
+            // equal what the customer owes (delivery fee, GST, fees and any discount included).
+            ...collect,
             length: Number(o.lengthCm) || 20,
             breadth: Number(o.breadthCm) || 15,
             height: Number(o.heightCm) || 10,
