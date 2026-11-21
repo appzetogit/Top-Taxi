@@ -156,12 +156,12 @@ export default function ShiprocketSettingsCard() {
                 )}
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1" htmlFor="sr-pickup">Pickup location nickname</label>
+                <label className="block text-xs font-medium text-slate-700 mb-1" htmlFor="sr-pickup">Pickup location nickname (optional)</label>
                 <input id="sr-pickup" value={form.pickupLocation} onChange={(e) => set("pickupLocation", e.target.value)} placeholder="Primary" className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
-                <p className="text-[11px] text-slate-500 mt-1">Exactly as named in Shiprocket → Settings → Pickup Addresses. Test the connection to see the list.</p>
+                <p className="text-[11px] text-slate-500 mt-1">Leave empty. Each seller adds their own warehouse in their panel and it is created in Shiprocket automatically. Test the connection to see the addresses already in your account.</p>
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1" htmlFor="sr-pin">Pickup pincode</label>
+                <label className="block text-xs font-medium text-slate-700 mb-1" htmlFor="sr-pin">Pickup pincode (optional)</label>
                 <input id="sr-pin" inputMode="numeric" maxLength={6} value={form.pickupPincode} onChange={(e) => set("pickupPincode", e.target.value.replace(/\D/g, ""))} placeholder="452010" className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
                 <p className="text-[11px] text-slate-500 mt-1">Used for delivery-time estimates when a seller has no pincode.</p>
               </div>
