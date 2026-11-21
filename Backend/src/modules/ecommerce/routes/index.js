@@ -32,6 +32,7 @@ import { adminZoneScope } from '../../../core/admin/adminZoneScope.js';
 import catalogRoutes from '../catalog/routes/catalog.routes.js';
 import landingRoutes from '../landing/routes/landing.routes.js';
 import shareLinksRoutes from '../landing/routes/shareLinks.routes.js';
+import courierUpdatesWebhook from '../orders/routes/courierUpdates.webhook.routes.js';
 import sellerRoutes from '../seller/routes/seller.routes.js';
 import partnerRoutes from '../seller/routes/partner.routes.js';
 import deliveryRoutes from '../delivery/routes/delivery.routes.js';
@@ -67,6 +68,9 @@ router.use('/partner', partnerRoutes);
 // (it also exposes a few public reads of its own, e.g. categories), so it is
 // mounted bare rather than behind one router-wide auth gate.
 router.use('/seller', sellerRoutes);
+
+// Courier status callbacks: open access, guarded by its own shared token (see the file).
+router.use('/webhooks', courierUpdatesWebhook);
 
 // ─── Delivery partner (courier) ────────────────────────────────────────────
 // delivery.routes.js applies its own authMiddleware per route for the same
