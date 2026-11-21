@@ -22,6 +22,7 @@ import {
   Compass,
   Wallet,
   CreditCard,
+  Warehouse,
 } from "lucide-react"
 import { sellerAPI } from "@ecommerce/services/api"
 import { getCompanyName, getModuleLogoUrl, getCachedSettings, loadBusinessSettings } from "@ecommerce/utils/businessSettings"
@@ -61,6 +62,7 @@ const sections = [
     items: [
       { name: "Delivery settings", path: `${BASE}/delivery-settings`, icon: Truck },
       { name: "Zone setup", path: `${BASE}/zone-setup`, icon: MapPin },
+      { name: "Warehouses", path: `${BASE}/warehouses`, icon: Warehouse },
     ],
   },
   {

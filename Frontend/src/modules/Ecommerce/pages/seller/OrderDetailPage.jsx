@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react"
-import { useParams } from "react-router-dom"
+import { useParams, Link } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
 import { 
   ArrowLeft, 
@@ -59,6 +59,8 @@ export default function OrderDetailPage({
   const [error, setError] = useState(null)
   const [generatingShipment, setGeneratingShipment] = useState(false)
   const bookingCourierRef = useRef(false)
+  const [warehouses, setWarehouses] = useState(null)
+  const [warehouseId, setWarehouseId] = useState("")
   const [trackingData, setTrackingData] = useState(null)
   const [loadingTracking, setLoadingTracking] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
@@ -122,12 +124,24 @@ export default function OrderDetailPage({
     toast.success("Order ID copied")
   }
 
+  const canBookNow = Boolean(order && !order.shipment?.awb && ["confirmed", "preparing", "ready_for_pickup"].includes(String(order.orderStatus || "").toLowerCase()))
+  useEffect(() => {
+    if (!canBookNow || warehouses !== null) return
+    sellerAPI.getWarehouses()
+      .then((res) => {
+        const list = res?.data?.data || []
+        setWarehouses(list)
+        setWarehouseId((list.find((w) => w.isDefault) || list[0])?.id || "")
+      })
+      .catch(() => setWarehouses([]))
+  }, [canBookNow, warehouses])
+
   const handleGenerateShipment = async () => {
     if (bookingCourierRef.current) return
     bookingCourierRef.current = true
     try {
       setGeneratingShipment(true)
-      const res = await sellerAPI.createOrderShipment(order.orderId || order._id || id)
+      const res = await sellerAPI.createOrderShipment(order.orderId || order._id || id, warehouseId || null)
       const updatedOrder = res.data?.data?.order || res.data?.order || res.data?.data
       const shipment = res.data?.data?.shipment || updatedOrder?.shipment
       if (updatedOrder || shipment) {
@@ -448,6 +462,19 @@ export default function OrderDetailPage({
                     ? "Accept the order first, then pack it and book the courier."
                     : "A courier can't be booked for this order in its current status."}
               </p>
+              {canBookCourier && warehouses && warehouses.length === 0 ? (
+                <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-bold text-amber-700">
+                  Add the address the courier should collect from. <Link to="/seller/warehouses" className="underline">Add a warehouse</Link>
+                </p>
+              ) : null}
+              {canBookCourier && warehouses && warehouses.length > 1 ? (
+                <label className="block text-left">
+                  <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-gray-400">Collect from</span>
+                  <select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)} className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-800">
+                    {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name} - {w.city} {w.pincode}</option>)}
+                  </select>
+                </label>
+              ) : null}
               <button
                 type="button"
                 onClick={handleGenerateShipment}

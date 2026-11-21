@@ -29,6 +29,7 @@ import {
   MapPin,
   LogOut,
   Trash2,
+  Warehouse,
 } from "lucide-react"
 import { Card, CardContent } from "@food/components/ui/card"
 import { DateRangeCalendar } from "@food/components/ui/date-range-calendar"
@@ -672,6 +673,7 @@ export default function ExploreMore() {
   const settingsItems = [
     { id: 3, label: "Delivery settings", icon: Truck, route: "/seller/delivery-settings" },
     { id: 4, label: "Zone Setup", icon: MapPin, route: "/seller/zone-setup" },
+    { id: "warehouses-nav", label: "Warehouses", icon: Warehouse, route: "/seller/warehouses" },
   ]
 
   const ordersItems = [

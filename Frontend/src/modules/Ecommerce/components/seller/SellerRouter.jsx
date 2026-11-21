@@ -41,6 +41,7 @@ const DownloadReport = lazy(() => import("@ecommerce/pages/seller/DownloadReport
 const ManageOutlets = lazy(() => import("@ecommerce/pages/seller/ManageOutlets"))
 const UpdateBankDetails = lazy(() => import("@ecommerce/pages/seller/UpdateBankDetails"))
 const ZoneSetup = lazy(() => import("@ecommerce/pages/seller/ZoneSetup"))
+const Warehouses = lazy(() => import("@ecommerce/pages/seller/Warehouses"))
 const SellerStatus = lazy(() => import("@ecommerce/pages/seller/SellerStatus"))
 const ExploreMore = lazy(() => import("@ecommerce/pages/seller/ExploreMore"))
 const SellerPrivacy = lazy(() => import("@ecommerce/pages/seller/Privacy"))
@@ -129,6 +130,7 @@ export default function SellerRouter() {
           <Route element={<ProtectedRoute requiredRole="seller" loginPath="/seller/login"><ManageOutlets /></ProtectedRoute>} path="manage-outlets" />
           <Route element={<ProtectedRoute requiredRole="seller" loginPath="/seller/login"><UpdateBankDetails /></ProtectedRoute>} path="update-bank-details" />
           <Route element={<ProtectedRoute requiredRole="seller" loginPath="/seller/login"><ZoneSetup /></ProtectedRoute>} path="zone-setup" />
+          <Route element={<ProtectedRoute requiredRole="seller" loginPath="/seller/login"><Warehouses /></ProtectedRoute>} path="warehouses" />
         </Route>
 
         {/* CMS Content Routes (Stay public-accessible but inside router) */}

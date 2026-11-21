@@ -1922,10 +1922,21 @@ export const sellerAPI = {
       orderStatus: "ready_for_pickup",
     }),
   /** Generate courier shipping label and AWB for standard orders */
-  createOrderShipment: (orderId) =>
-    apiClient.post(`/seller/orders/${String(orderId)}/shipment`, {}, {
+  createOrderShipment: (orderId, warehouseId = null) =>
+    apiClient.post(`/seller/orders/${String(orderId)}/shipment`, warehouseId ? { warehouseId } : {}, {
       contextModule: "ecommerce_seller",
     }),
+  /** Warehouses the courier collects this store's parcels from. */
+  getWarehouses: () =>
+    apiClient.get("/ecommerce/seller/warehouses", { contextModule: "ecommerce_seller" }),
+  createWarehouse: (data) =>
+    apiClient.post("/ecommerce/seller/warehouses", data, { contextModule: "ecommerce_seller" }),
+  updateWarehouse: (id, data) =>
+    apiClient.patch(`/ecommerce/seller/warehouses/${String(id)}`, data, { contextModule: "ecommerce_seller" }),
+  setDefaultWarehouse: (id) =>
+    apiClient.post(`/ecommerce/seller/warehouses/${String(id)}/default`, {}, { contextModule: "ecommerce_seller" }),
+  deleteWarehouse: (id) =>
+    apiClient.delete(`/ecommerce/seller/warehouses/${String(id)}`, { contextModule: "ecommerce_seller" }),
   /** Track courier shipment events */
   trackOrderShipment: (orderId) =>
     apiClient.get(`/seller/orders/${String(orderId)}/shipment/track`, {
